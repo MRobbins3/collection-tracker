@@ -9,26 +9,21 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/config"
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/server"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	addr := os.Getenv("HTTP_ADDR")
-	if addr == "" {
-		addr = ":8080"
-	}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
+	cfg := config.FromEnv()
+	logger.Info("startup", "env", cfg.Env, "addr", cfg.HTTPAddr)
 
 	srv := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
+		Addr:              cfg.HTTPAddr,
+		Handler:           server.NewRouter(logger),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -36,7 +31,6 @@ func main() {
 	defer stop()
 
 	go func() {
-		logger.Info("http server starting", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("http server failed", "err", err)
 			stop()
