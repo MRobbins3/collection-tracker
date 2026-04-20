@@ -8,7 +8,7 @@ Testing is a first-class design concern, not a follow-up. Every feature ships wi
 |---|---|---|---|
 | Unit | `testing` stdlib, **table-driven** tests, `github.com/stretchr/testify/require` | Pure functions: validators, JSON Schema checks, URL builders, auth helpers | `cases := []struct{...}; for _, tc := range cases { t.Run(tc.name, ...) }` |
 | HTTP handler | `net/http/httptest` + in-process router | Request→response contracts, auth middleware, status codes, serialization | Boot the router in-test, exercise with `httptest.NewRecorder` |
-| Integration (DB) | **`testcontainers-go`** with real Postgres per package | sqlc queries, migrations up/down, JSONB validation, transactions | Build tag `//go:build integration`; shared container per package via `TestMain` |
+| Integration (DB) | Disposable per-test DB on the compose Postgres (ADR 0002); **`testcontainers-go`** planned for CI | sqlc queries, migrations up/down, JSONB validation, transactions | Build tag `//go:build integration`; each test provisions its own DB and drops it on cleanup |
 | End-to-end | `docker compose` + test client or Playwright | Full-stack smoke: OAuth callback stub → create collection → add item → retrieve | Smoke only; deep coverage stays in unit + integration |
 
 ### Policies

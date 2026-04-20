@@ -18,7 +18,7 @@ See `docs/requirements.md` for the living feature list and `docs/testing.md` for
 
 - Docker + Docker Compose
 - Node 18.12+ and pnpm 9+ (for running the Nuxt dev server directly if you prefer)
-- (Optional) Go 1.22+ if you want to run API tests outside Docker
+- (Optional) Go 1.25+ if you want to run API tests outside Docker
 
 ## Getting started
 
