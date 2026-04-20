@@ -129,17 +129,52 @@ func itoa(i int) string {
 
 func newAuthenticatedRouter(t *testing.T, colls server.CollectionStore, userID string) http.Handler {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	sessions := auth.NewManager([]byte("01234567890123456789012345678901"), false)
-	return authedWrap(server.NewRouter(server.Deps{
-		Logger:      logger,
-		DBPinger:    fakePinger{},
+	return newAuthenticatedRouterWithDeps(t, server.Deps{
 		Categories:  &fakeCategories{},
 		Collections: colls,
 		Users:       &fakeUsers{user: store.User{ID: userID, Email: "u@x", DisplayName: "U"}},
+	}, userID)
+}
+
+// newAuthenticatedRouterWithDeps lets tests supply any subset of Deps and
+// fills in the fiddly bits (logger, sessions, CORS, DB pinger) with sane
+// defaults. Used by both collection and item handler tests.
+func newAuthenticatedRouterWithDeps(t *testing.T, deps server.Deps, userID string) http.Handler {
+	t.Helper()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	sessions := auth.NewManager([]byte("01234567890123456789012345678901"), false)
+	if deps.Logger == nil {
+		deps.Logger = logger
+	}
+	if deps.DBPinger == nil {
+		deps.DBPinger = fakePinger{}
+	}
+	if deps.Sessions == nil {
+		deps.Sessions = sessions
+	}
+	if deps.CORSOrigins == nil {
+		deps.CORSOrigins = []string{"http://localhost:3000"}
+	}
+	return authedWrap(server.NewRouter(deps), deps.Sessions, userID)
+}
+
+// newItemsRouterPublic builds a router for unauth'd endpoints (catalog
+// search) with just a fake catalog.
+func newItemsRouterPublic(t *testing.T, catalog server.CatalogStore) http.Handler {
+	t.Helper()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	sessions := auth.NewManager([]byte("01234567890123456789012345678901"), false)
+	return server.NewRouter(server.Deps{
+		Logger:      logger,
+		DBPinger:    fakePinger{},
+		Categories:  &fakeCategories{},
+		Collections: newFakeCollections(),
+		Items:       newFakeItems(),
+		Catalog:     catalog,
+		Users:       &fakeUsers{},
 		Sessions:    sessions,
 		CORSOrigins: []string{"http://localhost:3000"},
-	}), sessions, userID)
+	})
 }
 
 // authedWrap wraps the router in a pre-middleware that writes a valid

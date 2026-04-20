@@ -15,8 +15,8 @@ A single mobile-first web app where users track collections of *any* kind of thi
 | 1 | Public browse + search over a curated seed list of categories | shipped |
 | 2 | Google OAuth sign-in; creates/updates user record | shipped (set `GOOGLE_OAUTH_CLIENT_ID` / `_SECRET` to enable locally) |
 | 3 | Authenticated user can create collections scoped to a category | shipped |
-| 4 | Add items to a collection with `name`, `quantity`, `condition/variant` + category-specific attributes (JSONB) | planned |
-| 5 | Edit / delete items within a collection | partial — collection rename/delete shipped; item CRUD lands in Milestone 8 |
+| 4 | Add items to a collection with `name`, `quantity`, `condition/variant` + category-specific attributes (JSONB) | shipped |
+| 5 | Edit / delete items within a collection | shipped |
 | 6 | Text search across the signed-in user's own items | planned |
 | 7 | Mobile-first responsive UI; installable as PWA | planned |
 
@@ -33,11 +33,24 @@ Tracked in order of intended landing. Functional MVP items (#1–#7 above) inter
 | 5 | Public category browse + search UI | shipped |
 | 6 | Google OAuth login + session cookie | shipped |
 | 7 | Collections CRUD (authed) | shipped |
-| 8 | Items CRUD with per-category attributes (human-friendly labels land here) | planned |
+| 8 | Items CRUD with per-category attributes (human-friendly labels land here) | shipped |
 | 9 | **Dark mode** — system-preference-aware theme toggle across web UI | planned |
 | 10 | PWA manifest + installable on mobile | planned |
 | 11 | GitHub Actions: lint, tests, typecheck, e2e, OpenAPI drift | planned |
 | 12 | Living docs sweep — requirements, ADRs, testing doc caught up with shipped behavior | planned |
+
+## Phase 2 — Catalog + community contributions
+
+The long-term product is a **two-layer model** (ADR 0004): a pre-loaded global catalog per category plus user-owned item records that reference it. Captured here as a first-class roadmap so today's work doesn't preclude it.
+
+- **Seeded catalog per category** — curated starter list of well-known items (Lego set numbers, Funko Pop series + numbers, common US/UK/EU coin denominations, etc.). Imported or hand-curated. Users pick from this list to add items without typing.
+- **User-submitted catalog entries** — when the thing a user wants isn't in the catalog, they submit it from the item-add flow. New entries are `status = pending` until reviewed.
+- **Admin role + moderation queue** — small admin role (most users have none) to approve or reject submitted catalog entries and edit existing ones. `approved_by` / `approved_at` columns on catalog entries are the audit trail (added in Milestone 8 pre-emptively, populated when moderation lands).
+- **Catalog supplements / corrections** — users can propose edits to existing catalog entries (missing attribute, wrong year, etc.). Audit-trailed.
+- **Catalog-backed autocomplete in the item-add UI** — the name field becomes a search combobox over the catalog, with "can't find it — enter manually" as a first-class escape hatch.
+- **Backfill for MVP-era items** — link existing free-form items to catalog entries once matches exist.
+
+Milestone 8 lays the groundwork (nullable `catalog_entry_id` on items, empty `catalog_entries` table with `source`/`status` columns) so the phase-2 work is data/UI population, not a schema migration.
 
 ## Explicitly Deferred (post-MVP backlog)
 
@@ -52,7 +65,7 @@ Tracked in order of intended landing. Functional MVP items (#1–#7 above) inter
 
 ## UX Backlog (known-bad surfaces to polish)
 
-- **Category-specific fields use raw schema keys.** `/categories/:slug` currently renders property names like `set_number` and `piece_count` straight from the JSON Schema. Non-engineers will find this jargon-y. Fix: extend each category's `attribute_schema` with `title` (human label) and optional `description`/`example`, and have the UI prefer those over the raw key. Tackle alongside Milestone 8 (dynamic per-category item form) so labels land in one sweep across detail page + add/edit form. Flagged by user during Milestone 5 review (2026-04-19).
+_All current entries resolved — add new items here as they come up._
 
 ## Known Unknowns (tracked, not blocking)
 
@@ -80,6 +93,7 @@ Per-category attribute schemas live in `docs/categories/` and are also stored in
 
 <!-- One line per user-visible change, newest first. Date format YYYY-MM-DD. -->
 
+- 2026-04-19 — Items CRUD shipped (Milestone 8). Migration 0002 adds `catalog_entries` table + nullable `items.catalog_entry_id` FK (ADR 0004 two-layer model; catalog is empty in MVP). Server validates `items.attributes` against the category's JSON Schema (gojsonschema) and returns per-field errors. Public `GET /catalog/entries` endpoint binds the UI to phase-2 shape (returns `[]` today). Category attribute schemas now carry `title` + `description`; UI shows human labels everywhere (closes the Milestone 5 "raw schema keys" backlog). Web: combobox-shaped add item panel, dynamic per-schema form fields, inline edit/delete on item cards, items list on `/my/[id]`. Twelve new Vitest tests (23 total); Go gained integration tests for items + catalog-entry delete preserves items + JSON-Schema validator cases.
 - 2026-04-19 — Collections CRUD (authed) shipped. `POST/GET/PATCH/DELETE /me/collections[/:id]` enforce user ownership at the store layer (cross-user reads return 404 to hide existence, not 403). Web `/my` page lists/creates/deletes collections; `/my/[id]` supports rename + delete. Eleven Vitest tests; new handler tests cover auth gate, validation, cross-user isolation, and store-error surfacing. `/me` now returns 200 `{user: null|User}` so app-boot fetches don't emit a red 401 in the browser console (user-reported polish).
 - 2026-04-19 — Fixed a Nuxt SSR hydration mismatch: `useApi` was exposing an internal docker hostname that leaked into `href` attributes rendered server-side; split into `publicBaseURL` (safe for DOM) and `fetchBase` (SSR uses the internal URL, client falls back to public).
 - 2026-04-19 — Google OAuth sign-in live: `/auth/google/start` (302 → Google), `/auth/google/callback` (upserts user, issues session cookie, redirects to web), `POST /auth/logout`, and `GET /me`. Signed-and-encrypted cookie sessions (ADR 0003); when Google credentials are unset the auth routes return 503 so local dev without creds still works. Web header now shows a "Sign in with Google" link or the signed-in user's name + Sign out. Seven Vitest tests across two components; ten new Go test cases cover session roundtrip, middleware, OAuth start/callback/logout and BestName fallbacks.

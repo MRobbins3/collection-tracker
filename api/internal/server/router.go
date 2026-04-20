@@ -22,6 +22,8 @@ type Deps struct {
 	DBPinger    DBPinger
 	Categories  CategoryStore
 	Collections CollectionStore
+	Items       ItemStore
+	Catalog     CatalogStore
 	Users       UserStore
 	Sessions    *auth.Manager
 	GoogleAuth  *auth.Google
@@ -51,6 +53,8 @@ type handlers struct {
 	db          DBPinger
 	categories  CategoryStore
 	collections CollectionStore
+	items       ItemStore
+	catalog     CatalogStore
 	users       UserStore
 	sessions    *auth.Manager
 	googleAuth  *auth.Google
@@ -65,6 +69,8 @@ func NewRouter(deps Deps) http.Handler {
 		db:          deps.DBPinger,
 		categories:  deps.Categories,
 		collections: deps.Collections,
+		items:       deps.Items,
+		catalog:     deps.Catalog,
 		users:       deps.Users,
 		sessions:    deps.Sessions,
 		googleAuth:  deps.GoogleAuth,
@@ -95,6 +101,7 @@ func NewRouter(deps Deps) http.Handler {
 	r.Get("/readyz", h.readyz)
 	r.Get("/categories", h.listCategories)
 	r.Get("/categories/{slug}", h.getCategory)
+	r.Get("/catalog/entries", h.searchCatalog)
 	// /me is intentionally public: it answers "who am I?" with 200 {user:null}
 	// when anonymous, so app-boot calls never emit console 401s. Handlers that
 	// *require* a session still return 401 via the auth.Require group below.
@@ -115,6 +122,11 @@ func NewRouter(deps Deps) http.Handler {
 		r.Get("/me/collections/{id}", h.getMyCollection)
 		r.Patch("/me/collections/{id}", h.renameMyCollection)
 		r.Delete("/me/collections/{id}", h.deleteMyCollection)
+
+		r.Get("/me/collections/{id}/items", h.listItems)
+		r.Post("/me/collections/{id}/items", h.createItem)
+		r.Patch("/me/collections/{id}/items/{itemID}", h.updateItem)
+		r.Delete("/me/collections/{id}/items/{itemID}", h.deleteItem)
 	})
 
 	return r

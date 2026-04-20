@@ -79,6 +79,8 @@ func main() {
 			DBPinger:    pool,
 			Categories:  store.NewCategories(pool),
 			Collections: store.NewCollections(pool),
+			Items:       store.NewItems(pool),
+			Catalog:     store.NewCatalog(pool),
 			Users:       users,
 			Sessions:    sessions,
 			GoogleAuth:  googleAuth,

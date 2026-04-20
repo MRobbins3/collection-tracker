@@ -6,9 +6,22 @@
     "attribute_schema": {
       "type": "object",
       "properties": {
-        "set_number": { "type": "string" },
-        "theme": { "type": "string" },
-        "piece_count": { "type": "integer", "minimum": 0 }
+        "set_number": {
+          "type": "string",
+          "title": "Set number",
+          "description": "The number printed on the box, e.g. 75192."
+        },
+        "theme": {
+          "type": "string",
+          "title": "Theme",
+          "description": "Star Wars, Technic, Creator Expert, etc."
+        },
+        "piece_count": {
+          "type": "integer",
+          "minimum": 0,
+          "title": "Piece count",
+          "description": "Total number of pieces in the set."
+        }
       },
       "additionalProperties": false
     }
@@ -20,9 +33,22 @@
     "attribute_schema": {
       "type": "object",
       "properties": {
-        "series": { "type": "string" },
-        "number": { "type": "integer", "minimum": 0 },
-        "variant": { "type": "string" }
+        "series": {
+          "type": "string",
+          "title": "Series",
+          "description": "The Pop series, e.g. Marvel, Disney, Star Wars."
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 0,
+          "title": "Pop number",
+          "description": "The figure's number within its series."
+        },
+        "variant": {
+          "type": "string",
+          "title": "Variant",
+          "description": "Chase, exclusive, glow-in-the-dark, etc."
+        }
       },
       "additionalProperties": false
     }
@@ -34,10 +60,18 @@
     "attribute_schema": {
       "type": "object",
       "properties": {
-        "year": { "type": "integer" },
-        "country": { "type": "string" },
-        "denomination": { "type": "string" },
-        "mint_mark": { "type": "string" }
+        "year": { "type": "integer", "title": "Year" },
+        "country": { "type": "string", "title": "Country" },
+        "denomination": {
+          "type": "string",
+          "title": "Denomination",
+          "description": "Face value, e.g. 1 cent, 50 pence."
+        },
+        "mint_mark": {
+          "type": "string",
+          "title": "Mint mark",
+          "description": "Which mint produced the coin (e.g. D, P, S)."
+        }
       },
       "additionalProperties": false
     }
@@ -49,9 +83,13 @@
     "attribute_schema": {
       "type": "object",
       "properties": {
-        "year": { "type": "integer" },
-        "country": { "type": "string" },
-        "catalog_id": { "type": "string" }
+        "year": { "type": "integer", "title": "Year" },
+        "country": { "type": "string", "title": "Country" },
+        "catalog_id": {
+          "type": "string",
+          "title": "Catalog ID",
+          "description": "Scott, Stanley Gibbons, Michel, or similar reference."
+        }
       },
       "additionalProperties": false
     }
@@ -63,10 +101,22 @@
     "attribute_schema": {
       "type": "object",
       "properties": {
-        "game": { "type": "string" },
-        "set_name": { "type": "string" },
-        "card_number": { "type": "string" },
-        "rarity": { "type": "string" }
+        "game": {
+          "type": "string",
+          "title": "Game",
+          "description": "Magic, Pokémon, NBA, Baseball, etc."
+        },
+        "set_name": {
+          "type": "string",
+          "title": "Set name",
+          "description": "The expansion or set, e.g. Modern Horizons 2, 2024 Topps Series 1."
+        },
+        "card_number": { "type": "string", "title": "Card number" },
+        "rarity": {
+          "type": "string",
+          "title": "Rarity",
+          "description": "Common, uncommon, rare, mythic, etc."
+        }
       },
       "additionalProperties": false
     }
@@ -78,9 +128,21 @@
     "attribute_schema": {
       "type": "object",
       "properties": {
-        "species": { "type": "string" },
-        "pot_size": { "type": "string" },
-        "acquired_from": { "type": "string" }
+        "species": {
+          "type": "string",
+          "title": "Species",
+          "description": "Common or scientific name."
+        },
+        "pot_size": {
+          "type": "string",
+          "title": "Pot size",
+          "description": "e.g. 4 inch, 1 gallon, bonsai tray."
+        },
+        "acquired_from": {
+          "type": "string",
+          "title": "Acquired from",
+          "description": "Nursery, friend, propagation, etc."
+        }
       },
       "additionalProperties": false
     }
@@ -92,9 +154,17 @@
     "attribute_schema": {
       "type": "object",
       "properties": {
-        "author": { "type": "string" },
-        "isbn": { "type": "string" },
-        "edition": { "type": "string" }
+        "author": { "type": "string", "title": "Author" },
+        "isbn": {
+          "type": "string",
+          "title": "ISBN",
+          "description": "13-digit or 10-digit ISBN."
+        },
+        "edition": {
+          "type": "string",
+          "title": "Edition",
+          "description": "First, revised, signed, etc."
+        }
       },
       "additionalProperties": false
     }
@@ -106,11 +176,15 @@
     "attribute_schema": {
       "type": "object",
       "properties": {
-        "artist": { "type": "string" },
-        "album": { "type": "string" },
-        "year": { "type": "integer" },
-        "label": { "type": "string" },
-        "pressing": { "type": "string" }
+        "artist": { "type": "string", "title": "Artist" },
+        "album": { "type": "string", "title": "Album" },
+        "year": { "type": "integer", "title": "Year" },
+        "label": { "type": "string", "title": "Label" },
+        "pressing": {
+          "type": "string",
+          "title": "Pressing",
+          "description": "Original, reissue, colored vinyl, etc."
+        }
       },
       "additionalProperties": false
     }
