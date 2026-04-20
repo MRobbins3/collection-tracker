@@ -56,7 +56,7 @@ jobs:
           cache-dependency-path: api/go.sum
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           working-directory: api
           # Pin to a v2.x release that was built with Go 1.25+; `latest` on the
