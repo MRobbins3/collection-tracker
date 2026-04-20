@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Solid background so maskable icons behave on Android adaptive icons.
+       Slate-900, matches dark theme; light-mode chrome uses the monochrome fallback. -->
+  <rect width="512" height="512" rx="96" fill="#0f172a" />
+
+  <!-- Stack of three boxes = "collections." Slate-100 strokes + slightly
+       offset rows to suggest a layered stack. -->
+  <g stroke="#f1f5f9" stroke-width="14" stroke-linejoin="round">
+    <rect x="112" y="332" width="288" height="96" rx="14" fill="#1e293b" />
+    <rect x="96"  y="236" width="320" height="96" rx="14" fill="#334155" />
+    <rect x="112" y="140" width="288" height="96" rx="14" fill="#475569" />
+  </g>
+
+  <!-- Inner marker on the top box: a dot to suggest an item inside. -->
+  <circle cx="176" cy="188" r="12" fill="#f1f5f9" />
+  <rect x="204" y="176" width="176" height="24" rx="12" fill="#f1f5f9" opacity="0.85" />
+</svg>

@@ -17,6 +17,12 @@ const justSignedIn = computed(() => route.query.auth === "ok");
       Welcome{{ user?.display_name ? `, ${user.display_name}` : "" }}! You’re signed in.
     </div>
 
+    <!-- Install card. Only mounts client-side to avoid hydration mismatches
+         on UA-sniffed state. -->
+    <ClientOnly>
+      <InstallPrompt />
+    </ClientOnly>
+
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
         Track anything you collect.
