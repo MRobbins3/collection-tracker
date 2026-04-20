@@ -19,6 +19,8 @@ api/coverage.out
 .env.*.local
 
 # Editor / OS
+.idea/
+*.iml
 .DS_Store
 *.swp
 *.swo

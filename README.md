@@ -16,9 +16,9 @@ See `docs/requirements.md` for the living feature list and `docs/testing.md` for
 
 ## Prerequisites
 
-- Docker + Docker Compose
-- Node 18.12+ and pnpm 9+ (for running the Nuxt dev server directly if you prefer)
-- (Optional) Go 1.25+ if you want to run API tests outside Docker
+- Docker + Docker Compose — this is the only thing you need to boot the whole stack.
+- (Optional) Bun 1.x and Node 24+ if you want to run the web tooling (`bun run test`, `bun run typecheck`) outside Docker. `.nvmrc` at the repo root pins the Node version for `nvm use`.
+- (Optional) Go 1.25+ if you want to run API tests outside Docker.
 
 ## Getting started
 
@@ -62,7 +62,8 @@ See `docs/testing.md`. The short version:
 (cd api && go test -race ./...)
 (cd api && go test -tags=integration ./...)
 
-# Web
-(cd web && pnpm test)
-(cd web && pnpm test:e2e)
+# Web (Bun)
+(cd web && bun install)
+(cd web && bun run test)
+(cd web && bun run test:e2e)
 ```

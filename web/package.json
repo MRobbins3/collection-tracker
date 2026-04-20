@@ -31,12 +31,10 @@
     "happy-dom": "^15.0.0",
     "vitest": "^2.0.0"
   },
-  "packageManager": "pnpm@10.22.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "sharp",
-      "@parcel/watcher",
-      "esbuild"
-    ]
-  }
+  "packageManager": "bun@1.2.23",
+  "trustedDependencies": [
+    "sharp",
+    "@parcel/watcher",
+    "esbuild"
+  ]
 }
