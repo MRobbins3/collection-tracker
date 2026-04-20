@@ -59,10 +59,10 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           working-directory: api
-          # Pin to a v2.x release that was built with Go 1.25+; `latest` on the
-          # action resolves to v1.64.x which was built with Go 1.24 and refuses
-          # to parse our v2-format .golangci.yml.
-          version: v2.3.1
+          # Needs to be a release built with Go ≥ 1.25 (our go.mod targets
+          # 1.25.0, pgx/v5 enforces it). v2.3.1 is still Go 1.24; `latest`
+          # resolves to whatever is newest at run time.
+          version: latest
           args: --timeout=5m
 
       - name: Unit tests + race detector
