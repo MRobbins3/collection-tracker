@@ -66,7 +66,7 @@ Milestone 8 lays the groundwork (nullable `catalog_entry_id` on items, empty `ca
 
 ## UX Backlog (known-bad surfaces to polish)
 
-_All current entries resolved — add new items here as they come up._
+- **e2e search-narrowing test skipped.** `tests/e2e/browse-categories.spec.ts > search narrows the list` is marked `test.skip` pending investigation. Symptom: in CI, `waitForResponse` for `/categories?q=vinyl` times out — the query-driven refetch never hits the network, even though the same interaction works locally. Suspected cause: `useAsyncData` with a static key not refetching on `watch` against the CI-hosted dev server. Search behavior itself is fully covered by the Go store + handler integration tests, so functional risk is low. Worth root-causing before Milestone 13 (docs sweep) so the e2e smoke is honest.
 
 ## Known Unknowns (tracked, not blocking)
 
