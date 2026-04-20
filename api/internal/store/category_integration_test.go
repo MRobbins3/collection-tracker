@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/migrations"

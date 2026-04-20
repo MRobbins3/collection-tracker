@@ -44,7 +44,7 @@ func run(ctx context.Context, dbURL string, fn func(*sql.DB) error) error {
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("ping db: %w", err)

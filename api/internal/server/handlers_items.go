@@ -38,8 +38,8 @@ type itemInputReq struct {
 }
 
 const (
-	itemNameMin    = 1
-	itemNameMax    = 200
+	itemNameMin     = 1
+	itemNameMax     = 200
 	itemQuantityMax = 1_000_000
 )
 

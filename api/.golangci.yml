@@ -21,8 +21,12 @@ linters:
   settings:
     revive:
       rules:
+        # This is an internal full-stack app, not a public library — requiring
+        # a Godoc comment on every exported identifier is friction without
+        # payoff. Keep the rest of revive's defaults (unused-parameter,
+        # unreachable-code, redefines-builtin-id, etc.) enabled.
         - name: exported
-          disabled: false
+          disabled: true
         - name: package-comments
           disabled: true
     gosec:

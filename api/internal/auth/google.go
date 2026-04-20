@@ -224,7 +224,7 @@ func (g *Google) fetchProfile(ctx context.Context, token *oauth2.Token) (googleP
 	if err != nil {
 		return googleProfile{}, fmt.Errorf("do request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return googleProfile{}, fmt.Errorf("userinfo status %d", resp.StatusCode)
 	}

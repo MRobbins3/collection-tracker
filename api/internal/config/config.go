@@ -7,16 +7,16 @@ import (
 )
 
 type Config struct {
-	HTTPAddr     string
-	DatabaseURL  string
-	Env          string
-	CORSOrigins  []string
-	WebBaseURL   string
+	HTTPAddr    string
+	DatabaseURL string
+	Env         string
+	CORSOrigins []string
+	WebBaseURL  string
 
-	SessionSecret       string
-	GoogleClientID      string
-	GoogleClientSecret  string
-	GoogleRedirectURL   string
+	SessionSecret      string
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
 }
 
 func FromEnv() Config {
