@@ -59,7 +59,10 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           working-directory: api
-          version: latest
+          # Pin to a v2.x release that was built with Go 1.25+; `latest` on the
+          # action resolves to v1.64.x which was built with Go 1.24 and refuses
+          # to parse our v2-format .golangci.yml.
+          version: v2.3.1
           args: --timeout=5m
 
       - name: Unit tests + race detector
@@ -76,6 +79,13 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+
+      # Bun runs scripts, but ESLint's shebang still dispatches to Node for
+      # its binaries. Use the Node version pinned by .nvmrc so Object.groupBy
+      # + other modern web APIs are available (Node 20 on runners is too old).
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -131,6 +141,12 @@ jobs:
         with:
           go-version: "1.25"
           cache-dependency-path: api/go.sum
+
+      # Same Node-version concern as the `web` job — modern Object APIs are
+      # needed for Playwright's config loader + our ESLint toolchain.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
 
       - uses: oven-sh/setup-bun@v2
         with:
