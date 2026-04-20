@@ -14,7 +14,7 @@ A mobile-first web app for tracking collections of anything — Lego sets, Funko
 - **CI/CD:** GitHub Actions
 - **Future hosting:** AWS (deferred)
 
-See `docs/requirements.md` for the living feature list and `docs/testing.md` for the testing strategy.
+See `docs/requirements.md` for the living feature list, `docs/testing.md` for the testing strategy, and `CLAUDE.md` for an orientation aimed at any Claude session working in this repo (stack layout, key conventions, test commands).
 
 ## Prerequisites
 
@@ -60,12 +60,17 @@ docker-compose.yml
 See `docs/testing.md`. The short version:
 
 ```sh
-# Go
-(cd api && go test -race ./...)
-(cd api && go test -tags=integration ./...)
+# Go — run inside the api container so Postgres is reachable
+docker compose exec api go test -race -count=1 ./...
+docker compose exec api go test -race -count=1 -tags=integration ./...
+docker compose exec api go vet ./...
 
-# Web (Bun)
-(cd web && bun install)
-(cd web && bun run test)
-(cd web && bun run test:e2e)
+# Web — run inside the web container so bun + node_modules + volumes line up
+docker compose exec web bun run test        # Vitest (31 tests / 8 files)
+docker compose exec web bun run typecheck   # nuxt typecheck (vue-tsc)
+docker compose exec web bun run lint        # ESLint via @nuxt/eslint
+
+# Playwright smoke (install browsers once per container)
+docker compose exec web bunx playwright install chromium webkit
+docker compose exec web bun run test:e2e
 ```

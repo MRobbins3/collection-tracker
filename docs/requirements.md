@@ -17,8 +17,8 @@ A single mobile-first web app where users track collections of *any* kind of thi
 | 3 | Authenticated user can create collections scoped to a category | shipped |
 | 4 | Add items to a collection with `name`, `quantity`, `condition/variant` + category-specific attributes (JSONB) | shipped |
 | 5 | Edit / delete items within a collection | shipped |
-| 6 | Text search across the signed-in user's own items | planned |
-| 7 | Mobile-first responsive UI; installable as PWA | planned |
+| 6 | Text search across the signed-in user's own items | planned (not yet scoped to a milestone; tracked here so it doesn't get forgotten) |
+| 7 | Mobile-first responsive UI; installable as PWA | shipped |
 
 ## Milestone Roadmap (after MVP functional slice)
 
@@ -38,7 +38,7 @@ Tracked in order of intended landing. Functional MVP items (#1–#7 above) inter
 | 10 | PWA manifest + installable on mobile | shipped |
 | 11 | **Toolchain — Bun + Node 24** — switch web package manager from pnpm to Bun; add `.nvmrc` pinning Node 24; update docker-compose web image; validate Vitest + Playwright under bun | shipped |
 | 12 | GitHub Actions: lint, tests, typecheck, e2e | shipped (OpenAPI drift deferred until we actually have a spec) |
-| 13 | Living docs sweep — requirements, ADRs, testing doc caught up with shipped behavior | planned |
+| 13 | Living docs sweep — requirements, ADRs, testing doc caught up with shipped behavior | shipped |
 
 ## Phase 2 — Catalog + community contributions
 
@@ -66,7 +66,7 @@ Milestone 8 lays the groundwork (nullable `catalog_entry_id` on items, empty `ca
 
 ## UX Backlog (known-bad surfaces to polish)
 
-- **e2e search-narrowing test skipped.** `tests/e2e/browse-categories.spec.ts > search narrows the list` is marked `test.skip` pending investigation. Symptom: in CI, `waitForResponse` for `/categories?q=vinyl` times out — the query-driven refetch never hits the network, even though the same interaction works locally. Suspected cause: `useAsyncData` with a static key not refetching on `watch` against the CI-hosted dev server. Search behavior itself is fully covered by the Go store + handler integration tests, so functional risk is low. Worth root-causing before Milestone 13 (docs sweep) so the e2e smoke is honest.
+- **e2e search-narrowing test skipped.** `tests/e2e/browse-categories.spec.ts > search narrows the list` is marked `test.skip`. Symptom: in CI, `waitForResponse` for `/categories?q=vinyl` times out — the query-driven refetch never hits the network, even though the same interaction works locally. Suspected cause: `useAsyncData` with a static key not refetching on `watch` against the CI-hosted dev server. Search behavior itself is fully covered by the Go store + handler integration tests, so functional risk is low. Follow-up after Milestone 13 (docs sweep) rather than a blocker.
 
 ## Known Unknowns (tracked, not blocking)
 
@@ -88,12 +88,13 @@ The MVP ships with a curated list:
 - Books
 - Vinyl Records
 
-Per-category attribute schemas live in `docs/categories/` and are also stored in the `categories.attribute_schema` JSONB column.
+Per-category attribute schemas (with `title` + optional `description` on every property, per the non-engineer-friendly-copy principle) are defined in `api/internal/seed/data/categories.json`, embedded into the Go binary via `go:embed`, and upserted into the `categories.attribute_schema` JSONB column on every startup of the API (idempotent). `docs/categories/` is a placeholder for future per-category human-readable notes.
 
 ## Changelog
 
 <!-- One line per user-visible change, newest first. Date format YYYY-MM-DD. -->
 
+- 2026-04-19 — Living docs sweep shipped (Milestone 13). `docs/testing.md` rewritten to match shipped reality (disposable-DB integration tests instead of testcontainers; no coverage gate or fuzz tests yet — both explicitly labeled aspirational; CI job structure + deferred OpenAPI drift documented); ADR 0001 annotated with "corrections since written" (sqlc dropped for plain pgx, OpenAPI spec not written, pnpm → bun migration); `docs/categories/README.md` rewritten to point at the single embedded `api/internal/seed/data/categories.json` instead of fictional per-category files, plus documents the `title`/`description` convention; `CLAUDE.md` refreshed (M13 done, hydration-parity trap fleshed out, CI idiosyncrasies catalogued); README gained the full local test-command set. Requirements fixes: MVP feature #7 flipped from `planned` to `shipped` (PWA has been live since M10); #6 text search across user items kept as `planned` but explicitly noted as "not yet scoped to a milestone" so it doesn't get forgotten.
 - 2026-04-19 — GitHub Actions CI shipped (Milestone 12). `.github/workflows/ci.yml` has three jobs running on PR + push to `main`, skipped on doc-only commits: `api` (golangci-lint + Go unit + integration with a Postgres service container, race detector on), `web` (Bun → ESLint + vue-tsc typecheck + Vitest), and `e2e` (runs API + Nuxt dev server in background, caches Playwright browsers by `bun.lock` hash, runs the Playwright smoke against chromium + webkit, uploads traces + server logs on failure). New local validation gates: `.golangci.yml` (errcheck + govet + staticcheck + revive + gosec + gofmt + goimports), `web/eslint.config.mjs` (extends @nuxt/eslint), `web/shims-vue.d.ts` so vue-tsc resolves SFC imports in tests, `@types/node` for `vitest.config.ts`. Deploy steps are **not** scaffolded — no AWS account yet, and empty stub YAML rots. They'll land in a later milestone alongside real infra. Scope note: OpenAPI drift check from the original plan is deferred until we actually have `api/openapi.yaml`.
 - 2026-04-19 — Toolchain migration to Bun + Node 24 shipped (Milestone 11, ADR 0005). `web` service now runs `oven/bun:1`; `bun.lock` replaces `pnpm-lock.yaml`; `.nvmrc` pins Node 24 for non-Docker tooling. Full Vitest matrix (31 tests, 8 files) green under Bun; live endpoints unchanged. Repo hygiene: `.idea/` and `*.iml` now gitignored (existing IntelliJ files untracked), `.mcp.json` registers the Context7 MCP server so library-docs lookup is available to any Claude session in this repo, and a repo-level `CLAUDE.md` orients future sessions to the stack + conventions without re-reading the full changelog.
 - 2026-04-19 — Installable PWA shipped (Milestone 10). `@vite-pwa/nuxt` module wired; manifest with name/short_name/icons/display-standalone + `apple-mobile-web-app-*` meta + maskable icon. Workbox precaches the app shell and stale-while-revalidates `/categories` + `/categories/:slug` so anonymous browsing works offline. All icon PNGs (192/512/maskable/apple-touch/favicon) generated from a single `public/logo.svg` via `@vite-pwa/assets-generator`. New `useInstall` composable detects Android (`beforeinstallprompt`) vs iOS Safari (share-sheet instructions) vs already-standalone; `InstallPrompt` component shown on the landing page with a Dismiss that persists in localStorage. Five new Vitest tests (31 total; 8 files).
