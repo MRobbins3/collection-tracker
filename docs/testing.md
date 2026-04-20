@@ -51,10 +51,15 @@ go test -fuzz=FuzzValidate ./internal/category -fuzztime=30s
 ```sh
 cd web
 pnpm test            # Vitest unit + component
-pnpm test:e2e        # Playwright e2e against docker-compose
+pnpm test:e2e        # Playwright e2e against docker-compose (requires browsers)
 pnpm typecheck
 pnpm lint
 ```
+
+Playwright browsers aren't installed by default in the `web` container image.
+Install once with `docker compose exec web pnpm exec playwright install chromium webkit`
+(or run e2e on the host once Node is set up). CI (Milestone 10) will bake
+a browser-ready image.
 
 ## Shared / Cross-cutting
 

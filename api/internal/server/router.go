@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
 )
@@ -16,9 +17,10 @@ import (
 // Deps groups the dependencies the HTTP layer needs. A struct keeps the
 // constructor signature stable as we add handlers.
 type Deps struct {
-	Logger     *slog.Logger
-	DBPinger   DBPinger
-	Categories CategoryStore
+	Logger      *slog.Logger
+	DBPinger    DBPinger
+	Categories  CategoryStore
+	CORSOrigins []string
 }
 
 // DBPinger is satisfied by *pgxpool.Pool; declared here so handler tests can
@@ -56,6 +58,16 @@ func NewRouter(deps Deps) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(requestLogger(deps.Logger))
+	if len(deps.CORSOrigins) > 0 {
+		r.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   deps.CORSOrigins,
+			AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+			ExposedHeaders:   []string{"X-Request-Id"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		}))
+	}
 
 	r.Get("/healthz", h.healthz)
 	r.Get("/readyz", h.readyz)

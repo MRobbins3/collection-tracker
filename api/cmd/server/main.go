@@ -54,9 +54,10 @@ func main() {
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: server.NewRouter(server.Deps{
-			Logger:     logger,
-			DBPinger:   pool,
-			Categories: store.NewCategories(pool),
+			Logger:      logger,
+			DBPinger:    pool,
+			Categories:  store.NewCategories(pool),
+			CORSOrigins: cfg.CORSOrigins,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

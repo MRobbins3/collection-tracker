@@ -51,9 +51,10 @@ func (f fakePinger) Ping(_ context.Context) error { return f.err }
 func newRouterWith(cats *fakeCategories, db server.DBPinger) http.Handler {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return server.NewRouter(server.Deps{
-		Logger:     logger,
-		DBPinger:   db,
-		Categories: cats,
+		Logger:      logger,
+		DBPinger:    db,
+		Categories:  cats,
+		CORSOrigins: []string{"http://localhost:3000"},
 	})
 }
 
@@ -111,6 +112,42 @@ func TestRequestIDHeaderIsSet(t *testing.T) {
 	r.ServeHTTP(rr, req)
 	if got := rr.Header().Get("X-Request-Id"); got == "" {
 		t.Fatalf("expected X-Request-Id header to be set by middleware")
+	}
+}
+
+func TestCORSAllowsConfiguredOrigin(t *testing.T) {
+	r := newRouterWith(&fakeCategories{}, fakePinger{})
+
+	// Preflight
+	req := httptest.NewRequest(http.MethodOptions, "/categories", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Access-Control-Request-Method", "GET")
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:3000" {
+		t.Fatalf("ACAO = %q, want http://localhost:3000", got)
+	}
+
+	// Actual GET
+	req = httptest.NewRequest(http.MethodGet, "/categories", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	rr = httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:3000" {
+		t.Fatalf("ACAO on GET = %q, want http://localhost:3000", got)
+	}
+}
+
+func TestCORSRejectsUnknownOrigin(t *testing.T) {
+	r := newRouterWith(&fakeCategories{}, fakePinger{})
+
+	req := httptest.NewRequest(http.MethodOptions, "/categories", nil)
+	req.Header.Set("Origin", "http://evil.example.com")
+	req.Header.Set("Access-Control-Request-Method", "GET")
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("ACAO = %q, want empty for unknown origin", got)
 	}
 }
 
