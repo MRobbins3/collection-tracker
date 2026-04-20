@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const { isSignedIn } = useAuth();
+</script>
+
 <template>
   <div class="min-h-screen flex flex-col">
     <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
@@ -5,7 +9,17 @@
         <NuxtLink to="/" class="text-lg font-semibold tracking-tight text-slate-900">
           Collection Tracker
         </NuxtLink>
-        <AuthMenu />
+        <div class="flex items-center gap-3">
+          <NuxtLink
+            v-if="isSignedIn"
+            to="/my"
+            class="text-sm text-slate-600 hover:text-slate-900"
+            data-testid="nav-my-collections"
+          >
+            My collections
+          </NuxtLink>
+          <AuthMenu />
+        </div>
       </div>
     </header>
     <main class="mx-auto w-full max-w-screen-sm flex-1 px-4 py-4">

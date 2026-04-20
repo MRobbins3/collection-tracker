@@ -1,20 +1,26 @@
 /**
- * Minimal $fetch wrapper that prefixes requests with the configured API base
- * and sends credentials. Used by data composables; keeps pages framework-agnostic.
+ * Two API URLs in play:
+ *
+ * - `publicBaseURL` is the URL the *browser* can reach. Safe to embed in the
+ *   DOM (href, form action, etc.) since it survives SSR → client handoff.
+ * - internal fetches prefer the docker-internal hostname during SSR for
+ *   faster, loopback-free round-trips, then fall back to the public URL on
+ *   the client. Never use this one as a DOM attribute — it would cause
+ *   hydration mismatches because the two environments resolve it differently.
  */
 export function useApi() {
   const config = useRuntimeConfig();
-  // On the server (Nitro/SSR) we reach the API via its internal hostname;
-  // in the browser we use the public URL the user's phone can reach.
-  const base = (import.meta.server ? config.apiBase : config.public.apiBase) as string;
+
+  const publicBaseURL = config.public.apiBase as string;
+  const fetchBase = (import.meta.server ? (config.apiBase as string) : publicBaseURL) || publicBaseURL;
 
   async function get<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {
     return await $fetch<T>(path, {
-      baseURL: base,
+      baseURL: fetchBase,
       credentials: "include",
       query,
     });
   }
 
-  return { get, baseURL: base };
+  return { get, publicBaseURL };
 }

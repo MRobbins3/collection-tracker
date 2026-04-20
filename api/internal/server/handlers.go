@@ -64,10 +64,14 @@ func (h *handlers) getCategory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, cat)
 }
 
+// me answers "who am I?" without requiring auth. Anonymous callers get
+// 200 {"user": null} — that way app-boot fetches don't put 401s in the
+// browser console. Handlers that actually require a session live under the
+// auth.Require group.
 func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
 	s, ok := auth.FromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		writeJSON(w, http.StatusOK, map[string]any{"user": nil})
 		return
 	}
 	user, err := h.users.GetByID(r.Context(), s.UserID)
@@ -77,13 +81,13 @@ func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
 			if h.sessions != nil {
 				h.sessions.Clear(w)
 			}
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "session stale"})
+			writeJSON(w, http.StatusOK, map[string]any{"user": nil})
 			return
 		}
 		h.serverError(w, r, err, "me failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, user)
+	writeJSON(w, http.StatusOK, map[string]any{"user": user})
 }
 
 func (h *handlers) serverError(w http.ResponseWriter, _ *http.Request, err error, msg string) {

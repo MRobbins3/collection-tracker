@@ -78,6 +78,7 @@ func main() {
 			Logger:      logger,
 			DBPinger:    pool,
 			Categories:  store.NewCategories(pool),
+			Collections: store.NewCollections(pool),
 			Users:       users,
 			Sessions:    sessions,
 			GoogleAuth:  googleAuth,

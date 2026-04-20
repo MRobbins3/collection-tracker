@@ -16,3 +16,18 @@ export interface User {
   display_name: string;
   created_at: string;
 }
+
+export interface Collection {
+  id: string;
+  category_id: string;
+  category_slug: string;
+  category_name: string;
+  name: string;
+  item_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CollectionsResponse {
+  collections: Collection[];
+}

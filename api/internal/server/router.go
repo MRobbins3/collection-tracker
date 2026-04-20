@@ -21,6 +21,7 @@ type Deps struct {
 	Logger      *slog.Logger
 	DBPinger    DBPinger
 	Categories  CategoryStore
+	Collections CollectionStore
 	Users       UserStore
 	Sessions    *auth.Manager
 	GoogleAuth  *auth.Google
@@ -46,12 +47,13 @@ type UserStore interface {
 }
 
 type handlers struct {
-	logger     *slog.Logger
-	db         DBPinger
-	categories CategoryStore
-	users      UserStore
-	sessions   *auth.Manager
-	googleAuth *auth.Google
+	logger      *slog.Logger
+	db          DBPinger
+	categories  CategoryStore
+	collections CollectionStore
+	users       UserStore
+	sessions    *auth.Manager
+	googleAuth  *auth.Google
 }
 
 // NewRouter returns the fully-wired chi router. Constructing it in one place
@@ -59,12 +61,13 @@ type handlers struct {
 // production.
 func NewRouter(deps Deps) http.Handler {
 	h := &handlers{
-		logger:     deps.Logger,
-		db:         deps.DBPinger,
-		categories: deps.Categories,
-		users:      deps.Users,
-		sessions:   deps.Sessions,
-		googleAuth: deps.GoogleAuth,
+		logger:      deps.Logger,
+		db:          deps.DBPinger,
+		categories:  deps.Categories,
+		collections: deps.Collections,
+		users:       deps.Users,
+		sessions:    deps.Sessions,
+		googleAuth:  deps.GoogleAuth,
 	}
 
 	r := chi.NewRouter()
@@ -92,6 +95,10 @@ func NewRouter(deps Deps) http.Handler {
 	r.Get("/readyz", h.readyz)
 	r.Get("/categories", h.listCategories)
 	r.Get("/categories/{slug}", h.getCategory)
+	// /me is intentionally public: it answers "who am I?" with 200 {user:null}
+	// when anonymous, so app-boot calls never emit console 401s. Handlers that
+	// *require* a session still return 401 via the auth.Require group below.
+	r.Get("/me", h.me)
 
 	// Auth
 	if deps.GoogleAuth != nil {
@@ -103,7 +110,11 @@ func NewRouter(deps Deps) http.Handler {
 	// Authenticated
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Require)
-		r.Get("/me", h.me)
+		r.Get("/me/collections", h.listMyCollections)
+		r.Post("/me/collections", h.createMyCollection)
+		r.Get("/me/collections/{id}", h.getMyCollection)
+		r.Patch("/me/collections/{id}", h.renameMyCollection)
+		r.Delete("/me/collections/{id}", h.deleteMyCollection)
 	})
 
 	return r
