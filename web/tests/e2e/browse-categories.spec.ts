@@ -19,8 +19,13 @@ test.describe("anonymous category browse", () => {
 
   test("search narrows the list to matching categories", async ({ page }) => {
     await page.goto("/categories");
-    await page.getByTestId("category-search").fill("vinyl");
-    // server round-trip; Playwright auto-waits for the next render.
+    // Wait for the search roundtrip explicitly. Without this, the initial
+    // SSR'd full list is what the assertion sees — the refetch triggered by
+    // the query change hasn't landed yet, especially on slower CI runners.
+    await Promise.all([
+      page.waitForResponse((r) => /\/categories\b.*[?&]q=vinyl/.test(r.url()) && r.status() === 200),
+      page.getByTestId("category-search").fill("vinyl"),
+    ]);
     await expect(page.getByTestId("category-card-vinyl-records")).toBeVisible();
     await expect(page.getByTestId("category-card-lego-sets")).toHaveCount(0);
   });
