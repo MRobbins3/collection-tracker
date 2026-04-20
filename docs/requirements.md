@@ -31,6 +31,10 @@ A single mobile-first web app where users track collections of *any* kind of thi
 - Imports from external catalogs (Brickset, Pop Price Guide, Discogs, etc.).
 - Real-time multi-device sync.
 
+## UX Backlog (known-bad surfaces to polish)
+
+- **Category-specific fields use raw schema keys.** `/categories/:slug` currently renders property names like `set_number` and `piece_count` straight from the JSON Schema. Non-engineers will find this jargon-y. Fix: extend each category's `attribute_schema` with `title` (human label) and optional `description`/`example`, and have the UI prefer those over the raw key. Tackle alongside Milestone 8 (dynamic per-category item form) so labels land in one sweep across detail page + add/edit form. Flagged by user during Milestone 5 review (2026-04-19).
+
 ## Known Unknowns (tracked, not blocking)
 
 - Shape of public shareable collections (affects auth model).
