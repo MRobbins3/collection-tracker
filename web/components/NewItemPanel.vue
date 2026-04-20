@@ -24,7 +24,6 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(query, (q) => {
   if (searchTimer) clearTimeout(searchTimer);
-  // Debounce 200ms to avoid hammering the catalog on every keystroke.
   searchTimer = setTimeout(async () => {
     if (!q.trim()) {
       results.value = [];
@@ -60,10 +59,10 @@ function onCancel() {
 
 <template>
   <section
-    class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+    class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"
     data-testid="new-item-panel"
   >
-    <h2 class="text-sm font-semibold text-slate-900">Add an item</h2>
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Add an item</h2>
 
     <div v-if="!showingForm" class="mt-3 space-y-2">
       <label class="block">
@@ -73,7 +72,7 @@ function onCancel() {
           type="search"
           inputmode="search"
           placeholder="Search — or type to add manually"
-          class="block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+          class="block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
           data-testid="new-item-search"
         />
       </label>
@@ -82,18 +81,23 @@ function onCancel() {
         <li v-for="entry in results" :key="entry.id">
           <button
             type="button"
-            class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-50"
+            class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
             @click="pickFromCatalog(entry)"
           >
-            <div class="font-medium text-slate-900">{{ entry.name }}</div>
-            <div v-if="entry.description" class="text-xs text-slate-500">{{ entry.description }}</div>
+            <div class="font-medium text-slate-900 dark:text-slate-100">{{ entry.name }}</div>
+            <div
+              v-if="entry.description"
+              class="text-xs text-slate-500 dark:text-slate-400"
+            >
+              {{ entry.description }}
+            </div>
           </button>
         </li>
       </ul>
 
       <p
         v-if="query && results.length === 0"
-        class="text-xs text-slate-500"
+        class="text-xs text-slate-500 dark:text-slate-400"
         data-testid="new-item-empty-catalog"
       >
         Not in our list yet — you can enter it manually.
@@ -101,7 +105,7 @@ function onCancel() {
 
       <button
         type="button"
-        class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+        class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
         data-testid="new-item-manual"
         @click="openManualForm(query.trim().length > 0)"
       >

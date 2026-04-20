@@ -39,7 +39,6 @@ async function onSubmit() {
       name: trimmed,
       quantity: quantity.value,
       condition: condition.value.trim() || undefined,
-      // Strip keys whose value is undefined so we send a clean object.
       attributes: Object.fromEntries(Object.entries(attrs).filter(([, v]) => v !== undefined && v !== "")),
     });
   } finally {
@@ -51,57 +50,64 @@ async function onSubmit() {
 <template>
   <form class="space-y-3" data-testid="item-form" @submit.prevent="onSubmit">
     <label class="block">
-      <span class="block text-xs font-medium text-slate-700">Name</span>
+      <span class="block text-xs font-medium text-slate-700 dark:text-slate-300">Name</span>
       <input
         v-model="name"
         type="text"
         maxlength="200"
         placeholder="e.g. Millennium Falcon UCS"
-        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
         data-testid="item-form-name"
       />
     </label>
 
     <div class="grid grid-cols-2 gap-3">
       <label class="block">
-        <span class="block text-xs font-medium text-slate-700">Quantity</span>
+        <span class="block text-xs font-medium text-slate-700 dark:text-slate-300">Quantity</span>
         <input
           v-model.number="quantity"
           type="number"
           min="1"
-          class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+          class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400"
           data-testid="item-form-quantity"
         />
       </label>
       <label class="block">
-        <span class="block text-xs font-medium text-slate-700">Condition / variant</span>
+        <span class="block text-xs font-medium text-slate-700 dark:text-slate-300">Condition / variant</span>
         <input
           v-model="condition"
           type="text"
           maxlength="200"
           placeholder="New, sealed"
-          class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+          class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
           data-testid="item-form-condition"
         />
       </label>
     </div>
 
-    <AttributeFields v-if="schema" :schema="schema" :model-value="attrs" @update:model-value="Object.assign(attrs, $event)" />
+    <AttributeFields
+      v-if="schema"
+      :schema="schema"
+      :model-value="attrs"
+      @update:model-value="Object.assign(attrs, $event)"
+    />
 
-    <p v-if="error" class="text-xs text-rose-700" data-testid="item-form-error">{{ error }}</p>
+    <p v-if="error" class="text-xs text-rose-700 dark:text-rose-300" data-testid="item-form-error">
+      {{ error }}
+    </p>
 
     <div class="flex gap-2">
       <button
         type="submit"
         :disabled="submitting"
-        class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+        class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
         data-testid="item-form-submit"
       >
         {{ submitLabel ?? "Save" }}
       </button>
       <button
         type="button"
-        class="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        class="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         data-testid="item-form-cancel"
         @click="emit('cancel')"
       >

@@ -49,14 +49,19 @@ function asNumber(v: unknown): string {
 <template>
   <div v-if="fields.length > 0" class="space-y-3" data-testid="attribute-fields">
     <label v-for="f in fields" :key="f.key" class="block">
-      <span class="block text-xs font-medium text-slate-700">{{ f.title }}</span>
-      <span v-if="f.description" class="block text-[11px] text-slate-500">{{ f.description }}</span>
+      <span class="block text-xs font-medium text-slate-700 dark:text-slate-300">{{ f.title }}</span>
+      <span
+        v-if="f.description"
+        class="block text-[11px] text-slate-500 dark:text-slate-400"
+      >
+        {{ f.description }}
+      </span>
 
       <input
         v-if="f.type === 'string'"
         type="text"
         :value="asString(modelValue[f.key])"
-        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
         :data-testid="`attribute-field-${f.key}`"
         @input="onChange(f.key, ($event.target as HTMLInputElement).value || undefined)"
       />
@@ -64,7 +69,7 @@ function asNumber(v: unknown): string {
         v-else-if="f.type === 'integer' || f.type === 'number'"
         type="number"
         :value="asNumber(modelValue[f.key])"
-        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
         :data-testid="`attribute-field-${f.key}`"
         @input="
           onChange(

@@ -34,10 +34,11 @@ Tracked in order of intended landing. Functional MVP items (#1–#7 above) inter
 | 6 | Google OAuth login + session cookie | shipped |
 | 7 | Collections CRUD (authed) | shipped |
 | 8 | Items CRUD with per-category attributes (human-friendly labels land here) | shipped |
-| 9 | **Dark mode** — system-preference-aware theme toggle across web UI | planned |
+| 9 | **Dark mode** — system-preference-aware theme toggle across web UI | shipped |
 | 10 | PWA manifest + installable on mobile | planned |
-| 11 | GitHub Actions: lint, tests, typecheck, e2e, OpenAPI drift | planned |
-| 12 | Living docs sweep — requirements, ADRs, testing doc caught up with shipped behavior | planned |
+| 11 | **Toolchain — Bun + Node 24** — switch web package manager from pnpm to Bun; add `.nvmrc` pinning Node 24; update docker-compose web image; validate Vitest + Playwright under bun | planned |
+| 12 | GitHub Actions: lint, tests, typecheck, e2e, OpenAPI drift | planned |
+| 13 | Living docs sweep — requirements, ADRs, testing doc caught up with shipped behavior | planned |
 
 ## Phase 2 — Catalog + community contributions
 
@@ -93,6 +94,7 @@ Per-category attribute schemas live in `docs/categories/` and are also stored in
 
 <!-- One line per user-visible change, newest first. Date format YYYY-MM-DD. -->
 
+- 2026-04-19 — Dark mode shipped (Milestone 9). Class-based Tailwind dark variant; `useTheme` composable owns the three-state preference (system / light / dark) with localStorage persistence and `prefers-color-scheme` tracking; a pre-hydration inline script in `<head>` applies the correct theme *before* first paint so there's no flash. `ThemeToggle` in the header cycles states (wrapped in `<ClientOnly>` to avoid SSR/client icon mismatches). Dark variants applied to every surface: landing, header, browse, category detail, /my, /my/:id, item cards, all forms, sign-in prompt, error/empty/success states. 3 new Vitest tests (26 total). Roadmap updated in the same commit to add Milestone 11 "Toolchain — Bun + Node 24" (see ADR 0005) ahead of CI (now M12) and docs sweep (M13).
 - 2026-04-19 — Items CRUD shipped (Milestone 8). Migration 0002 adds `catalog_entries` table + nullable `items.catalog_entry_id` FK (ADR 0004 two-layer model; catalog is empty in MVP). Server validates `items.attributes` against the category's JSON Schema (gojsonschema) and returns per-field errors. Public `GET /catalog/entries` endpoint binds the UI to phase-2 shape (returns `[]` today). Category attribute schemas now carry `title` + `description`; UI shows human labels everywhere (closes the Milestone 5 "raw schema keys" backlog). Web: combobox-shaped add item panel, dynamic per-schema form fields, inline edit/delete on item cards, items list on `/my/[id]`. Twelve new Vitest tests (23 total); Go gained integration tests for items + catalog-entry delete preserves items + JSON-Schema validator cases.
 - 2026-04-19 — Collections CRUD (authed) shipped. `POST/GET/PATCH/DELETE /me/collections[/:id]` enforce user ownership at the store layer (cross-user reads return 404 to hide existence, not 403). Web `/my` page lists/creates/deletes collections; `/my/[id]` supports rename + delete. Eleven Vitest tests; new handler tests cover auth gate, validation, cross-user isolation, and store-error surfacing. `/me` now returns 200 `{user: null|User}` so app-boot fetches don't emit a red 401 in the browser console (user-reported polish).
 - 2026-04-19 — Fixed a Nuxt SSR hydration mismatch: `useApi` was exposing an internal docker hostname that leaked into `href` attributes rendered server-side; split into `publicBaseURL` (safe for DOM) and `fetchBase` (SSR uses the internal URL, client falls back to public).

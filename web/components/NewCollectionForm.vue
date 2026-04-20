@@ -40,17 +40,17 @@ async function onSubmit() {
 
 <template>
   <form
-    class="space-y-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+    class="space-y-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"
     data-testid="new-collection-form"
     @submit.prevent="onSubmit"
   >
-    <h2 class="text-sm font-semibold text-slate-900">Start a new collection</h2>
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Start a new collection</h2>
 
     <label class="block">
-      <span class="block text-xs font-medium text-slate-600">Category</span>
+      <span class="block text-xs font-medium text-slate-600 dark:text-slate-400">Category</span>
       <select
         v-model="categorySlug"
-        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400"
         data-testid="new-collection-category"
       >
         <option v-for="c in categories" :key="c.id" :value="c.slug">{{ c.name }}</option>
@@ -58,23 +58,29 @@ async function onSubmit() {
     </label>
 
     <label class="block">
-      <span class="block text-xs font-medium text-slate-600">Name</span>
+      <span class="block text-xs font-medium text-slate-600 dark:text-slate-400">Name</span>
       <input
         v-model="name"
         type="text"
         maxlength="100"
         placeholder="e.g. My Star Wars Lego"
-        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
         data-testid="new-collection-name"
       />
     </label>
 
-    <p v-if="error" class="text-xs text-rose-700" data-testid="new-collection-error">{{ error }}</p>
+    <p
+      v-if="error"
+      class="text-xs text-rose-700 dark:text-rose-300"
+      data-testid="new-collection-error"
+    >
+      {{ error }}
+    </p>
 
     <button
       type="submit"
       :disabled="submitting"
-      class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+      class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
       data-testid="new-collection-submit"
     >
       {{ submitting ? "Creating…" : "Create collection" }}

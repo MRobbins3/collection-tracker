@@ -17,7 +17,20 @@ export default defineNuxtConfig({
           name: "description",
           content: "Track collections of anything — Lego, Funko, coins, stamps, plants, and more.",
         },
-        { name: "theme-color", content: "#0f172a" },
+        // OS/browser chrome picks the right color per color-scheme.
+        { name: "theme-color", content: "#f8fafc", media: "(prefers-color-scheme: light)" },
+        { name: "theme-color", content: "#020617", media: "(prefers-color-scheme: dark)" },
+      ],
+      // Pre-hydration no-FOUC script: resolves theme preference + applies the
+      // `dark` class on <html> BEFORE the first paint. Handlers use localStorage
+      // + prefers-color-scheme. Wrapped in try/catch so a broken storage policy
+      // never blocks the app from loading.
+      script: [
+        {
+          innerHTML: `(function(){try{var s=localStorage.getItem('ct-theme');var p=(s==='light'||s==='dark'||s==='system')?s:'system';var d=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`,
+          tagPriority: "critical",
+          type: "text/javascript",
+        },
       ],
     },
   },

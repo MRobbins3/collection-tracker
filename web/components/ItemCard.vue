@@ -12,12 +12,11 @@ const emit = defineEmits<{
 
 const editing = ref(false);
 
-// Present a friendly `Title: value` line per attribute that the user filled in.
-// Keys that have no title fall back to a humanized version of the raw key so
-// old data doesn't ever show `set_number:`.
 const visibleAttributes = computed<{ title: string; value: string }[]>(() => {
   const props_ = props.schema?.properties ?? {};
-  const filled = Object.entries(props.item.attributes).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  const filled = Object.entries(props.item.attributes).filter(
+    ([, v]) => v !== undefined && v !== null && v !== "",
+  );
   return filled.map(([key, value]) => ({
     title: props_[key]?.title ?? humanize(key),
     value: String(value),
@@ -32,27 +31,32 @@ function humanize(key: string): string {
 
 <template>
   <li
-    class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+    class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"
     :data-testid="`item-${item.id}`"
   >
     <div v-if="!editing">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-          <h3 class="truncate text-base font-semibold text-slate-900">{{ item.name }}</h3>
-          <p class="mt-0.5 text-xs text-slate-500">
+          <h3 class="truncate text-base font-semibold text-slate-900 dark:text-slate-50">
+            {{ item.name }}
+          </h3>
+          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             Qty {{ item.quantity }}<span v-if="item.condition"> · {{ item.condition }}</span>
           </p>
-          <dl v-if="visibleAttributes.length > 0" class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          <dl
+            v-if="visibleAttributes.length > 0"
+            class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs"
+          >
             <template v-for="a in visibleAttributes" :key="a.title">
-              <dt class="text-slate-500">{{ a.title }}</dt>
-              <dd class="text-slate-900">{{ a.value }}</dd>
+              <dt class="text-slate-500 dark:text-slate-400">{{ a.title }}</dt>
+              <dd class="text-slate-900 dark:text-slate-100">{{ a.value }}</dd>
             </template>
           </dl>
         </div>
         <div class="flex shrink-0 gap-1">
           <button
             type="button"
-            class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+            class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             :data-testid="`item-${item.id}-edit`"
             @click="editing = true"
           >
@@ -60,7 +64,7 @@ function humanize(key: string): string {
           </button>
           <button
             type="button"
-            class="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+            class="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950"
             :data-testid="`item-${item.id}-delete`"
             @click="emit('delete')"
           >

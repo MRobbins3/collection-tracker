@@ -102,7 +102,7 @@ async function onDeleteItem(itemId: string, name: string) {
   <section class="space-y-4">
     <NuxtLink
       to="/my"
-      class="inline-flex items-center text-sm text-slate-500 hover:text-slate-800"
+      class="inline-flex items-center text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
     >
       ← My collections
     </NuxtLink>
@@ -113,11 +113,13 @@ async function onDeleteItem(itemId: string, name: string) {
     />
 
     <template v-else>
-      <div v-if="pending && !collection" class="text-sm text-slate-500">Loading…</div>
+      <div v-if="pending && !collection" class="text-sm text-slate-500 dark:text-slate-400">
+        Loading…
+      </div>
 
       <div
         v-else-if="error"
-        class="rounded-lg bg-rose-50 p-3 text-sm text-rose-900"
+        class="rounded-lg bg-rose-50 p-3 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-100"
         data-testid="collection-error"
       >
         We couldn’t find this collection.
@@ -125,11 +127,13 @@ async function onDeleteItem(itemId: string, name: string) {
 
       <article v-else-if="collection" class="space-y-4">
         <header>
-          <p class="text-xs uppercase tracking-wide text-slate-500">
+          <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
             {{ collection.category_name }}
           </p>
-          <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ collection.name }}</h1>
-          <p class="mt-1 text-sm text-slate-500">
+          <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            {{ collection.name }}
+          </h1>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {{ collection.item_count }} item{{ collection.item_count === 1 ? "" : "s" }}
           </p>
         </header>
@@ -156,40 +160,46 @@ async function onDeleteItem(itemId: string, name: string) {
         </ul>
         <div
           v-else
-          class="rounded-xl bg-slate-100 p-4 text-center text-sm text-slate-600"
+          class="rounded-xl bg-slate-100 p-4 text-center text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
           data-testid="items-empty"
         >
           No items yet — add your first one above.
         </div>
 
-        <details class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <summary class="cursor-pointer text-sm font-medium text-slate-900">
+        <details
+          class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"
+        >
+          <summary class="cursor-pointer text-sm font-medium text-slate-900 dark:text-slate-100">
             Collection settings
           </summary>
           <form class="mt-3 space-y-3" @submit.prevent="onRename">
             <label class="block">
-              <span class="block text-xs font-medium text-slate-700">Rename this collection</span>
+              <span class="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                Rename this collection
+              </span>
               <input
                 v-model="draftName"
                 type="text"
                 maxlength="100"
-                class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400"
                 data-testid="rename-collection-input"
               />
             </label>
-            <p v-if="renameError" class="text-xs text-rose-700">{{ renameError }}</p>
+            <p v-if="renameError" class="text-xs text-rose-700 dark:text-rose-300">
+              {{ renameError }}
+            </p>
             <div class="flex justify-between gap-2">
               <button
                 type="submit"
                 :disabled="!isDirty || saving"
-                class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
                 data-testid="rename-collection-submit"
               >
                 {{ saving ? "Saving…" : "Save" }}
               </button>
               <button
                 type="button"
-                class="inline-flex h-10 items-center justify-center rounded-md border border-rose-300 px-4 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                class="inline-flex h-10 items-center justify-center rounded-md border border-rose-300 px-4 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950"
                 data-testid="delete-collection"
                 @click="onDeleteCollection"
               >
