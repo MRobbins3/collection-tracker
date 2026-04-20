@@ -2,32 +2,66 @@
 package server
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
 )
 
-// NewRouter returns the fully-wired chi router. Keeping construction in one
-// place means handler tests exercise the same middleware stack that runs in
+// Deps groups the dependencies the HTTP layer needs. A struct keeps the
+// constructor signature stable as we add handlers.
+type Deps struct {
+	Logger     *slog.Logger
+	DBPinger   DBPinger
+	Categories CategoryStore
+}
+
+// DBPinger is satisfied by *pgxpool.Pool; declared here so handler tests can
+// swap in a fake without pulling pgx into their imports.
+type DBPinger interface {
+	Ping(ctx context.Context) error
+}
+
+// CategoryStore is the narrow view of category queries the HTTP layer needs.
+type CategoryStore interface {
+	List(ctx context.Context) ([]store.Category, error)
+	Search(ctx context.Context, q string) ([]store.Category, error)
+	GetBySlug(ctx context.Context, slug string) (store.Category, error)
+}
+
+type handlers struct {
+	logger     *slog.Logger
+	db         DBPinger
+	categories CategoryStore
+}
+
+// NewRouter returns the fully-wired chi router. Constructing it in one place
+// means handler tests exercise the same middleware stack that runs in
 // production.
-func NewRouter(logger *slog.Logger) http.Handler {
+func NewRouter(deps Deps) http.Handler {
+	h := &handlers{
+		logger:     deps.Logger,
+		db:         deps.DBPinger,
+		categories: deps.Categories,
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(echoRequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
-	r.Use(requestLogger(logger))
+	r.Use(requestLogger(deps.Logger))
 
-	r.Get("/healthz", healthz)
+	r.Get("/healthz", h.healthz)
+	r.Get("/readyz", h.readyz)
+	r.Get("/categories", h.listCategories)
+	r.Get("/categories/{slug}", h.getCategory)
 	return r
-}
-
-func healthz(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 // echoRequestID copies the chi-generated request id onto the response so

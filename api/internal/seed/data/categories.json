@@ -1,0 +1,118 @@
+[
+  {
+    "slug": "lego-sets",
+    "name": "Lego Sets",
+    "description": "Official Lego sets, minifigures, and themed collections.",
+    "attribute_schema": {
+      "type": "object",
+      "properties": {
+        "set_number": { "type": "string" },
+        "theme": { "type": "string" },
+        "piece_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "slug": "funko-pops",
+    "name": "Funko Pops",
+    "description": "Funko Pop! vinyl figures, chases, and exclusives.",
+    "attribute_schema": {
+      "type": "object",
+      "properties": {
+        "series": { "type": "string" },
+        "number": { "type": "integer", "minimum": 0 },
+        "variant": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "slug": "coins",
+    "name": "Coins",
+    "description": "Circulating and commemorative coins from around the world.",
+    "attribute_schema": {
+      "type": "object",
+      "properties": {
+        "year": { "type": "integer" },
+        "country": { "type": "string" },
+        "denomination": { "type": "string" },
+        "mint_mark": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "slug": "stamps",
+    "name": "Stamps",
+    "description": "Postal stamps, commemoratives, and first-day covers.",
+    "attribute_schema": {
+      "type": "object",
+      "properties": {
+        "year": { "type": "integer" },
+        "country": { "type": "string" },
+        "catalog_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "slug": "trading-cards",
+    "name": "Trading Cards",
+    "description": "Sports cards, TCGs, and collectible card games.",
+    "attribute_schema": {
+      "type": "object",
+      "properties": {
+        "game": { "type": "string" },
+        "set_name": { "type": "string" },
+        "card_number": { "type": "string" },
+        "rarity": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "slug": "plants",
+    "name": "Plants",
+    "description": "Houseplants, succulents, and garden specimens.",
+    "attribute_schema": {
+      "type": "object",
+      "properties": {
+        "species": { "type": "string" },
+        "pot_size": { "type": "string" },
+        "acquired_from": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "slug": "books",
+    "name": "Books",
+    "description": "Physical books — fiction, non-fiction, first editions, signed copies.",
+    "attribute_schema": {
+      "type": "object",
+      "properties": {
+        "author": { "type": "string" },
+        "isbn": { "type": "string" },
+        "edition": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "slug": "vinyl-records",
+    "name": "Vinyl Records",
+    "description": "LPs, EPs, 7-inches, and box sets.",
+    "attribute_schema": {
+      "type": "object",
+      "properties": {
+        "artist": { "type": "string" },
+        "album": { "type": "string" },
+        "year": { "type": "integer" },
+        "label": { "type": "string" },
+        "pressing": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+]
