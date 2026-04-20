@@ -2,7 +2,7 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
   devtools: { enabled: true },
-  modules: ["@nuxtjs/tailwindcss", "@nuxt/icon", "@vite-pwa/nuxt"],
+  modules: ["@nuxtjs/tailwindcss", "@nuxt/icon", "@vite-pwa/nuxt", "@nuxt/eslint"],
   css: ["~/assets/css/main.css"],
   icon: {
     // Prefer server-rendered svg, which ships HTML the browser can paint

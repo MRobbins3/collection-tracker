@@ -1,0 +1,197 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    # Skip docs-only changes to save minutes + make the common refactor loop faster.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".gitignore"
+      - ".nvmrc"
+      - ".idea/**"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".gitignore"
+      - ".nvmrc"
+      - ".idea/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: api — lint + unit + integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: collection
+          POSTGRES_PASSWORD: collection
+          POSTGRES_DB: collection
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U collection -d collection"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+    env:
+      DATABASE_URL: postgres://collection:collection@localhost:5432/collection?sslmode=disable
+      TEST_ADMIN_DATABASE_URL: postgres://collection:collection@localhost:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: api/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: api
+          version: latest
+          args: --timeout=5m
+
+      - name: Unit tests + race detector
+        run: go test -race -count=1 ./...
+
+      - name: Integration tests
+        run: go test -race -count=1 -tags=integration ./...
+
+  web:
+    name: web — lint + typecheck + vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.23
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: ESLint
+        run: bun run lint
+
+      - name: Typecheck (vue-tsc via `nuxt typecheck`)
+        run: bun run typecheck
+
+      - name: Vitest
+        run: bun run test
+
+  e2e:
+    name: web — playwright smoke
+    runs-on: ubuntu-latest
+    needs: [api, web]
+    defaults:
+      run:
+        working-directory: web
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: collection
+          POSTGRES_PASSWORD: collection
+          POSTGRES_DB: collection
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U collection -d collection"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+    env:
+      # API env
+      DATABASE_URL: postgres://collection:collection@localhost:5432/collection?sslmode=disable
+      HTTP_ADDR: ":8080"
+      CORS_ORIGINS: http://localhost:3000
+      WEB_BASE_URL: http://localhost:3000
+      SESSION_SECRET: ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci
+      # Web env
+      NUXT_API_BASE: http://localhost:8080
+      NUXT_PUBLIC_API_BASE: http://localhost:8080
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: api/go.sum
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.23
+
+      - name: Start API in background
+        working-directory: api
+        run: |
+          go run ./cmd/server > /tmp/api.log 2>&1 &
+          echo $! > /tmp/api.pid
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8080/healthz >/dev/null 2>&1; then
+              echo "api is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "api did not become healthy in time"; cat /tmp/api.log; exit 1
+
+      - name: Install web deps
+        run: bun install --frozen-lockfile
+
+      - name: Start web dev server in background
+        run: |
+          bun run dev --host 0.0.0.0 > /tmp/web.log 2>&1 &
+          echo $! > /tmp/web.pid
+          for i in {1..90}; do
+            if curl -fsS http://localhost:3000/ >/dev/null 2>&1; then
+              echo "web is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "web did not become healthy in time"; cat /tmp/web.log; exit 1
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium webkit
+
+      - name: Install Playwright system deps (when browsers were cached)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium webkit
+
+      - name: Run Playwright
+        run: bun run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report/
+            web/test-results/
+            /tmp/api.log
+            /tmp/web.log
+          retention-days: 7

@@ -34,7 +34,7 @@ export function useItemsActions(collectionId: string) {
     });
   }
   async function remove(id: string): Promise<void> {
-    await $fetch<void>(`${publicBaseURL}/me/collections/${collectionId}/items/${id}`, {
+    await $fetch(`${publicBaseURL}/me/collections/${collectionId}/items/${id}`, {
       method: "DELETE",
       credentials: "include",
     });

@@ -1,0 +1,48 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  build-tags:
+    - integration
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - gosec
+    - ineffassign
+    - unused
+    - misspell
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+        - name: package-comments
+          disabled: true
+    gosec:
+      excludes:
+        # G402: dev docker-compose uses sslmode=disable; tightening is a
+        # deploy-time concern, not a local-dev-safety one.
+        - G402
+
+  exclusions:
+    rules:
+      # Integration tests spin up SQL via string concatenation against a
+      # disposable DB name we control — not a real SQL-injection surface.
+      - path: _integration_test\.go
+        linters:
+          - gosec
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

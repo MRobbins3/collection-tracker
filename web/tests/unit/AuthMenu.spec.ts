@@ -58,6 +58,6 @@ describe("AuthMenu", () => {
     expect(stub.user.value).toBeNull();
     // After reactivity flush, the component should flip to the signed-out view.
     await wrapper.vm.$nextTick();
-    expect(wrapper.get('[data-testid="signin-link"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="signin-link"]').exists()).toBe(true);
   });
 });

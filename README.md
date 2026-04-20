@@ -1,5 +1,7 @@
 # Collection Tracker
 
+[![CI](https://github.com/MRobbins3/collection-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/MRobbins3/collection-tracker/actions/workflows/ci.yml)
+
 A mobile-first web app for tracking collections of anything — Lego sets, Funko Pops, coins, stamps, plants, whatever. Browse categories without an account; sign in with Google to start saving.
 
 ## Stack
