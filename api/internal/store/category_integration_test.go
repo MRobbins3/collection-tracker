@@ -5,7 +5,6 @@ package store_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -29,6 +28,14 @@ func adminURL(t *testing.T) string {
 	return url
 }
 
+// testDBURL returns a connection string to a database named dbName on the
+// same host/port as adminURL — works both in docker-compose (host=db) and
+// on a GitHub Actions runner (host=localhost).
+func testDBURL(t *testing.T, dbName string) string {
+	t.Helper()
+	return strings.Replace(adminURL(t), "/postgres?", "/"+dbName+"?", 1)
+}
+
 // provisionSeededDB creates a fresh database, runs migrations, seeds the
 // category list, opens a pgx pool against it, and returns the pool + cleanup.
 func provisionSeededDB(t *testing.T, name string) (*pgxpool.Pool, func()) {
@@ -46,7 +53,7 @@ func provisionSeededDB(t *testing.T, name string) (*pgxpool.Pool, func()) {
 	_, err = admin.ExecContext(ctx, "CREATE DATABASE "+dbName)
 	require.NoError(t, err, "create db %s", dbName)
 
-	dbURL := fmt.Sprintf("postgres://collection:collection@db:5432/%s?sslmode=disable", dbName)
+	dbURL := testDBURL(t, dbName)
 
 	require.NoError(t, migrations.Up(ctx, dbURL))
 

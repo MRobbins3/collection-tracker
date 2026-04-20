@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -20,6 +19,8 @@ import (
 
 // admin DB URL; we connect here to create/drop disposable per-test databases
 // so integration tests never touch the developer-facing `collection` DB.
+// The host comes from the env — `db:5432` inside docker-compose, `localhost`
+// in GitHub Actions with a Postgres service container.
 func adminURL(t *testing.T) string {
 	t.Helper()
 	url := os.Getenv("TEST_ADMIN_DATABASE_URL")
@@ -27,6 +28,14 @@ func adminURL(t *testing.T) string {
 		url = "postgres://collection:collection@db:5432/postgres?sslmode=disable"
 	}
 	return url
+}
+
+// testDBURL returns a connection string to a database named dbName on the
+// same host/port as adminURL — so the tests work both in docker-compose
+// (host=db) and on a GitHub Actions runner (host=localhost).
+func testDBURL(t *testing.T, dbName string) string {
+	t.Helper()
+	return strings.Replace(adminURL(t), "/postgres?", "/"+dbName+"?", 1)
 }
 
 // provisionDB creates a fresh DB for a single test and returns its URL plus
@@ -48,7 +57,7 @@ func provisionDB(t *testing.T, name string) (string, func()) {
 	_, err = admin.ExecContext(ctx, "CREATE DATABASE "+dbName)
 	require.NoError(t, err, "create db %s", dbName)
 
-	url := fmt.Sprintf("postgres://collection:collection@db:5432/%s?sslmode=disable", dbName)
+	url := testDBURL(t, dbName)
 	cleanup := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
