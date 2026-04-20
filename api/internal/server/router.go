@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
 )
 
@@ -20,6 +21,9 @@ type Deps struct {
 	Logger      *slog.Logger
 	DBPinger    DBPinger
 	Categories  CategoryStore
+	Users       UserStore
+	Sessions    *auth.Manager
+	GoogleAuth  *auth.Google
 	CORSOrigins []string
 }
 
@@ -36,10 +40,18 @@ type CategoryStore interface {
 	GetBySlug(ctx context.Context, slug string) (store.Category, error)
 }
 
+// UserStore is the narrow view of user queries the HTTP layer needs.
+type UserStore interface {
+	GetByID(ctx context.Context, id string) (store.User, error)
+}
+
 type handlers struct {
 	logger     *slog.Logger
 	db         DBPinger
 	categories CategoryStore
+	users      UserStore
+	sessions   *auth.Manager
+	googleAuth *auth.Google
 }
 
 // NewRouter returns the fully-wired chi router. Constructing it in one place
@@ -50,6 +62,9 @@ func NewRouter(deps Deps) http.Handler {
 		logger:     deps.Logger,
 		db:         deps.DBPinger,
 		categories: deps.Categories,
+		users:      deps.Users,
+		sessions:   deps.Sessions,
+		googleAuth: deps.GoogleAuth,
 	}
 
 	r := chi.NewRouter()
@@ -68,11 +83,29 @@ func NewRouter(deps Deps) http.Handler {
 			MaxAge:           300,
 		}))
 	}
+	if deps.Sessions != nil {
+		r.Use(deps.Sessions.Middleware)
+	}
 
+	// Public
 	r.Get("/healthz", h.healthz)
 	r.Get("/readyz", h.readyz)
 	r.Get("/categories", h.listCategories)
 	r.Get("/categories/{slug}", h.getCategory)
+
+	// Auth
+	if deps.GoogleAuth != nil {
+		r.Get("/auth/google/start", deps.GoogleAuth.Start)
+		r.Get("/auth/google/callback", deps.GoogleAuth.Callback)
+		r.Post("/auth/logout", deps.GoogleAuth.Logout)
+	}
+
+	// Authenticated
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Require)
+		r.Get("/me", h.me)
+	})
+
 	return r
 }
 

@@ -30,6 +30,19 @@ docker compose up
 - API: http://localhost:8080
 - Postgres: localhost:5432 (user `collection`, password `collection`, db `collection`)
 
+### Enabling Google sign-in locally
+
+By default, `/auth/google/*` returns 503 until you provide OAuth credentials.
+Create a Google OAuth 2.0 Web Client at
+<https://console.cloud.google.com/apis/credentials> with authorized redirect URI
+`http://localhost:8080/auth/google/callback`, then export the client id/secret
+before `docker compose up`:
+
+```sh
+export GOOGLE_OAUTH_CLIENT_ID=...
+export GOOGLE_OAUTH_CLIENT_SECRET=...
+```
+
 ## Repo layout
 
 ```

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
 )
 
@@ -61,6 +62,28 @@ func (h *handlers) getCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, cat)
+}
+
+func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
+	s, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	user, err := h.users.GetByID(r.Context(), s.UserID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			// session references a user that no longer exists; clear it
+			if h.sessions != nil {
+				h.sessions.Clear(w)
+			}
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "session stale"})
+			return
+		}
+		h.serverError(w, r, err, "me failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
 }
 
 func (h *handlers) serverError(w http.ResponseWriter, _ *http.Request, err error, msg string) {

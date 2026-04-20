@@ -1,10 +1,11 @@
 <template>
   <div class="min-h-screen flex flex-col">
     <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div class="mx-auto flex max-w-screen-sm items-center gap-3 px-4 py-3">
+      <div class="mx-auto flex max-w-screen-sm items-center justify-between gap-3 px-4 py-3">
         <NuxtLink to="/" class="text-lg font-semibold tracking-tight text-slate-900">
           Collection Tracker
         </NuxtLink>
+        <AuthMenu />
       </div>
     </header>
     <main class="mx-auto w-full max-w-screen-sm flex-1 px-4 py-4">

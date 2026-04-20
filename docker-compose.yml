@@ -22,6 +22,14 @@ services:
     environment:
       DATABASE_URL: postgres://collection:collection@db:5432/collection?sslmode=disable
       HTTP_ADDR: ":8080"
+      WEB_BASE_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000
+      # Dev-only 32-byte secret. MUST be overridden in any non-local env.
+      SESSION_SECRET: "dev-dev-dev-dev-dev-dev-dev-dev-"
+      # Set these to enable Google sign-in locally. Until then, /auth/google/* returns 503.
+      GOOGLE_OAUTH_CLIENT_ID: "${GOOGLE_OAUTH_CLIENT_ID:-}"
+      GOOGLE_OAUTH_CLIENT_SECRET: "${GOOGLE_OAUTH_CLIENT_SECRET:-}"
+      GOOGLE_OAUTH_REDIRECT_URL: "${GOOGLE_OAUTH_REDIRECT_URL:-http://localhost:8080/auth/google/callback}"
     ports:
       - "8080:8080"
     volumes:

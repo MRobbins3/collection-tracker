@@ -11,14 +11,25 @@ type Config struct {
 	DatabaseURL  string
 	Env          string
 	CORSOrigins  []string
+	WebBaseURL   string
+
+	SessionSecret       string
+	GoogleClientID      string
+	GoogleClientSecret  string
+	GoogleRedirectURL   string
 }
 
 func FromEnv() Config {
 	return Config{
-		HTTPAddr:    getenv("HTTP_ADDR", ":8080"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		Env:         getenv("APP_ENV", "development"),
-		CORSOrigins: splitCSV(getenv("CORS_ORIGINS", "http://localhost:3000")),
+		HTTPAddr:           getenv("HTTP_ADDR", ":8080"),
+		DatabaseURL:        os.Getenv("DATABASE_URL"),
+		Env:                getenv("APP_ENV", "development"),
+		CORSOrigins:        splitCSV(getenv("CORS_ORIGINS", "http://localhost:3000")),
+		WebBaseURL:         getenv("WEB_BASE_URL", "http://localhost:3000"),
+		SessionSecret:      os.Getenv("SESSION_SECRET"),
+		GoogleClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
+		GoogleRedirectURL:  getenv("GOOGLE_OAUTH_REDIRECT_URL", "http://localhost:8080/auth/google/callback"),
 	}
 }
 
