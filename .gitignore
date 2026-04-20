@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Nuxt / Vite build output
+web/.nuxt/
+web/.output/
+web/dist/
+web/.data/
+
+# Go build output
+api/bin/
+api/tmp/
+api/coverage.out
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+
+# Test artifacts
+web/playwright-report/
+web/test-results/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
