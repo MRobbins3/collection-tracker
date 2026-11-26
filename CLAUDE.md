@@ -17,15 +17,7 @@ Mobile-first web app for tracking collections of anything — Lego, Funko, coins
 
 ## Booting the stack
 
-```sh
-docker compose up -d
-```
-
-- Web: http://localhost:3000 (Bun + Nuxt dev server)
-- API: http://localhost:8080 (Go + chi)
-- Postgres: localhost:5432 (user/pass/db all `collection`)
-
-Google OAuth is off by default; export `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` to turn it on locally. `/auth/google/*` returns 503 until then.
+The one copy of the startup steps (ports, database credentials, and enabling Google sign-in locally) lives in the README under "Getting started". Read it there; don't duplicate it into this file.
 
 ## Test commands
 

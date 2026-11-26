@@ -32,6 +32,8 @@ docker compose up
 - API: http://localhost:8080
 - Postgres: localhost:5432 (user `collection`, password `collection`, db `collection`)
 
+On each start the web container runs `bun install` and then warms up the Nuxt dev server, which can take a few minutes. If the page loads without styling, it isn't ready yet; follow `docker compose logs -f web` until it prints "Vite client warmed up", then reload.
+
 ### Enabling Google sign-in locally
 
 By default, `/auth/google/*` returns 503 until you provide OAuth credentials.
