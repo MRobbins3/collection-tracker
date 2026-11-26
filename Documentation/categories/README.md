@@ -12,7 +12,7 @@ All eight category schemas ship in a single file:
 
 - **`api/internal/seed/data/categories.json`** — embedded into the Go binary with `go:embed`.
 
-The original plan imagined one JSON file per category under `docs/categories/` with a mirror seeded into the DB. That was over-engineered for eight categories. Collapsing to one embedded seed file keeps the surface small and means "add a category" is a one-file edit.
+The original plan imagined one JSON file per category under `Documentation/categories/` with a mirror seeded into the DB. That was over-engineered for eight categories. Collapsing to one embedded seed file keeps the surface small and means "add a category" is a one-file edit.
 
 When the catalog-seeding work (phase 2) starts, per-category *data* files (actual catalog entries — Lego sets, Funko Pops, etc.) will live elsewhere, likely under `api/internal/seed/catalog/`. The schemas stay where they are.
 

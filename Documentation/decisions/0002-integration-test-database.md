@@ -7,7 +7,7 @@
 
 ## Context
 
-The testing strategy (see `docs/testing.md`) calls for real-Postgres integration tests and specifically names `testcontainers-go` as the long-term approach. Two things make testcontainers awkward *right now*:
+The testing strategy (see `Documentation/testing.md`) calls for real-Postgres integration tests and specifically names `testcontainers-go` as the long-term approach. Two things make testcontainers awkward *right now*:
 
 1. Go isn't installed on the developer's host machine. All Go tooling runs inside the `api` service of `docker-compose`. For testcontainers to work from inside that container, we'd need to either mount the host Docker socket (security hit and environment-specific quirks when the test container reaches its sibling Postgres) or run tests on the host (not an option yet).
 2. A Postgres container is already running in our compose stack — spinning up a second one per test package is wasted work at this stage of the project.

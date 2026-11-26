@@ -14,7 +14,7 @@ A mobile-first web app for tracking collections of anything — Lego sets, Funko
 - **CI/CD:** GitHub Actions
 - **Future hosting:** AWS (deferred)
 
-See `docs/requirements.md` for the living feature list, `docs/testing.md` for the testing strategy, and `CLAUDE.md` for an orientation aimed at any Claude session working in this repo (stack layout, key conventions, test commands).
+See `Documentation/requirements.md` for the living feature list, `Documentation/testing.md` for the testing strategy, `Documentation/next-steps.md` for what is queued next, and `CLAUDE.md` for an orientation aimed at any Claude session working in this repo (stack layout, key conventions, test commands).
 
 ## Prerequisites
 
@@ -50,14 +50,14 @@ export GOOGLE_OAUTH_CLIENT_SECRET=...
 ```
 web/              Nuxt 3 app
 api/              Go service
-docs/             Living requirements, testing strategy, ADRs
+Documentation/    Living requirements, testing strategy, ADRs
 docker-compose.yml
 .github/workflows/
 ```
 
 ## Testing
 
-See `docs/testing.md`. The short version:
+See `Documentation/testing.md`. The short version:
 
 ```sh
 # Go — run inside the api container so Postgres is reachable

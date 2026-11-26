@@ -5,7 +5,7 @@ on:
     branches: [main]
     # Skip docs-only changes to save minutes + make the common refactor loop faster.
     paths-ignore:
-      - "docs/**"
+      - "Documentation/**"
       - "**/*.md"
       - ".gitignore"
       - ".nvmrc"
@@ -13,7 +13,7 @@ on:
   pull_request:
     branches: [main]
     paths-ignore:
-      - "docs/**"
+      - "Documentation/**"
       - "**/*.md"
       - ".gitignore"
       - ".nvmrc"
