@@ -57,20 +57,4 @@ docker-compose.yml
 
 ## Testing
 
-See `Documentation/testing.md`. The short version:
-
-```sh
-# Go — run inside the api container so Postgres is reachable
-docker compose exec api go test -race -count=1 ./...
-docker compose exec api go test -race -count=1 -tags=integration ./...
-docker compose exec api go vet ./...
-
-# Web — run inside the web container so bun + node_modules + volumes line up
-docker compose exec web bun run test        # Vitest (31 tests / 8 files)
-docker compose exec web bun run typecheck   # nuxt typecheck (vue-tsc)
-docker compose exec web bun run lint        # ESLint via @nuxt/eslint
-
-# Playwright smoke (install browsers once per container)
-docker compose exec web bunx playwright install chromium webkit
-docker compose exec web bun run test:e2e
-```
+Lint, test, and typecheck commands for the API, the web app, and the Playwright end-to-end tests are in `Documentation/testing.md`, under each "Running locally" section.

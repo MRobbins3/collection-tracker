@@ -75,6 +75,11 @@ On the host directly: `.nvmrc` pins Node 24 for `nvm use`; then `cd web && bun i
 
 A `concurrency` group cancels superseded runs for the same ref. Node is installed via `actions/setup-node@v4` with `node-version-file: .nvmrc` so ESLint's Node-shebang-dispatch gets a modern runtime.
 
+**Passes locally, fails in CI?** It's usually one of these:
+- A hardcoded `db:5432`. Docker Compose reaches Postgres at host `db`; CI's service container is at `localhost`. Derive the host from the configured URL instead (see `testDBURL()`).
+- Node-API compatibility (`Object.groupBy` and similar). This is why `.nvmrc` and `setup-node` are in the workflow.
+- A tool binary built with an older Go than `go.mod` targets. golangci-lint is the usual offender, so pin the action's version carefully.
+
 **Deferred**:
 - **OpenAPI drift** check — the original testing plan called for `api/openapi.yaml` + generated TS client. The spec hasn't been written yet (we built handlers freehand), so the drift check is deferred. Adding one is tracked as a follow-up.
 - **Deploy steps** — deliberately not scaffolded until AWS is wired up (empty stub YAML rots).

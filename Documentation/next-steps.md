@@ -2,7 +2,7 @@
 
 Living document. The short, scannable "top of the stack": the work you'd start on if you had an hour right now, plus items held for a specific external trigger.
 
-This is NOT the roadmap (that's `requirements.md`), NOT a plan (plans live under `~/.claude/plans/`), and NOT a changelog.
+This is NOT the roadmap (that's `requirements.md`) and NOT a changelog.
 
 **Update cadence:** refresh in the same commit that changes what's queued — whenever a milestone finishes, a bug is found and deferred, or a phase-2 concern graduates to near-term. Prefer pruning over accumulating: anything older than two milestones should either get worked on or get moved out (into `requirements.md`'s deferred / phase-2 section, or dropped entirely). If this list ever grows past ~10 items, it's rotting — trim it.
 

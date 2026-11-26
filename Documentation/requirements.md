@@ -22,7 +22,7 @@ A single mobile-first web app where users track collections of *any* kind of thi
 
 ## Milestone Roadmap (after MVP functional slice)
 
-Tracked in order of intended landing. Functional MVP items (#1–#7 above) interleave with these per the original plan (`~/.claude/plans/i-want-to-design-indexed-unicorn.md`).
+Tracked in order of intended landing. Functional MVP items (#1–#7 above) interleave with these.
 
 | Milestone | Title | Status |
 |---|---|---|
