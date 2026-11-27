@@ -44,7 +44,7 @@ Tracked in order of intended landing. Functional MVP items (#1–#7 above) inter
 
 The long-term product is a **two-layer model** (ADR 0004): a pre-loaded global catalog per category plus user-owned item records that reference it. Captured here as a first-class roadmap so today's work doesn't preclude it.
 
-- **Seeded catalog per category** — curated starter list of well-known items (Lego set numbers, Funko Pop series + numbers, common US/UK/EU coin denominations, etc.). Imported or hand-curated. Users pick from this list to add items without typing.
+- **Seeded catalog per category** — a starter list of known items, so users pick from it to add items without typing. Which dataset to seed, and whether it's imported or hand-curated, is decided when the work starts.
 - **User-submitted catalog entries** — when the thing a user wants isn't in the catalog, they submit it from the item-add flow. New entries are `status = pending` until reviewed.
 - **Admin role + moderation queue** — small admin role (most users have none) to approve or reject submitted catalog entries and edit existing ones. `approved_by` / `approved_at` columns on catalog entries are the audit trail (added in Milestone 8 pre-emptively, populated when moderation lands).
 - **Catalog supplements / corrections** — users can propose edits to existing catalog entries (missing attribute, wrong year, etc.). Audit-trailed.
