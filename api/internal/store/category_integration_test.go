@@ -60,7 +60,7 @@ func provisionSeededDB(t *testing.T, name string) (*pgxpool.Pool, func()) {
 	pool, err := store.NewPool(ctx, dbURL)
 	require.NoError(t, err)
 
-	_, err = seed.Categories(ctx, pool)
+	_, err = seed.Apply(ctx, pool, seed.Options{Env: "test"})
 	require.NoError(t, err)
 
 	cleanup := func() {
@@ -134,7 +134,7 @@ func TestCategoriesSeedIsIdempotent(t *testing.T) {
 	defer cancel()
 
 	// Seed a second time; row count must still be exactly 8.
-	_, err := seed.Categories(ctx, pool)
+	_, err := seed.Apply(ctx, pool, seed.Options{Env: "test"})
 	require.NoError(t, err)
 
 	cats := store.NewCategories(pool)

@@ -46,12 +46,14 @@ func main() {
 	}
 	defer pool.Close()
 
-	if rows, err := seed.Categories(startupCtx, pool); err != nil {
-		logger.Error("category seed failed", "err", err)
+	// Reference seeds always; dev seeds only with SEED_DEV_DATA=true (refused
+	// in production). Every seed file is idempotent, so this runs on each start.
+	applied, err := seed.Apply(startupCtx, pool, seed.Options{Env: cfg.Env, Dev: cfg.SeedDevData})
+	if err != nil {
+		logger.Error("seed failed", "err", err)
 		os.Exit(1)
-	} else {
-		logger.Info("category seed applied", "rows", rows)
 	}
+	logger.Info("seeds applied", "files", applied, "dev", cfg.SeedDevData)
 
 	sessionSecret, err := resolveSessionSecret(cfg, logger)
 	if err != nil {
