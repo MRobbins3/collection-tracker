@@ -7,7 +7,7 @@ Mobile-first web app for tracking collections of anything — Lego, Funko, coins
 | Path | What lives there |
 |---|---|
 | `api/` | Go 1.25 service. chi + pgx + goose migrations + signed-cookie sessions. |
-| `web/` | Nuxt 3 + Vue 3 + Tailwind + `@nuxt/icon` (Lucide set) + `@vite-pwa/nuxt`. |
+| `web/` | Nuxt 4 + Vue 3 + Tailwind + `@nuxt/icon` (Lucide set) + `@vite-pwa/nuxt`. App code lives under `web/app/` (Nuxt 4 default `srcDir`); `public/`, `tests/`, and config stay at the `web/` root. |
 | `Documentation/requirements.md` | **Living** feature list + roadmap table + changelog. Read this first. |
 | `Documentation/next-steps.md` | **Living** queued work (priority order) + items held for external triggers. Check this when asked "what's next?" |
 | `Documentation/dependencies.md` | **Living** version-pin policy, what Dependabot covers, and how to bump tools CI depends on. |

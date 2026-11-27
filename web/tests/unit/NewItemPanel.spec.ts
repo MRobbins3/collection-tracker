@@ -60,6 +60,6 @@ describe("NewItemPanel", () => {
 
     const emitted = wrapper.emitted("create");
     expect(emitted).toBeTruthy();
-    expect(emitted?.[0][0]).toMatchObject({ name: "Manual Entry", quantity: 1 });
+    expect(emitted?.[0]?.[0]).toMatchObject({ name: "Manual Entry", quantity: 1 });
   });
 });

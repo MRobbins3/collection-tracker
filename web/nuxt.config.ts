@@ -34,7 +34,8 @@ export default defineNuxtConfig({
         },
       ],
     },
-    workbox: {
+    // v2 renamed the generateSW strategy's `workbox` option to `generateSW`.
+    generateSW: {
       globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
       navigateFallback: "/",
       runtimeCaching: [
@@ -121,5 +122,10 @@ export default defineNuxtConfig({
   },
   typescript: {
     strict: true,
+    // Nuxt 4's generated app tsconfig only covers app/ (and tests/nuxt), so
+    // pull the Vitest component specs in to keep them type-checked.
+    tsConfig: {
+      include: ["../tests/unit/**/*"],
+    },
   },
 });
