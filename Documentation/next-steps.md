@@ -9,8 +9,7 @@ This is NOT the roadmap (that's `requirements.md`) and NOT a changelog.
 ## Queued work (rough priority order)
 
 1. **Real catalog dataset (waiting on the owner).** Seeding, browse, autocomplete, and item linking shipped with a 20-entry cited sample in `api/internal/seed/sql/dev/0002_sample_catalog.sql` (ADR 0011). The owner has a specific dataset in mind; when it arrives, load it as reference data (or an import) keyed on the `catalog_entries_natural_key` unique index (live entries only, migration 0007), copy `identifier` from each category's `catalog_identifier` attribute, and retire the dev sample.
-2. **Friends and followers.** Profiles, handles, and the privacy rule shipped (ADR 0009); the follower and friend visibility levels are inert until this lands. Implement it in `store.Relationships.Between` (accepted friendship → Friend, approved follow → Follower). Every privacy check then picks it up, with no handler changes. Honor `accept_friend_requests` / `accept_follow_requests` when requests are created. New tables referencing `users` must `ON DELETE CASCADE` so `DELETE /me` stays complete.
-
+2. **Blocking (friends and followers follow-up).** Friends and followers shipped (ADR 0014) with deny, remove follower, unfriend, the accept toggles, and per-user rate limits, but no block. A block should hide both profiles from each other (a new input to `store.Relationships.Between` / `privacy`), refuse requests both ways, drop existing friendships and follows, and have a "Blocked" list to undo it. Owner input on whether the blocked person is told is in `Documentation/review/friends-followers-review.md`.
 3. **Owner decisions on user-built categories** (ADR 0013, see `Documentation/review/user-categories-review.md`): brand-new custom fields beyond the library, and how an approved category changes (a `category_correction` moderation kind for new options/fields is the likely shape).
 
 ## Held for external triggers
