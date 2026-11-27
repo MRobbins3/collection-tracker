@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -26,6 +28,16 @@ type selfOrNone struct{}
 func (selfOrNone) Between(_ context.Context, viewerID, ownerID string) (privacy.Relationship, error) {
 	return privacy.RelationshipFor(viewerID, ownerID, privacy.None), nil
 }
+
+// Handle checks are rate limited per user: unique handles make the check an
+// unavoidable "does @x exist?" oracle (even for Private profiles; ADR 0009),
+// so it must not be usable for bulk enumeration. 20 quick checks, then one
+// every 3 seconds, is plenty for someone typing.
+const (
+	handleCheckBurst    = 20
+	handleCheckInterval = 3 * time.Second
+	msgTooManyChecks    = "You’re checking handles too quickly. Wait a moment and try again."
+)
 
 const (
 	msgFixFields  = "Please fix the highlighted fields."
@@ -141,10 +153,15 @@ func (h *handlers) patchMyProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleAvailability answers the settings form's live check. It's signed-in
-// only so it isn't an anonymous handle-enumeration endpoint, and your own
-// current handle counts as available.
+// only and rate limited per user, to make bulk enumeration impractical, and
+// your own current handle counts as available.
 func (h *handlers) handleAvailability(w http.ResponseWriter, r *http.Request) {
 	s, _ := auth.FromContext(r.Context())
+	if !h.handleChecks.Allow(s.UserID) {
+		w.Header().Set("Retry-After", strconv.Itoa(int(handleCheckInterval.Seconds())))
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": msgTooManyChecks})
+		return
+	}
 	raw := r.URL.Query().Get("handle")
 	if raw == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "handle is required"})

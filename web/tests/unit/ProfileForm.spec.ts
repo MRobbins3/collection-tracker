@@ -83,6 +83,16 @@ describe("ProfileForm", () => {
     expect(wrapper.get('[data-testid="profile-handle"]').attributes("aria-invalid")).toBe("true");
   });
 
+  it("asks you to slow down when the API rate-limits handle checks", async () => {
+    checkHandle.mockRejectedValueOnce({
+      statusCode: 429,
+      data: { error: "You’re checking handles too quickly. Wait a moment and try again." },
+    });
+    const wrapper = mountForm();
+    await typeHandle(wrapper, "emma_two");
+    expect(wrapper.get('[data-testid="handle-status"]').text()).toContain("too quickly");
+  });
+
   it("explains format problems without asking the server", async () => {
     const wrapper = mountForm();
     await typeHandle(wrapper, "has space");

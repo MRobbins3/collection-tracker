@@ -363,6 +363,27 @@ func TestHandleAvailability(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 }
 
+func TestHandleAvailabilityIsRateLimitedPerUser(t *testing.T) {
+	f := newProfileFixture(t)
+	base := f.router(t, "") // one router, so one limiter, for both users
+	sessions := auth.NewManager([]byte("01234567890123456789012345678901"), false)
+	emma := authedWrap(base, sessions, "u-emma")
+	var last *httptest.ResponseRecorder
+	for i := 0; i < 21; i++ {
+		last = doJSON(t, emma, http.MethodGet, "/me/handle-availability?handle=probe_"+itoa(i+1), nil)
+		if i < 20 {
+			require.Equal(t, http.StatusOK, last.Code, "check %d", i+1)
+		}
+	}
+	require.Equal(t, http.StatusTooManyRequests, last.Code)
+	require.NotEmpty(t, last.Header().Get("Retry-After"))
+	require.Contains(t, decode[struct{ Error string }](t, last).Error, "too quickly")
+
+	// The budget is per user.
+	rr := doJSON(t, authedWrap(base, sessions, "u-liam"), http.MethodGet, "/me/handle-availability?handle=probe", nil)
+	require.Equal(t, http.StatusOK, rr.Code)
+}
+
 // ---- DELETE /me ----------------------------------------------------------
 
 func TestDeleteMyAccount(t *testing.T) {

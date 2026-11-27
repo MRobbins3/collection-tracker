@@ -69,6 +69,7 @@ type handlers struct {
 	catalog       CatalogStore
 	users         UserStore
 	relationships RelationshipStore
+	handleChecks  *keyedLimiter
 	sessions      *auth.Manager
 	googleAuth    *auth.Google
 	devAuth       *auth.Dev
@@ -87,6 +88,7 @@ func NewRouter(deps Deps) http.Handler {
 		catalog:       deps.Catalog,
 		users:         deps.Users,
 		relationships: deps.Relationships,
+		handleChecks:  newKeyedLimiter(handleCheckBurst, handleCheckInterval),
 		sessions:      deps.Sessions,
 		googleAuth:    deps.GoogleAuth,
 		devAuth:       deps.DevAuth,

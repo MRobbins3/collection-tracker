@@ -60,8 +60,17 @@ watch(debouncedHandle, async (h) => {
   try {
     const res = await checkHandle(h);
     if (res.handle === normalizedHandle.value) availability.value = res;
-  } catch {
-    // The save will report any problem; the live check is a convenience.
+  } catch (e) {
+    // The save reports any real problem; the live check is a convenience.
+    // Only "slow down" (429) is worth showing.
+    const err = e as { statusCode?: number; data?: { error?: string } };
+    if (err?.statusCode === 429 && h === normalizedHandle.value) {
+      availability.value = {
+        handle: h,
+        available: false,
+        message: err.data?.error ?? "You’re checking handles too quickly. Wait a moment and try again.",
+      };
+    }
   } finally {
     checking.value = false;
   }
