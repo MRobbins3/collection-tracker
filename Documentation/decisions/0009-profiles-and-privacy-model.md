@@ -5,7 +5,7 @@
 
 ## Context
 
-Users need a public identity (a handle and profile page) before friends, followers (PR 9), and collection comparison (PR 10) can exist. Those features all ask the same question: "may this viewer see this owner's collections?" If each feature answers it on its own, the answers drift and private data leaks. The owner decided the shape up front: collection visibility is Public / Followers & friends / Friends only / Private, plus "accept friend requests" and "accept follow requests" toggles, enforced server-side. Following and friending both need approval.
+Users need a public identity (a handle and profile page) before friends, followers (ADR 0014), and collection comparison can exist. Those features all ask the same question: "may this viewer see this owner's collections?" If each feature answers it on its own, the answers drift and private data leaks. The owner decided the shape up front: collection visibility is Public / Followers & friends / Friends only / Private, plus "accept friend requests" and "accept follow requests" toggles, enforced server-side. Following and friending both need approval.
 
 ## Decision
 
@@ -20,7 +20,7 @@ Users need a public identity (a handle and profile page) before friends, followe
 ### Privacy settings
 
 - **`collection_visibility`**: `public | followers_and_friends | friends_only | private` (CHECK constraint).
-- **`accept_friend_requests`, `accept_follow_requests`**: booleans, both default `true`. Every follow still needs approval, so accepting requests doesn't expose anything by itself. PR 9 enforces these toggles when requests are created.
+- **`accept_friend_requests`, `accept_follow_requests`**: booleans, both default `true`. Every follow still needs approval, so accepting requests doesn't expose anything by itself. They're enforced when requests are created (ADR 0014).
 - **Default visibility: `friends_only`**, for new and backfilled users. This is privacy by default: strangers see nothing of a new user's collections until the user opts in. The profile card stays findable, so friend requests can reach them. Backfilled users had no visibility to anyone before this change, so the default doesn't widen exposure.
 
 ### The rule: one place
@@ -32,7 +32,7 @@ Users need a public identity (a handle and profile page) before friends, followe
 - Unknown values fail closed (only Self sees anything).
 - `RelationshipFor(viewerID, ownerID, looked)` makes the owner Self and an anonymous viewer None, whatever the stored lookup says.
 
-The relationship comes from `store.Relationships.Between(viewer, owner)`. It returns **Self or None today**, because friends and followers don't exist yet. PR 9 changes only that function (accepted friendship → Friend, approved follow → Follower; Friend wins when both apply). Every check then honors the follower and friend levels with no handler changes. The handler-side entry point is `resolveView` in `handlers_profile.go`, which every `/users/{handle}` endpoint goes through. The rule has a full matrix table test, and the handler tests prove that a fake Follower or Friend relationship unlocks the right levels.
+The relationship comes from `store.Relationships.Between(viewer, owner)`. It originally returned only Self or None; ADR 0014 (friends and followers) made it report Friend, Follower, and a new Pending (the owner sent the viewer a request: the card shows, collections don't) with no handler changes. The handler-side entry point is `resolveView` in `handlers_profile.go`, which every `/users/{handle}` endpoint goes through. The rule has a full matrix table test, and the handler tests prove that a fake Follower or Friend relationship unlocks the right levels.
 
 ### API
 

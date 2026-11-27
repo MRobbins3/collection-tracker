@@ -164,6 +164,8 @@ type profileFixture struct {
 	// collection ids by owner handle
 	collIDs map[string]string
 	cats    *fakeCategories
+	// social, when set, backs both Relationships and Social.
+	social *fakeSocial
 }
 
 func newProfileFixture(t *testing.T) *profileFixture {
@@ -190,13 +192,18 @@ func newProfileFixture(t *testing.T) *profileFixture {
 }
 
 func (f *profileFixture) deps() server.Deps {
-	return server.Deps{
+	d := server.Deps{
 		Categories:    f.cats,
 		Collections:   f.colls,
 		Items:         f.items,
 		Users:         f.users,
 		Relationships: f.rels,
 	}
+	if f.social != nil {
+		d.Relationships = f.social
+		d.Social = f.social
+	}
+	return d
 }
 
 // router returns a router where every request is made as viewerID; ""

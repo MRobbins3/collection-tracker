@@ -93,6 +93,48 @@ export interface PublicProfileResponse {
   collections_visible: boolean;
   /** Empty when collections_visible is false. */
   collections: Collection[];
+  /** Where you stand with this person. null when signed out or it's you. */
+  relationship: ViewerRelationship | null;
+}
+
+/** A friendship from your side (ADR 0014). */
+export type FriendStatus = "none" | "request_sent" | "request_received" | "friends";
+/** One direction of following. Every follow needs approval. */
+export type FollowStatus = "none" | "requested" | "following";
+
+/** The relationship block of GET /users/{handle}. */
+export interface ViewerRelationship {
+  friend: FriendStatus;
+  /** You → them. */
+  following: FollowStatus;
+  /** Them → you. */
+  follows_you: FollowStatus;
+  accepts_friend_requests: boolean;
+  accepts_follow_requests: boolean;
+}
+
+/** The public card fields of a person (people search returns only these). */
+export interface PersonCard {
+  handle: string;
+  display_name: string;
+  avatar_color: string;
+}
+
+/** Someone in a friends, followers, or requests list. */
+export interface Person extends PersonCard {
+  /** When the friendship, follow, or request began. */
+  since: string;
+}
+
+/** The tabs of the People page. */
+export type PeopleTab = "friends" | "followers" | "following" | "requests";
+
+/** GET /me/requests: everything pending to or from you. */
+export interface RequestsResponse {
+  friend_incoming: Person[];
+  friend_outgoing: Person[];
+  follow_incoming: Person[];
+  follow_outgoing: Person[];
 }
 
 /** GET /users/{handle}/collections/{id}: one collection, read-only. */

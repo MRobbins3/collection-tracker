@@ -4,6 +4,15 @@ const handle = String(route.params.handle);
 const { ready } = useAuth();
 const { data, pending, error, refresh } = usePublicProfile(handle);
 
+// After a friend/follow action the profile reloads. Declining, unfriending,
+// or unfollowing someone with a Private profile can hide it from you (404);
+// say the action worked instead of "Profile not found".
+const actedOnName = ref<string | null>(null);
+async function onChanged() {
+  actedOnName.value = data.value?.profile.display_name ?? null;
+  await refresh();
+}
+
 useHead(() => ({
   title: data.value ? `${data.value.profile.display_name} · Collection Tracker` : "Profile · Collection Tracker",
 }));
@@ -22,7 +31,20 @@ useHead(() => ({
       We couldn’t load this profile.
       <button type="button" class="font-medium underline" @click="() => refresh()">Try again</button>
     </div>
-    <PublicProfileView v-else-if="data" :data="data" />
+    <PublicProfileView v-else-if="data" :data="data" @changed="onChanged" />
+    <section
+      v-else-if="actedOnName"
+      class="space-y-3 rounded-xl bg-slate-100 p-6 text-center dark:bg-slate-800"
+      data-testid="profile-gone"
+    >
+      <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-50">Done</h1>
+      <p class="text-sm text-slate-600 dark:text-slate-300">
+        {{ actedOnName }} keeps their profile private, so you can’t see it any more.
+      </p>
+      <NuxtLink to="/people" class="inline-block text-sm text-slate-700 underline underline-offset-2 dark:text-slate-200">
+        Back to People
+      </NuxtLink>
+    </section>
     <section v-else class="space-y-3 rounded-xl bg-slate-100 p-6 text-center dark:bg-slate-800" data-testid="profile-not-found">
       <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-50">Profile not found</h1>
       <p class="text-sm text-slate-600 dark:text-slate-300">

@@ -92,6 +92,7 @@ func main() {
 		}
 	}
 
+	relationships := store.NewRelationships(pool)
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: server.NewRouter(server.Deps{
@@ -103,7 +104,8 @@ func main() {
 			Catalog:       store.NewCatalog(pool),
 			Moderation:    store.NewModeration(pool),
 			Overview:      store.NewOverview(pool),
-			Relationships: store.NewRelationships(pool),
+			Relationships: relationships,
+			Social:        relationships,
 			Users:         users,
 			Sessions:      sessions,
 			GoogleAuth:    googleAuth,

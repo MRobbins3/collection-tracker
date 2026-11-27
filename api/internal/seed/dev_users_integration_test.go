@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/privacy"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/seed"
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
 )
 
 // The dev set seeds the sign-in personas (ADR 0008). Each one is keyed on a
@@ -88,4 +90,53 @@ func TestDevSeedItemsMatchTheirCategorySchema(t *testing.T) {
 	}
 	require.NoError(t, rows.Err())
 	require.Positive(t, n, "expected seeded items")
+}
+
+// The dev set gives the personas friends and followers so every visibility
+// level is demoable (ADR 0014): Noah (Friends only) is Liam's friend, Liam
+// follows Amelia (Followers & friends), and Emma has a request to answer.
+// Olivia has no ties, so she sees what a stranger sees.
+func TestDevSeedsRelateThePersonas(t *testing.T) {
+	pool := provisionMigratedDB(t)
+	ctx := context.Background()
+	_, err := seed.Apply(ctx, pool, seed.Options{Env: "test", Dev: true})
+	require.NoError(t, err)
+
+	users := store.NewUsers(pool)
+	rels := store.NewRelationships(pool)
+	id := func(handle string) string {
+		u, err := users.GetByGoogleSub(ctx, "dev:"+handle)
+		require.NoError(t, err)
+		return u.ID
+	}
+	sees := func(viewer, owner string) bool {
+		rel, err := rels.Between(ctx, id(viewer), id(owner))
+		require.NoError(t, err)
+		p, err := users.GetProfile(ctx, id(owner))
+		require.NoError(t, err)
+		return privacy.CanViewCollections(p.CollectionVisibility, rel)
+	}
+
+	require.True(t, sees("liam", "noah"), "friends see Friends only")
+	require.False(t, sees("olivia", "noah"))
+	require.True(t, sees("liam", "amelia"), "an approved follower sees Followers & friends")
+	require.False(t, sees("olivia", "amelia"))
+	require.False(t, sees("amelia", "emma"), "a pending follow request unlocks nothing")
+
+	followers, err := rels.ListFollowers(ctx, id("liam"))
+	require.NoError(t, err)
+	require.Len(t, followers, 1)
+	require.Equal(t, "amelia", followers[0].Handle)
+
+	reqs, err := rels.ListRequests(ctx, id("emma"))
+	require.NoError(t, err)
+	require.Len(t, reqs.FollowIncoming, 1)
+	require.Equal(t, "amelia", reqs.FollowIncoming[0].Handle)
+
+	friends, err := rels.ListFriends(ctx, id("olivia"))
+	require.NoError(t, err)
+	require.Empty(t, friends, "Olivia stays a stranger to everyone")
+	n, err := rels.IncomingRequestCount(ctx, id("olivia"))
+	require.NoError(t, err)
+	require.Zero(t, n)
 }

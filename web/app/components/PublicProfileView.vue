@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import RelationshipActions from "./RelationshipActions.vue";
 import UserAvatar from "./UserAvatar.vue";
 import type { PublicProfileResponse } from "~/types/api";
 import { hiddenCollectionsMessage, ownVisibilityNote } from "~/utils/privacy";
 
 /**
- * Someone's profile as the API allowed this viewer to see it: the card, and
- * their collections read-only when visible. No edit controls, even for the
- * owner (they edit from My collections and Settings).
+ * Someone's profile as the API allowed this viewer to see it: the card, the
+ * friend/follow buttons for a signed-in visitor, and their collections
+ * read-only when visible. No edit controls, even for the owner (they edit
+ * from My collections and Settings). Emits "changed" when a friend or
+ * follow action may have changed what the viewer can see.
  */
 defineProps<{ data: PublicProfileResponse }>();
+const emit = defineEmits<{ (e: "changed"): void }>();
 </script>
 
 <template>
@@ -25,6 +29,13 @@ defineProps<{ data: PublicProfileResponse }>();
         <p v-if="data.profile.bio" class="mt-2 text-sm text-slate-700 dark:text-slate-300">
           {{ data.profile.bio }}
         </p>
+        <RelationshipActions
+          v-if="data.relationship"
+          :handle="data.profile.handle"
+          :name="data.profile.display_name"
+          :relationship="data.relationship"
+          @changed="emit('changed')"
+        />
         <div v-if="data.is_self" class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
           <NuxtLink
             to="/settings"

@@ -32,12 +32,26 @@ function response(over: Partial<PublicProfileResponse> = {}): PublicProfileRespo
     collection_visibility: "public",
     collections_visible: true,
     collections: liamCollections,
+    relationship: null,
     ...over,
   };
 }
 
+const RelationshipActionsStub = defineComponent({
+  name: "RelationshipActions",
+  props: { handle: String, name: String, relationship: Object },
+  emits: ["changed"],
+  setup(props, { emit }) {
+    return () =>
+      h("button", { "data-testid": "relationship-stub", onClick: () => emit("changed") }, `${props.handle}:${props.name}`);
+  },
+});
+
 function mountView(data: PublicProfileResponse) {
-  return mount(PublicProfileView, { props: { data }, global: { stubs: { NuxtLink: NuxtLinkStub } } });
+  return mount(PublicProfileView, {
+    props: { data },
+    global: { stubs: { NuxtLink: NuxtLinkStub, RelationshipActions: RelationshipActionsStub } },
+  });
 }
 
 describe("PublicProfileView", () => {
@@ -83,5 +97,28 @@ describe("PublicProfileView", () => {
     const wrapper = mountView(response({ is_self: true, collection_visibility: "private" }));
     expect(wrapper.get('[data-testid="profile-edit-link"]').attributes("href")).toBe("/settings");
     expect(wrapper.get('[data-testid="profile-visibility-note"]').text()).toContain("Only you");
+  });
+
+  it("shows friend and follow buttons to a signed-in visitor and passes on changes", async () => {
+    const wrapper = mountView(
+      response({
+        relationship: {
+          friend: "none",
+          following: "none",
+          follows_you: "none",
+          accepts_friend_requests: true,
+          accepts_follow_requests: true,
+        },
+      }),
+    );
+    const stub = wrapper.get('[data-testid="relationship-stub"]');
+    expect(stub.text()).toBe("liam:Liam Johnson");
+    await stub.trigger("click");
+    expect(wrapper.emitted("changed")).toHaveLength(1);
+  });
+
+  it("shows no relationship buttons when signed out or on your own profile", () => {
+    expect(mountView(response()).find('[data-testid="relationship-stub"]').exists()).toBe(false);
+    expect(mountView(response({ is_self: true })).find('[data-testid="relationship-stub"]').exists()).toBe(false);
   });
 });

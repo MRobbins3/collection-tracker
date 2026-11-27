@@ -29,10 +29,13 @@ type Deps struct {
 	Overview    OverviewStore
 	Users       UserStore
 	// Relationships feeds the privacy rule (ADR 0009). nil falls back to
-	// "self or stranger", which is all that exists until friends/followers.
+	// "self or stranger" (handler tests that don't care).
 	Relationships RelationshipStore
-	Sessions      *auth.Manager
-	GoogleAuth    *auth.Google
+	// Social is friends and followers (ADR 0014); the same
+	// store.Relationships in production. nil leaves its routes unwired.
+	Social     SocialStore
+	Sessions   *auth.Manager
+	GoogleAuth *auth.Google
 	// DevAuth is the local/CI-only sign-in provider. nil (the default, and
 	// always in production) means its /auth/dev/* routes don't exist.
 	DevAuth     *auth.Dev
@@ -81,7 +84,10 @@ type handlers struct {
 	overview      OverviewStore
 	users         UserStore
 	relationships RelationshipStore
+	social        SocialStore
 	handleChecks  *keyedLimiter
+	requestLimits *keyedLimiter
+	searchLimits  *keyedLimiter
 	sessions      *auth.Manager
 	googleAuth    *auth.Google
 	devAuth       *auth.Dev
@@ -102,7 +108,10 @@ func NewRouter(deps Deps) http.Handler {
 		overview:      deps.Overview,
 		users:         deps.Users,
 		relationships: deps.Relationships,
+		social:        deps.Social,
 		handleChecks:  newKeyedLimiter(handleCheckBurst, handleCheckInterval),
+		requestLimits: newKeyedLimiter(requestBurst, requestInterval),
+		searchLimits:  newKeyedLimiter(searchBurst, searchInterval),
 		sessions:      deps.Sessions,
 		googleAuth:    deps.GoogleAuth,
 		devAuth:       deps.DevAuth,
@@ -209,6 +218,29 @@ func NewRouter(deps Deps) http.Handler {
 		r.Patch("/me/profile", h.patchMyProfile)
 		r.Get("/me/handle-availability", h.handleAvailability)
 		r.Delete("/me", h.deleteMe)
+
+		// Friends and followers (ADR 0014). New requests go to a profile
+		// (/users/{handle}/...) and pass the privacy rule; answers and
+		// removals live under /me and act only on your own relationships.
+		if h.social != nil {
+			sc := h.social
+			r.Post("/users/{handle}/friend-request", h.sendFriendRequest)
+			r.Delete("/users/{handle}/friend-request", h.removal(sc.CancelFriendRequest, "cancelFriendRequest"))
+			r.Post("/users/{handle}/follow", h.requestFollow)
+			r.Delete("/users/{handle}/follow", h.removal(sc.Unfollow, "unfollow"))
+			r.Post("/me/friend-requests/{handle}/accept", h.approval(sc.AcceptFriendRequest, "acceptFriendRequest"))
+			r.Post("/me/friend-requests/{handle}/decline", h.removal(sc.DeclineFriendRequest, "declineFriendRequest"))
+			r.Delete("/me/friends/{handle}", h.removal(sc.Unfriend, "unfriend"))
+			r.Post("/me/follow-requests/{handle}/approve", h.approval(sc.ApproveFollower, "approveFollower"))
+			r.Post("/me/follow-requests/{handle}/deny", h.removal(sc.DenyFollower, "denyFollower"))
+			r.Delete("/me/followers/{handle}", h.removal(sc.RemoveFollower, "removeFollower"))
+			r.Get("/me/friends", h.listPeople(sc.ListFriends, "listFriends"))
+			r.Get("/me/followers", h.listPeople(sc.ListFollowers, "listFollowers"))
+			r.Get("/me/following", h.listPeople(sc.ListFollowing, "listFollowing"))
+			r.Get("/me/requests", h.listMyRequests)
+			r.Get("/me/requests/count", h.countMyRequests)
+			r.Get("/people", h.searchPeople)
+		}
 
 		// Admin only (ADR 0004 roles, ADR 0012). requireLiveUser put the
 		// user's current role on the context; non-admins get 403.

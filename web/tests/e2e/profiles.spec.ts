@@ -83,7 +83,16 @@ test.describe("viewing other people's profiles", () => {
     await page.goto("/u/emma");
     await expect(page.getByTestId("profile-not-found")).toBeVisible();
 
-    // Noah shares with friends only: his card shows, his collections don't.
+    // Noah shares with friends only, and Liam is his friend (dev seed).
+    await page.goto("/u/noah");
+    await expect(page.getByRole("heading", { name: "Noah Williams" })).toBeVisible();
+    await expect(page.getByTestId("profile-collections").getByText("US Coins")).toBeVisible();
+  });
+
+  test("a stranger sees a Friends-only card but not its collections", async ({ page }) => {
+    // Olivia has no friends or followers in the dev seed.
+    await page.goto("/");
+    await signInAsTestUser(page, "Olivia Martinez");
     await page.goto("/u/noah");
     await expect(page.getByRole("heading", { name: "Noah Williams" })).toBeVisible();
     await expect(page.getByTestId("profile-collections-hidden")).toContainText("friends");
