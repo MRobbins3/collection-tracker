@@ -27,6 +27,16 @@ watch(urlTerm, (q) => {
   const { q: _old, ...rest } = route.query;
   void router.replace({ query: q ? { ...rest, q } : rest });
 });
+// The page component is reused across /my?q=… → /my (e.g. the header's
+// "My collections" link), so follow ?q= when it changes from outside. Our
+// own replace above writes urlTerm, so comparing against it ignores those.
+watch(
+  () => route.query.q,
+  (q) => {
+    const next = typeof q === "string" ? q : "";
+    if (normalizeSearchQuery(next) !== urlTerm.value) searchText.value = next;
+  },
+);
 
 async function onCreated() {
   await refreshCollections();

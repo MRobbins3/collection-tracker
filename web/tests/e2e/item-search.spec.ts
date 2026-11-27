@@ -32,6 +32,20 @@ test.describe("search your own items", () => {
     await expect(page).toHaveURL(/\/my$/);
   });
 
+  test("the header's My collections link clears an active search", async ({ page }) => {
+    await page.goto("/my");
+    await signInAsTestUser(page, "Liam Johnson");
+    await page.getByLabel("Search your items").fill("falcon");
+    await expect(page.getByTestId("item-search-result").filter({ hasText: "Millennium Falcon" })).toBeVisible();
+    await expect(page).toHaveURL(/\/my\?q=falcon$/);
+
+    await page.getByTestId("nav-my-collections").click();
+    await expect(page).toHaveURL(/\/my$/);
+    await expect(page.getByLabel("Search your items")).toHaveValue("");
+    await expect(page.getByTestId("my-collections-list")).toBeVisible();
+    await expect(page.getByTestId("item-search-result")).toHaveCount(0);
+  });
+
   test("shows an empty state when nothing matches", async ({ page }) => {
     await page.goto("/my");
     await signInAsTestUser(page, "Liam Johnson");
