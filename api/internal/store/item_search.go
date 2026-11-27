@@ -36,6 +36,11 @@ type ItemSearchMatch struct {
 //
 // At most limit results are returned; the bool reports whether more
 // matched. An empty query returns no results. Callers normalize whitespace.
+//
+// Performance: the query walks the caller's items (collections_user_idx,
+// then items_collection_idx) and filters each row; the OR with the
+// attribute match means the items.name trigram index isn't used. That's
+// fine at personal-collection scale.
 func (s *Items) SearchForUser(ctx context.Context, userID, q string, limit int) ([]ItemSearchResult, bool, error) {
 	out := make([]ItemSearchResult, 0)
 	if q == "" || limit <= 0 {
@@ -55,8 +60,13 @@ func (s *Items) SearchForUser(ctx context.Context, userID, q string, limit int) 
 			           initcap(replace(a.key, '_', ' '))
 			       ) AS label,
 			       a.value
-			FROM jsonb_each_text(i.attributes) a
+			-- Non-object attributes (never written by the API) would make
+			-- jsonb_each_text raise; treat them as no attributes.
+			FROM jsonb_each_text(CASE WHEN jsonb_typeof(i.attributes) = 'object'
+			                          THEN i.attributes ELSE '{}'::jsonb END) a
+			-- Only report an attribute for rows that didn't match on name.
 			WHERE i.name NOT ILIKE '%' || $3 || '%' ESCAPE '\'
+			  AND NOT ($2 <% i.name)
 			  AND a.value ILIKE '%' || $3 || '%' ESCAPE '\'
 			ORDER BY a.key
 			LIMIT 1

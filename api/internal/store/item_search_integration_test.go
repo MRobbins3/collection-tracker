@@ -135,3 +135,43 @@ func TestItemsSearchForUser(t *testing.T) {
 		require.Equal(t, []string{"Falcon Mini Build"}, names(got))
 	})
 }
+
+func TestItemsSearchForUserEdgeCases(t *testing.T) {
+	pool, cleanup := provisionSeededDB(t, t.Name())
+	t.Cleanup(cleanup)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	alice, err := store.NewUsers(pool).UpsertByGoogleSub(ctx, "alice-sub", "alice@example.com", "Alice")
+	require.NoError(t, err)
+	coll, err := store.NewCollections(pool).Create(ctx, alice.ID, "lego-sets", "Lego Shelf")
+	require.NoError(t, err)
+	items := store.NewItems(pool)
+
+	t.Run("a fuzzy name hit doesn't report an attribute match", func(t *testing.T) {
+		raw, _ := json.Marshal(map[string]any{"theme": "Nebulla Series"})
+		_, err := items.Create(ctx, coll.ID, alice.ID, store.ItemInput{Name: "Nebula Cruiser", Quantity: 1, Attributes: raw})
+		require.NoError(t, err)
+
+		got, _, err := items.SearchForUser(ctx, alice.ID, "nebulla", 50)
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		require.Nil(t, got[0].MatchedField)
+	})
+
+	t.Run("a row whose attributes aren't an object doesn't break search", func(t *testing.T) {
+		_, err := pool.Exec(ctx,
+			`INSERT INTO items (collection_id, name, quantity, attributes) VALUES ($1, 'Odd Row', 1, '"oops"'::jsonb)`,
+			coll.ID)
+		require.NoError(t, err)
+
+		got, _, err := items.SearchForUser(ctx, alice.ID, "oops", 50)
+		require.NoError(t, err)
+		require.Empty(t, got)
+
+		byName, _, err := items.SearchForUser(ctx, alice.ID, "odd", 50)
+		require.NoError(t, err)
+		require.Len(t, byName, 1)
+	})
+}
