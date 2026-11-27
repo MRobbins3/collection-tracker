@@ -27,6 +27,8 @@ describe("moderation labels", () => {
   it("names kinds and statuses in words", () => {
     expect(kindLabel("catalog_entry")).toBe("New entry");
     expect(kindLabel("catalog_correction")).toBe("Correction");
+    expect(kindLabel("category")).toBe("New category");
+    expect(statusLabel("approved", "category")).toBe("On the public list");
     expect(statusLabel("pending", "catalog_entry")).toBe("Waiting for review");
     expect(statusLabel("approved", "catalog_entry")).toBe("Added to the catalog");
     expect(statusLabel("approved", "catalog_correction")).toBe("Correction applied");

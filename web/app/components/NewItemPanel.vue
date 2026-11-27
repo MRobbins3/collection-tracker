@@ -17,6 +17,8 @@ const props = defineProps<{
   schema?: AttributeSchema;
   /** Human label of the category's identifier attribute ("Set number"), if any. */
   identifierTitle?: string | null;
+  /** The category isn't on the public list yet (ADR 0013), so it can't take catalog suggestions. */
+  noSuggestions?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -151,9 +153,10 @@ function onSubmit(payload: { name: string; quantity: number; condition?: string;
       >
         Not in the catalog yet — you can enter it manually.
         <button
+          v-if="!noSuggestions"
           type="button"
           class="font-medium text-slate-900 underline underline-offset-2 dark:text-slate-100"
-          data-testid="new-item-suggest-open"
+        data-testid="new-item-suggest-open"
           @click="openManualForm(true, true)"
         >
           Can’t find it? Suggest it for the catalog
@@ -190,7 +193,7 @@ function onSubmit(payload: { name: string; quantity: number; condition?: string;
         </button>
       </div>
       <label
-        v-if="!linkedEntry"
+        v-if="!linkedEntry && !noSuggestions"
         class="mt-3 flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300"
       >
         <input

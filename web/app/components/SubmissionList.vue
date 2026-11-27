@@ -81,6 +81,14 @@ function changedLabels(s: Submission): string {
         >
           View in the catalog
         </NuxtLink>
+        <NuxtLink
+          v-else-if="s.kind === 'category'"
+          :to="`/categories/${s.category_slug}`"
+          class="font-medium text-slate-700 underline hover:no-underline dark:text-slate-200"
+          data-testid="submission-category-link"
+        >
+          Open the category
+        </NuxtLink>
       </div>
     </li>
   </ul>

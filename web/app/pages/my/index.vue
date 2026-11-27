@@ -15,8 +15,12 @@ const { pin, unpin, setShowEmpty, loadMore } = useOverviewActions();
 const api = useApi();
 const hydrated = useHydrated();
 
-const { data: categoriesData } = await useAsyncData("categories:all", () =>
-  api.get<CategoriesResponse>("/categories"),
+// Watches sign-in so your own categories (ADR 0013), invisible to the
+// cookieless server render, load once auth resolves.
+const { data: categoriesData } = await useAsyncData(
+  "categories:all",
+  () => api.get<CategoriesResponse>("/categories"),
+  { watch: [isSignedIn] },
 );
 
 useHead({ title: "My collections · Collection Tracker" });

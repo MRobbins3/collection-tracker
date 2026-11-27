@@ -16,7 +16,7 @@ const { create, update, remove } = useItemsActions(id);
 const { submitEntry } = useSubmissionActions();
 // Result of "Also suggest it for the catalog" after adding an item.
 const suggestNotice = ref<{ text: string; error: boolean } | null>(null);
-const { data: category } = useAsyncData<Pick<Category, "attribute_schema" | "catalog_identifier">>(
+const { data: category } = useAsyncData<Pick<Category, "attribute_schema" | "catalog_identifier" | "status">>(
   `category-for-collection:${id}`,
   async () => {
     const api = useApi();
@@ -26,6 +26,8 @@ const { data: category } = useAsyncData<Pick<Category, "attribute_schema" | "cat
   { watch: [collection] },
 );
 const idTitle = computed(() => identifierTitle(category.value));
+// A category someone built has no catalog until it's on the public list (ADR 0013).
+const catalogOpen = computed(() => !category.value?.status || category.value.status === "approved");
 
 const categorySchema = computed<AttributeSchema | undefined>(
   () => (category.value?.attribute_schema as AttributeSchema | undefined),
@@ -176,6 +178,7 @@ async function onDeleteItem(itemId: string, name: string) {
           :category-slug="collection.category_slug"
           :schema="categorySchema"
           :identifier-title="idTitle"
+          :no-suggestions="!catalogOpen"
           @create="onCreateItem"
         />
 
@@ -207,7 +210,7 @@ async function onDeleteItem(itemId: string, name: string) {
             :key="it.id"
             :item="it"
             :schema="categorySchema"
-            :category-slug="collection.category_slug"
+            :category-slug="catalogOpen ? collection.category_slug : undefined"
             :identifier-title="idTitle"
             @update="(p) => onUpdateItem(it.id, p)"
             @catalog-changed="refreshItems()"

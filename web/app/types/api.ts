@@ -6,6 +6,42 @@ export interface Category {
   attribute_schema: Record<string, unknown>;
   /** The attribute that, with the name, tells catalog entries apart (e.g. set number). */
   catalog_identifier?: string;
+  /**
+   * "approved" for every category on the public list. A category someone
+   * built stays private, pending (waiting for review), or rejected until an
+   * admin approves it, and only its creator sees it until then.
+   */
+  status?: CategoryStatus;
+  /** You built this category. */
+  mine?: boolean;
+  /** For your own category: the admin's reason on its latest review. */
+  review_reason?: string;
+}
+
+export type CategoryStatus = "private" | "pending" | "approved" | "rejected";
+
+/** A reusable field from the library (GET /category-fields). */
+export interface LibraryField {
+  /** "<type>:<key>": what the builder sends back. */
+  id: string;
+  key: string;
+  title: string;
+  type: "string" | "integer" | "number";
+  description?: string;
+  minimum?: number;
+  /** Known options (a pick list). Empty means free text. */
+  options: string[];
+  /** The categories that use this field, each with the options it offers. */
+  sources: { slug: string; name: string; options?: string[] }[];
+}
+
+/** Body of POST /me/categories and PATCH /me/categories/{slug}. */
+export interface CategoryDraft {
+  name: string;
+  description?: string;
+  fields: { id: string; options: string[] }[];
+  /** The id of the chosen field that tells items apart, if any. */
+  catalog_identifier?: string;
 }
 
 export interface CategoriesResponse {
@@ -64,6 +100,8 @@ export interface PublicCollectionResponse {
   owner: PublicProfile;
   is_self: boolean;
   collection: Collection;
+  /** The collection's category (even one its owner built and hasn't published). */
+  category: { slug: string; name: string; attribute_schema: Record<string, unknown>; status: CategoryStatus };
   items: Item[];
 }
 
@@ -185,6 +223,8 @@ export interface AttributeProperty {
   description?: string;
   minimum?: number;
   maximum?: number;
+  /** A pick list: the value must be one of these. */
+  enum?: string[];
 }
 
 export interface AttributeSchema {
@@ -253,7 +293,7 @@ export interface OverviewResponse {
 // ---- Catalog suggestions and moderation (ADR 0012) ----------------------
 
 /** What a moderation request asks admins to review. Shown via utils/moderation.ts labels. */
-export type ModerationKind = "catalog_entry" | "catalog_correction";
+export type ModerationKind = "catalog_entry" | "catalog_correction" | "category";
 export type ModerationStatus = "pending" | "approved" | "rejected" | "merged";
 
 /** Catalog entry fields in a correction, an admin's edits, or the audit record. */
@@ -330,8 +370,10 @@ export interface ModerationRequest {
   status: ModerationStatus;
   category_slug: string;
   category_name: string;
-  /** The submitted entry, or for a correction the entry as it is now. */
-  entry: CatalogEntry;
+  /** The submitted entry, or for a correction the entry as it is now. Absent for a category. */
+  entry?: CatalogEntry;
+  /** A category asking to join the public list, as it is now (kind "category"). */
+  category?: Category;
   proposed?: EntryFields;
   previous?: EntryFields;
   applied?: EntryFields;

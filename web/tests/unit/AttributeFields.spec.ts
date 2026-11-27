@@ -55,4 +55,18 @@ describe("AttributeFields", () => {
     });
     expect(wrapper.find('[data-testid="attribute-fields"]').exists()).toBe(false);
   });
+
+  it("renders a pick list as a select of its options and emits the choice", async () => {
+    const wrapper = mount(AttributeFields, {
+      props: {
+        schema: { type: "object", properties: { theme: { type: "string", title: "Theme", enum: ["Star Wars", "LEGO Ideas"] } } },
+        modelValue: {},
+      },
+    });
+    const select = wrapper.get('[data-testid="attribute-field-theme"]');
+    expect(select.element.tagName).toBe("SELECT");
+    expect(select.findAll("option").map((o) => o.text())).toEqual(["—", "Star Wars", "LEGO Ideas"]);
+    await select.setValue("LEGO Ideas");
+    expect(wrapper.emitted("update:modelValue")?.[0]?.[0]).toMatchObject({ theme: "LEGO Ideas" });
+  });
 });

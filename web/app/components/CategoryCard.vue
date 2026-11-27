@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { categoryStatusLabel } from "~/utils/categoryBuilder";
 import type { Category } from "~/types/api";
 
 defineProps<{ category: Category }>();
@@ -12,7 +13,16 @@ defineProps<{ category: Category }>();
   >
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-50">{{ category.name }}</h3>
+        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-50">
+          {{ category.name }}
+          <span
+            v-if="categoryStatusLabel(category.status)"
+            class="ml-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 align-middle text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+            :data-testid="`category-status-${category.slug}`"
+          >
+            {{ categoryStatusLabel(category.status) }}
+          </span>
+        </h3>
         <p
           v-if="category.description"
           class="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400"

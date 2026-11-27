@@ -65,6 +65,7 @@ const selectClass =
           <option value="">Everything</option>
           <option value="catalog_entry">New entries</option>
           <option value="catalog_correction">Corrections</option>
+          <option value="category">New categories</option>
         </select>
       </div>
       <div>

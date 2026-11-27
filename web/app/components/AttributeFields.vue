@@ -16,6 +16,8 @@ interface FieldDef {
   title: string;
   description?: string;
   type: "string" | "integer" | "number" | "boolean";
+  /** A pick list (user-built categories, ADR 0013): rendered as a select. */
+  options?: string[];
 }
 
 const fields = computed<FieldDef[]>(() => {
@@ -25,6 +27,7 @@ const fields = computed<FieldDef[]>(() => {
     title: def.title ?? humanize(key),
     description: def.description,
     type: def.type,
+    options: def.type === "string" && def.enum && def.enum.length > 0 ? def.enum : undefined,
   }));
 });
 
@@ -57,8 +60,18 @@ function asNumber(v: unknown): string {
         {{ f.description }}
       </span>
 
+      <select
+        v-if="f.options"
+        :value="asString(modelValue[f.key])"
+        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400"
+        :data-testid="`attribute-field-${f.key}`"
+        @change="onChange(f.key, ($event.target as HTMLSelectElement).value || undefined)"
+      >
+        <option value="">—</option>
+        <option v-for="o in f.options" :key="o" :value="o">{{ o }}</option>
+      </select>
       <input
-        v-if="f.type === 'string'"
+        v-else-if="f.type === 'string'"
         type="text"
         :value="asString(modelValue[f.key])"
         class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
