@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/migrations"
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
 )
 
 // admin DB URL; we connect here to create/drop disposable per-test databases
@@ -392,4 +393,93 @@ func TestCatalogEntriesUniquePerCategoryOnNormalizedKey(t *testing.T) {
 	require.Equal(t, "10179", identifierKey)
 
 	require.NoError(t, migrations.DownTo(ctx, dbURL, 4), "the key migration rolls back")
+}
+
+// The generated keys normalize Unicode whitespace exactly like the API's
+// textnorm.Key, so a name pasted with a non-breaking space can't sneak past
+// the natural key.
+func TestCatalogKeysMatchTextnormForUnicodeSpaces(t *testing.T) {
+	dbURL, cleanup := provisionDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, migrations.Up(ctx, dbURL))
+
+	db, err := sql.Open("pgx", dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	var cat string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO categories (slug, name) VALUES ('vinyl','Vinyl') RETURNING id`).Scan(&cat))
+
+	for _, name := range []string{
+		"\u00a0Abbey\u00a0Road\u3000",
+		"\tKind  of\u2009Blue\n",
+		"The\u202fDark Side",
+	} {
+		var nameKey, identifierKey string
+		require.NoError(t, db.QueryRowContext(ctx, `
+			INSERT INTO catalog_entries (category_id, name, identifier) VALUES ($1, $2, $2)
+			RETURNING name_key, identifier_key`, cat, name).Scan(&nameKey, &identifierKey), name)
+		require.Equal(t, textnorm.Key(name), nameKey, "%q", name)
+		require.Equal(t, textnorm.Key(name), identifierKey, "%q", name)
+	}
+
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO catalog_entries (category_id, name) VALUES ($1, 'Abbey Road')`, cat)
+	require.NoError(t, err, "no identifier: a different key from the NBSP entry above")
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO catalog_entries (category_id, name, identifier) VALUES ($1, 'abbey road', 'Abbey Road')`, cat)
+	require.Error(t, err, "same key as the NBSP entry once normalized")
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO catalog_entries (category_id, name) VALUES ($1, E'\u00a0\u3000')`, cat)
+	require.Error(t, err, "a name of only Unicode spaces is blank")
+}
+
+// Catalog search filters with LIKE '%…%' on the normalized keys; the
+// trigram indexes must be on those columns. enable_seqscan=off makes the
+// planner use an index when one applies, even on a tiny table.
+func TestCatalogSearchUsesTrigramIndexesOnKeys(t *testing.T) {
+	dbURL, cleanup := provisionDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, migrations.Up(ctx, dbURL))
+
+	db, err := sql.Open("pgx", dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	conn, err := db.Conn(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	// A few thousand rows and fresh stats, so the plan reflects a real
+	// category rather than an empty table.
+	_, err = conn.ExecContext(ctx, `
+		WITH cat AS (INSERT INTO categories (slug, name) VALUES ('lego','Lego') RETURNING id)
+		INSERT INTO catalog_entries (category_id, name, identifier, status)
+		SELECT cat.id, 'Set ' || g, g::text, 'approved' FROM cat, generate_series(1, 3000) g`)
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, `ANALYZE catalog_entries`)
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, `SET enable_seqscan = off`)
+	require.NoError(t, err)
+	explain := func(query string) string {
+		rows, err := conn.QueryContext(ctx, "EXPLAIN "+query)
+		require.NoError(t, err)
+		defer rows.Close()
+		var plan strings.Builder
+		for rows.Next() {
+			var line string
+			require.NoError(t, rows.Scan(&line))
+			plan.WriteString(line + "\n")
+		}
+		require.NoError(t, rows.Err())
+		return plan.String()
+	}
+	require.Contains(t, explain(`SELECT id FROM catalog_entries WHERE name_key LIKE '%falcon%'`),
+		"catalog_entries_name_key_trgm")
+	require.Contains(t, explain(`SELECT id FROM catalog_entries WHERE identifier_key LIKE '%7519%'`),
+		"catalog_entries_identifier_key_trgm")
 }

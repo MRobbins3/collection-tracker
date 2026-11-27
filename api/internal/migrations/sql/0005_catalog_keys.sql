@@ -15,7 +15,8 @@ ALTER TABLE categories
 -- attributes when the entry is written (the seed does it in SQL, the API in
 -- Go). It is display text ("75192"); the *_key columns are the normalized
 -- comparison forms: trimmed, internal whitespace collapsed, lowercased.
--- These match textnorm.Key in the API, so app writes and seed writes agree.
+-- 0006 widens the whitespace handling to Unicode spaces so they line up
+-- with textnorm.Key in the API.
 ALTER TABLE catalog_entries
     ADD COLUMN identifier text,
     ADD COLUMN name_key text NOT NULL
