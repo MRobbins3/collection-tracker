@@ -48,6 +48,7 @@ func TestItemsSearchForUser(t *testing.T) {
 	add(aliceLego.ID, alice.ID, "Tree House", map[string]any{"set_number": "21318", "theme": "Ideas"})
 	abbey := add(aliceVinyl.ID, alice.ID, "Abbey Road", map[string]any{"artist": "The Beatles", "year": 1969})
 	add(aliceLego.ID, alice.ID, "100% Brick_Box", map[string]any{})
+	add(aliceLego.ID, alice.ID, "Ideas Notebook", map[string]any{})
 	add(bobLego.ID, bob.ID, "Millennium Falcon", map[string]any{"set_number": "75192"})
 
 	names := func(rs []store.ItemSearchResult) []string {
@@ -102,6 +103,12 @@ func TestItemsSearchForUser(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []string{"Millennium Falcon"}, names(bySet))
 		require.Equal(t, "Set number", bySet[0].MatchedField.Label)
+
+		mixed, _, err := items.SearchForUser(ctx, alice.ID, "ideas", 50)
+		require.NoError(t, err)
+		require.Equal(t, []string{"Ideas Notebook", "Tree House"}, names(mixed))
+		require.Nil(t, mixed[0].MatchedField)
+		require.Equal(t, "Theme", mixed[1].MatchedField.Label)
 	})
 
 	t.Run("LIKE wildcards in the query are literal", func(t *testing.T) {
