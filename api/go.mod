@@ -1,4 +1,4 @@
-module github.com/MRobbinsSAI/collection-tracker/api
+module github.com/MRobbins3/collection-tracker/api
 
 go 1.26.0
 

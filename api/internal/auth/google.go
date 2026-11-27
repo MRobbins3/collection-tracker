@@ -15,7 +15,7 @@ import (
 	"golang.org/x/oauth2"
 	googleoauth "golang.org/x/oauth2/google"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 // GoogleConfig carries the credentials needed to talk to Google. When

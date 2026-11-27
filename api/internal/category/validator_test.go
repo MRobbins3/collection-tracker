@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
+	"github.com/MRobbins3/collection-tracker/api/internal/category"
 )
 
 func TestValidateAttributes(t *testing.T) {

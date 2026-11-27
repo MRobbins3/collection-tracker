@@ -17,7 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/config"
+	"github.com/MRobbins3/collection-tracker/api/internal/config"
 )
 
 // ErrDevSeedNotAllowed is returned when dev seed data is requested while

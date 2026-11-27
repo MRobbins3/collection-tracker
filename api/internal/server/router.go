@@ -11,9 +11,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/auth"
+	"github.com/MRobbins3/collection-tracker/api/internal/category"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 // Deps groups the dependencies the HTTP layer needs. A struct keeps the

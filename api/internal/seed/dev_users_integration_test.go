@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/privacy"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/seed"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/category"
+	"github.com/MRobbins3/collection-tracker/api/internal/privacy"
+	"github.com/MRobbins3/collection-tracker/api/internal/seed"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 // The dev set seeds the sign-in personas (ADR 0008). Each one is keyed on a

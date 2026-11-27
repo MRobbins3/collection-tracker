@@ -8,10 +8,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
+	"github.com/MRobbins3/collection-tracker/api/internal/auth"
+	"github.com/MRobbins3/collection-tracker/api/internal/category"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/textnorm"
 )
 
 // User-built categories (ADR 0013). A user composes a category from fields

@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/privacy"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/profile"
+	"github.com/MRobbins3/collection-tracker/api/internal/privacy"
+	"github.com/MRobbins3/collection-tracker/api/internal/profile"
 )
 
 // Profile is a user's public-facing fields plus their privacy settings.

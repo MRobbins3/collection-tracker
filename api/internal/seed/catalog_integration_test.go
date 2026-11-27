@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/seed"
+	"github.com/MRobbins3/collection-tracker/api/internal/category"
+	"github.com/MRobbins3/collection-tracker/api/internal/seed"
 )
 
 // The sample catalog is dev data (the owner's real dataset is pending): it

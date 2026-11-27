@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/privacy"
+	"github.com/MRobbins3/collection-tracker/api/internal/privacy"
 )
 
 var allRelationships = []privacy.Relationship{

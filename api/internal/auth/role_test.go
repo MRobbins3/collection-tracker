@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
+	"github.com/MRobbins3/collection-tracker/api/internal/auth"
 )
 
 // requestWith builds a request carrying an optional session and role, the

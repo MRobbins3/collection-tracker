@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
+	"github.com/MRobbins3/collection-tracker/api/internal/auth"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/textnorm"
 )
 
 // CatalogStore is the narrow view of the global catalog (ADR 0004) the HTTP

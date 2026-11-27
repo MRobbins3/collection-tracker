@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/config"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/migrations"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/seed"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/server"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/auth"
+	"github.com/MRobbins3/collection-tracker/api/internal/config"
+	"github.com/MRobbins3/collection-tracker/api/internal/migrations"
+	"github.com/MRobbins3/collection-tracker/api/internal/seed"
+	"github.com/MRobbins3/collection-tracker/api/internal/server"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 func main() {

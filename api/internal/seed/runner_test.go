@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/seed"
+	"github.com/MRobbins3/collection-tracker/api/internal/seed"
 )
 
 // Dev seeds are allowlisted to development and test. Every other APP_ENV is
