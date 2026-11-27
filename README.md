@@ -20,7 +20,7 @@ See `Documentation/requirements.md` for the living feature list, `Documentation/
 
 - Docker + Docker Compose — this is the only thing you need to boot the whole stack.
 - (Optional) Bun 1.x and Node 24+ if you want to run the web tooling (`bun run test`, `bun run typecheck`) outside Docker. `.nvmrc` at the repo root pins the Node version for `nvm use`.
-- (Optional) Go 1.25+ if you want to run API tests outside Docker.
+- (Optional) Go 1.26+ if you want to run API tests outside Docker.
 
 ## Getting started
 
