@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, useId } from "vue";
 import { useDebouncedRef } from "~/composables/useDebouncedRef";
-import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { collapseWhitespace } from "~/utils/text";
 
 /**
  * Search box + results for the signed-in user's own items. The parent owns
@@ -19,7 +20,7 @@ const text = computed({
   get: () => props.modelValue,
   set: (value: string) => emit("update:modelValue", value),
 });
-const normalized = computed(() => normalizeSearchQuery(props.modelValue));
+const normalized = computed(() => collapseWhitespace(props.modelValue));
 const term = useDebouncedRef(normalized, SEARCH_DEBOUNCE_MS);
 const { data, pending, error, refresh } = useMyItemSearch(term);
 

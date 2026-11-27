@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CategoriesResponse } from "~/types/api";
-import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { collapseWhitespace } from "~/utils/text";
 import {
   overviewQuery,
   parseOverviewQuery,
@@ -148,7 +149,7 @@ async function onStartCollection(slug: string, name: string) {
 // from a result returns to the same results (and a reload keeps them).
 const initialQuery = route.query.q;
 const searchText = ref(typeof initialQuery === "string" ? initialQuery : "");
-const searchTerm = computed(() => normalizeSearchQuery(searchText.value));
+const searchTerm = computed(() => collapseWhitespace(searchText.value));
 const searching = computed(() => searchTerm.value !== "");
 const hasCollections = computed(() => (data.value?.collections.length ?? 0) > 0);
 const urlTerm = useDebouncedRef(searchTerm, SEARCH_DEBOUNCE_MS);
@@ -163,7 +164,7 @@ watch(
   () => route.query.q,
   (q) => {
     const next = typeof q === "string" ? q : "";
-    if (normalizeSearchQuery(next) !== urlTerm.value) searchText.value = next;
+    if (collapseWhitespace(next) !== urlTerm.value) searchText.value = next;
   },
 );
 

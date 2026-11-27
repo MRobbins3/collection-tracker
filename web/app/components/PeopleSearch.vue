@@ -3,7 +3,8 @@ import { computed, ref, useId, watch } from "vue";
 import PersonRow from "./PersonRow.vue";
 import { useDebouncedRef } from "~/composables/useDebouncedRef";
 import type { PersonCard } from "~/types/api";
-import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { collapseWhitespace } from "~/utils/text";
 import { socialErrorMessage } from "~/utils/social";
 
 /**
@@ -16,7 +17,7 @@ const MIN_LENGTH = 2;
 const { searchPeople } = useSocialActions();
 const inputId = useId();
 const text = ref("");
-const normalized = computed(() => normalizeSearchQuery(text.value).replace(/^@/, ""));
+const normalized = computed(() => collapseWhitespace(text.value).replace(/^@/, ""));
 const term = useDebouncedRef(normalized, SEARCH_DEBOUNCE_MS);
 
 const results = ref<PersonCard[]>([]);

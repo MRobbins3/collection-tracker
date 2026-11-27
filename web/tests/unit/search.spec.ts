@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { effectScope, nextTick, ref } from "vue";
-import { normalizeSearchQuery } from "~/utils/search";
+import { collapseWhitespace } from "~/utils/text";
 import { useDebouncedRef } from "~/composables/useDebouncedRef";
 
-describe("normalizeSearchQuery", () => {
+describe("collapseWhitespace as a search-box normalizer", () => {
   it.each([
     ["  star   wars ", "star wars"],
     ["\tmillennium\n falcon", "millennium falcon"],
@@ -13,7 +13,7 @@ describe("normalizeSearchQuery", () => {
     [undefined, ""],
     ["UCS", "UCS"],
   ])("%j → %j", (input, expected) => {
-    expect(normalizeSearchQuery(input)).toBe(expected);
+    expect(collapseWhitespace(input)).toBe(expected);
   });
 });
 

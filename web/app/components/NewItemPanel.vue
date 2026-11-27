@@ -2,7 +2,7 @@
 import { ref, watch } from "vue";
 import ItemForm from "./ItemForm.vue";
 import type { AttributeSchema, CatalogEntry } from "~/types/api";
-import { normalizeSearchQuery } from "~/utils/search";
+import { collapseWhitespace } from "~/utils/text";
 
 /**
  * Add an item: type to search the category's catalog, pick a match to link
@@ -54,7 +54,7 @@ let generation = 0;
 
 watch(query, (raw) => {
   if (searchTimer) clearTimeout(searchTimer);
-  const q = normalizeSearchQuery(raw);
+  const q = collapseWhitespace(raw);
   const gen = ++generation;
   if (!q) {
     results.value = [];
@@ -75,7 +75,7 @@ watch(query, (raw) => {
 });
 
 function openManualForm(fromQuery: boolean, suggest = false) {
-  prefilledName.value = fromQuery ? normalizeSearchQuery(query.value) : "";
+  prefilledName.value = fromQuery ? collapseWhitespace(query.value) : "";
   prefilledAttributes.value = {};
   linkedEntry.value = null;
   suggestToCatalog.value = suggest;

@@ -4,7 +4,8 @@ import { useDebouncedRef } from "~/composables/useDebouncedRef";
 import { useHydrated } from "~/composables/useHydrated";
 import { useShowMore } from "~/composables/useShowMore";
 import { catalogEntryPath, identifierTitle, midSentence } from "~/utils/catalog";
-import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { collapseWhitespace } from "~/utils/text";
 import type { CatalogEntry, Category } from "~/types/api";
 
 /**
@@ -18,7 +19,7 @@ const inputId = useId();
 // Server-rendered; the box and "Show more" only work once hydrated (see useHydrated).
 const hydrated = useHydrated();
 const text = ref("");
-const normalized = computed(() => normalizeSearchQuery(text.value));
+const normalized = computed(() => collapseWhitespace(text.value));
 const term = useDebouncedRef(normalized, SEARCH_DEBOUNCE_MS);
 
 const { data, pending, error, refresh } = useCatalogPage(props.category.slug, term);
