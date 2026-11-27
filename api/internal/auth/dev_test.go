@@ -20,6 +20,12 @@ type fakeDevUsers struct {
 	users    map[string]store.User // keyed by google_sub
 	getErr   error
 	seenSub  string
+	created  []string // google_subs passed to UpsertByGoogleSub
+}
+
+func (f *fakeDevUsers) UpsertByGoogleSub(_ context.Context, sub, email, displayName string) (store.User, error) {
+	f.created = append(f.created, sub)
+	return store.User{ID: "user-" + sub, GoogleSub: sub, Email: email, DisplayName: displayName, Handle: "disposable_tester"}, nil
 }
 
 func (f *fakeDevUsers) ListDevPersonas(_ context.Context) ([]store.Persona, error) {
@@ -178,4 +184,58 @@ func TestDevLoginStoreErrorIs500(t *testing.T) {
 	d.Login(rr, loginRequest(`{"persona":"liam"}`, "application/json", ""))
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	require.Nil(t, sessionCookieFrom(rr))
+}
+
+func disposableRequest(contentType, origin string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, "/auth/dev/disposable", strings.NewReader(`{}`))
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	return req
+}
+
+func TestDevDisposableCreatesAFreshUserAndSignsIn(t *testing.T) {
+	d, users, mgr := newDevFixture()
+
+	rr := httptest.NewRecorder()
+	d.Disposable(rr, disposableRequest("application/json", "http://localhost:3000"))
+	require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+
+	require.Len(t, users.created, 1)
+	sub := users.created[0]
+	require.True(t, strings.HasPrefix(sub, DisposableSubPrefix), sub)
+	require.False(t, strings.HasPrefix(sub, store.DevSubPrefix),
+		"disposable users must not show up in the persona picker")
+
+	var body struct{ User store.User }
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &body))
+	require.Equal(t, "user-"+sub, body.User.ID)
+	require.Contains(t, body.User.Email, "@example.com")
+
+	c := sessionCookieFrom(rr)
+	require.NotNil(t, c)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(c)
+	s, err := mgr.Read(req)
+	require.NoError(t, err)
+	require.Equal(t, "user-"+sub, s.UserID)
+
+	// Each call makes a different user.
+	d.Disposable(httptest.NewRecorder(), disposableRequest("application/json", ""))
+	require.Len(t, users.created, 2)
+	require.NotEqual(t, users.created[0], users.created[1])
+}
+
+func TestDevDisposableHasTheLoginCSRFGuard(t *testing.T) {
+	d, users, _ := newDevFixture()
+	rr := httptest.NewRecorder()
+	d.Disposable(rr, disposableRequest("text/plain", ""))
+	require.Equal(t, http.StatusUnsupportedMediaType, rr.Code)
+	rr = httptest.NewRecorder()
+	d.Disposable(rr, disposableRequest("application/json", "https://evil.example"))
+	require.Equal(t, http.StatusForbidden, rr.Code)
+	require.Empty(t, users.created)
 }

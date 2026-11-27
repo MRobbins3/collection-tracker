@@ -24,6 +24,10 @@ func (fakeDevUsers) ListDevPersonas(_ context.Context) ([]store.Persona, error) 
 	return []store.Persona{{Handle: "liam", DisplayName: liam.DisplayName, Email: liam.Email}}, nil
 }
 
+func (fakeDevUsers) UpsertByGoogleSub(_ context.Context, sub, email, name string) (store.User, error) {
+	return store.User{ID: "user-" + sub, GoogleSub: sub, Email: email, DisplayName: name}, nil
+}
+
 func (fakeDevUsers) GetByGoogleSub(_ context.Context, sub string) (store.User, error) {
 	if sub == liam.GoogleSub {
 		return liam, nil
@@ -74,6 +78,16 @@ func TestDevAuthRoutesDoNotExistWhenDisabled(t *testing.T) {
 	rr := serve(r, devLoginReq("liam"))
 	require.Equal(t, http.StatusNotFound, rr.Code)
 	require.Empty(t, rr.Result().Cookies(), "no session when dev auth is off")
+}
+
+func TestDevDisposableRouteOnlyWithDevAuth(t *testing.T) {
+	req := func() *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/auth/dev/disposable", strings.NewReader(`{}`))
+		r.Header.Set("Content-Type", "application/json")
+		return r
+	}
+	require.Equal(t, http.StatusNotFound, serve(newAuthRouter(authRouterOpts{}), req()).Code)
+	require.Equal(t, http.StatusOK, serve(newAuthRouter(authRouterOpts{dev: true}), req()).Code)
 }
 
 func TestDevAuthRoutesWhenEnabled(t *testing.T) {
