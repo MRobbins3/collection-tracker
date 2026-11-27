@@ -69,16 +69,17 @@ On the host directly: `.nvmrc` pins Node 24 for `nvm use`; then `cd web && bun i
 
 | Job | Gates |
 |---|---|
-| `api` | golangci-lint v2 (latest, so we get a binary built with Go ≥ 1.25); `go test -race` unit + handler; `go test -race -tags=integration` against a `postgres:16-alpine` service container |
+| `api` | golangci-lint pinned to v2.15.0 (bump deliberately; it must be built with Go ≥ our `go.mod` target); `go test -race` unit + handler; `go test -race -tags=integration` against a `postgres:16-alpine` service container |
 | `web` | Bun install with frozen lockfile; ESLint; `nuxt typecheck`; Vitest |
 | `e2e` | Runs API + Nuxt dev server in the background on the runner; caches Playwright browsers keyed on `bun.lock`; runs the Playwright smoke against chromium + webkit; uploads `playwright-report/`, `test-results/`, `api.log`, `web.log` on failure |
 
-A `concurrency` group cancels superseded runs for the same ref. Node is installed via `actions/setup-node@v4` with `node-version-file: .nvmrc` so ESLint's Node-shebang-dispatch gets a modern runtime.
+A `concurrency` group cancels superseded runs for the same ref. Node is installed via `actions/setup-node` with `node-version-file: .nvmrc` so ESLint's Node-shebang-dispatch gets a modern runtime.
 
 **Passes locally, fails in CI?** It's usually one of these:
 - A hardcoded `db:5432`. Docker Compose reaches Postgres at host `db`; CI's service container is at `localhost`. Derive the host from the configured URL instead (see `testDBURL()`).
 - Node-API compatibility (`Object.groupBy` and similar). This is why `.nvmrc` and `setup-node` are in the workflow.
 - A tool binary built with an older Go than `go.mod` targets. golangci-lint is the usual offender, so pin the action's version carefully.
+- A lint rule that only exists in the CI linter version. Run the pinned version locally with `docker run --rm -v "$PWD/api":/app -w /app golangci/golangci-lint:v2.15.0 golangci-lint run`.
 
 **Deferred**:
 - **OpenAPI drift** check — the original testing plan called for `api/openapi.yaml` + generated TS client. The spec hasn't been written yet (we built handlers freehand), so the drift check is deferred. Adding one is tracked as a follow-up.

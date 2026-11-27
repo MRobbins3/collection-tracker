@@ -58,16 +58,25 @@ func (m *Manager) Write(w http.ResponseWriter, s Session) error {
 	if err != nil {
 		return err
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     m.cookieName,
-		Value:    encoded,
+	http.SetCookie(w, m.cookie(m.cookieName, encoded, int(m.maxAge.Seconds())))
+	return nil
+}
+
+// cookie builds every cookie this package sets, so HttpOnly, SameSite=Lax,
+// and the Secure policy can't drift between call sites. maxAge < 0 deletes.
+func (m *Manager) cookie(name, value string, maxAge int) *http.Cookie {
+	// gosec G124 can't see that Secure is config-driven: false only for
+	// plain-HTTP local dev (browsers drop Secure cookies there), true when
+	// hosted. See NewManager.
+	return &http.Cookie{ //nolint:gosec // G124: Secure is deliberately config-driven; see comment above.
+		Name:     name,
+		Value:    value,
 		Path:     "/",
-		MaxAge:   int(m.maxAge.Seconds()),
+		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   m.secure,
 		SameSite: http.SameSiteLaxMode,
-	})
-	return nil
+	}
 }
 
 // Read returns the session from the request cookie or ErrNoSession.
@@ -88,15 +97,7 @@ func (m *Manager) Read(r *http.Request) (Session, error) {
 
 // Clear deletes the session cookie.
 func (m *Manager) Clear(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     m.cookieName,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   m.secure,
-		SameSite: http.SameSiteLaxMode,
-	})
+	http.SetCookie(w, m.cookie(m.cookieName, "", -1))
 }
 
 // Middleware places the session (if any) on the request context. It NEVER

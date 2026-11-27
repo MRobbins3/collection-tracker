@@ -48,21 +48,23 @@ jobs:
       DATABASE_URL: postgres://collection:collection@localhost:5432/collection?sslmode=disable
       TEST_ADMIN_DATABASE_URL: postgres://collection:collection@localhost:5432/postgres?sslmode=disable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
           cache-dependency-path: api/go.sum
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           working-directory: api
-          # Needs to be a release built with Go ≥ 1.25 (our go.mod targets
-          # 1.25.0, pgx/v5 enforces it). v2.3.1 is still Go 1.24; `latest`
-          # resolves to whatever is newest at run time.
-          version: latest
+          # Pinned so new linter rules can't break CI on unrelated commits
+          # (v2.15.0 added gosec G124 and failed a docs-only push). Must be a
+          # release built with Go >= our go.mod target. Bump deliberately, and
+          # run the same version locally first:
+          #   docker run --rm -v "$PWD/api":/app -w /app golangci/golangci-lint:<version> golangci-lint run
+          version: v2.15.0
           args: --timeout=5m
 
       - name: Unit tests + race detector
@@ -78,12 +80,12 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Bun runs scripts, but ESLint's shebang still dispatches to Node for
       # its binaries. Use the Node version pinned by .nvmrc so Object.groupBy
       # + other modern web APIs are available (Node 20 on runners is too old).
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
@@ -135,16 +137,16 @@ jobs:
       NUXT_API_BASE: http://localhost:8080
       NUXT_PUBLIC_API_BASE: http://localhost:8080
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
           cache-dependency-path: api/go.sum
 
       # Same Node-version concern as the `web` job — modern Object APIs are
       # needed for Playwright's config loader + our ESLint toolchain.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
@@ -181,7 +183,7 @@ jobs:
           echo "web did not become healthy in time"; cat /tmp/web.log; exit 1
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -202,7 +204,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: |

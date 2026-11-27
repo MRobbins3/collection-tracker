@@ -45,6 +45,12 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
+      # G124 targets cookies a server sets on responses. In tests we only
+      # attach bare cookies to fake requests, where the attributes are moot.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G124
 
 formatters:
   enable:

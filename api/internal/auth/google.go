@@ -87,15 +87,7 @@ func (g *Google) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     oauthStateCookieName,
-		Value:    state,
-		Path:     "/",
-		MaxAge:   int(oauthStateMaxAge.Seconds()),
-		HttpOnly: true,
-		Secure:   g.sessions.secure,
-		SameSite: http.SameSiteLaxMode,
-	})
+	http.SetCookie(w, g.sessions.cookie(oauthStateCookieName, state, int(oauthStateMaxAge.Seconds())))
 
 	url := g.oauth.AuthCodeURL(state, oauth2.AccessTypeOnline, oauth2.ApprovalForce)
 	http.Redirect(w, r, url, http.StatusFound)
@@ -134,12 +126,7 @@ func (g *Google) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// one-shot: clear it
-	http.SetCookie(w, &http.Cookie{
-		Name:   oauthStateCookieName,
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
-	})
+	http.SetCookie(w, g.sessions.cookie(oauthStateCookieName, "", -1))
 
 	token, err := g.oauth.Exchange(r.Context(), code)
 	if err != nil {

@@ -140,13 +140,23 @@ func TestCallbackHappyPath(t *testing.T) {
 	require.Equal(t, "Alice Example", users.seenName)
 
 	// Confirm a session cookie was written and decodes to the expected user.
-	var sessionCookie *http.Cookie
+	var sessionCookie, clearedState *http.Cookie
 	for _, c := range rr.Result().Cookies() {
-		if c.Name == sessionCookieName {
+		switch c.Name {
+		case sessionCookieName:
 			sessionCookie = c
+		case oauthStateCookieName:
+			clearedState = c
 		}
 	}
 	require.NotNil(t, sessionCookie, "expected session cookie to be set")
+
+	// The one-shot state cookie is deleted with the same attributes it was
+	// set with, so browsers match and drop it.
+	require.NotNil(t, clearedState, "expected state cookie to be cleared")
+	require.Less(t, clearedState.MaxAge, 0)
+	require.True(t, clearedState.HttpOnly)
+	require.Equal(t, http.SameSiteLaxMode, clearedState.SameSite)
 
 	req2 := httptest.NewRequest(http.MethodGet, "/", nil)
 	req2.AddCookie(sessionCookie)
