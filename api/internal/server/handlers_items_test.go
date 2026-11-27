@@ -26,6 +26,9 @@ type fakeItems struct {
 	searchMore    bool
 	searchErr     error
 	searchCalls   []searchCall
+
+	// Catalog entry ids Create/SetCatalogEntry treat as unlinkable.
+	unavailableEntries map[string]bool
 }
 
 func newFakeItems() *fakeItems { return &fakeItems{items: map[string]store.Item{}} }
@@ -35,6 +38,9 @@ func newFakeItems() *fakeItems { return &fakeItems{items: map[string]store.Item{
 func (f *fakeItems) Create(_ context.Context, collectionID, _ string, in store.ItemInput) (store.Item, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if in.CatalogEntryID != nil && f.unavailableEntries[*in.CatalogEntryID] {
+		return store.Item{}, store.ErrCatalogEntryUnavailable
+	}
 	f.seq++
 	id := "item-" + itoa(f.seq)
 	attrs := in.Attributes
@@ -43,9 +49,24 @@ func (f *fakeItems) Create(_ context.Context, collectionID, _ string, in store.I
 	}
 	it := store.Item{
 		ID: id, CollectionID: collectionID, Name: in.Name, Quantity: in.Quantity,
-		Condition: in.Condition, Attributes: attrs,
+		Condition: in.Condition, Attributes: attrs, CatalogEntryID: in.CatalogEntryID,
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
+	f.items[id] = it
+	return it, nil
+}
+
+func (f *fakeItems) SetCatalogEntry(_ context.Context, id, collectionID, _ string, entryID *string) (store.Item, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	it, ok := f.items[id]
+	if !ok || it.CollectionID != collectionID {
+		return store.Item{}, store.ErrNotFound
+	}
+	if entryID != nil && f.unavailableEntries[*entryID] {
+		return store.Item{}, store.ErrCatalogEntryUnavailable
+	}
+	it.CatalogEntryID = entryID
 	f.items[id] = it
 	return it, nil
 }
@@ -96,18 +117,6 @@ func (f *fakeItems) Delete(_ context.Context, id, collectionID, _ string) error 
 	}
 	delete(f.items, id)
 	return nil
-}
-
-type fakeCatalog struct {
-	entries []store.CatalogEntry
-	err     error
-}
-
-func (f *fakeCatalog) Search(_ context.Context, _ string, _ string) ([]store.CatalogEntry, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-	return f.entries, nil
 }
 
 // Extend fakeCategories from router_test.go with GetBySlug that returns the
@@ -255,21 +264,4 @@ func TestUpdateAndDeleteItem(t *testing.T) {
 		rr := doJSON(t, r, http.MethodDelete, "/me/collections/col-1/items/item-7", nil)
 		require.Equal(t, http.StatusNoContent, rr.Code)
 	})
-}
-
-func TestSearchCatalogRequiresCategory(t *testing.T) {
-	r := newItemsRouterPublic(t, &fakeCatalog{})
-	rr := doJSON(t, r, http.MethodGet, "/catalog/entries", nil)
-	require.Equal(t, http.StatusBadRequest, rr.Code)
-}
-
-func TestSearchCatalogReturnsEmptyListWhenCatalogEmpty(t *testing.T) {
-	r := newItemsRouterPublic(t, &fakeCatalog{entries: nil})
-	rr := doJSON(t, r, http.MethodGet, "/catalog/entries?category_slug=lego-sets&q=millennium", nil)
-	require.Equal(t, http.StatusOK, rr.Code)
-	var payload struct {
-		Entries []store.CatalogEntry `json:"entries"`
-	}
-	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &payload))
-	require.Empty(t, payload.Entries)
 }

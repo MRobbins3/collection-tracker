@@ -109,7 +109,7 @@ func NewRouter(deps Deps) http.Handler {
 	if len(deps.CORSOrigins) > 0 {
 		r.Use(cors.Handler(cors.Options{
 			AllowedOrigins:   deps.CORSOrigins,
-			AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+			AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 			ExposedHeaders:   []string{"X-Request-Id"},
 			AllowCredentials: true,
@@ -125,7 +125,8 @@ func NewRouter(deps Deps) http.Handler {
 	r.Get("/readyz", h.readyz)
 	r.Get("/categories", h.listCategories)
 	r.Get("/categories/{slug}", h.getCategory)
-	r.Get("/catalog/entries", h.searchCatalog)
+	r.Get("/catalog/entries", h.listCatalog)
+	r.Get("/catalog/entries/{entryID}", h.getCatalogEntry)
 	// /me is intentionally public: it answers "who am I?" with 200 {user:null}
 	// when anonymous, so app-boot calls never emit console 401s. Handlers that
 	// *require* a session still return 401 via the auth.Require group below.
@@ -168,6 +169,11 @@ func NewRouter(deps Deps) http.Handler {
 		r.Post("/me/collections/{id}/items", h.createItem)
 		r.Patch("/me/collections/{id}/items/{itemID}", h.updateItem)
 		r.Delete("/me/collections/{id}/items/{itemID}", h.deleteItem)
+		r.Get("/me/collections/{id}/items/{itemID}/catalog-suggestions", h.suggestCatalogEntries)
+		r.Put("/me/collections/{id}/items/{itemID}/catalog-entry", h.linkItemToCatalog)
+		r.Delete("/me/collections/{id}/items/{itemID}/catalog-entry", h.unlinkItemFromCatalog)
+
+		r.Get("/me/catalog-ownership", h.listMyCatalogOwnership)
 
 		r.Get("/me/items", h.searchMyItems)
 

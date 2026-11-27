@@ -11,8 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Item is the user-owned record in a collection. It may reference a catalog
-// entry (phase 2) but is fully usable as free-form today (CatalogEntryID nil).
+// Item is the user-owned record in a collection. It may reference an
+// approved catalog entry (ADR 0004); free-form items (CatalogEntryID nil)
+// stay fully usable forever.
 type Item struct {
 	ID             string          `json:"id"`
 	CollectionID   string          `json:"collection_id"`
@@ -32,6 +33,10 @@ type ItemInput struct {
 	Quantity   int
 	Condition  *string
 	Attributes json.RawMessage // caller should have validated against the category schema
+	// CatalogEntryID links a new item to an approved catalog entry in the
+	// collection's category. Create only: Update leaves the link alone (use
+	// SetCatalogEntry), so editing an item never silently unlinks it.
+	CatalogEntryID *string
 }
 
 type Items struct {
@@ -54,16 +59,21 @@ func (s *Items) Create(ctx context.Context, collectionID, userID string, in Item
 	if err := s.assertCollectionOwned(ctx, collectionID, userID); err != nil {
 		return Item{}, err
 	}
+	if in.CatalogEntryID != nil {
+		if err := s.assertCatalogEntryLinkable(ctx, *in.CatalogEntryID, collectionID); err != nil {
+			return Item{}, err
+		}
+	}
 	attrs := in.Attributes
 	if len(attrs) == 0 {
 		attrs = json.RawMessage("{}")
 	}
 	var id string
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO items (collection_id, name, quantity, condition, attributes)
-		VALUES ($1, $2, $3, $4, $5::jsonb)
+		INSERT INTO items (collection_id, name, quantity, condition, attributes, catalog_entry_id)
+		VALUES ($1, $2, $3, $4, $5::jsonb, $6)
 		RETURNING id
-	`, collectionID, in.Name, in.Quantity, in.Condition, string(attrs)).Scan(&id)
+	`, collectionID, in.Name, in.Quantity, in.Condition, string(attrs), in.CatalogEntryID).Scan(&id)
 	if err != nil {
 		return Item{}, fmt.Errorf("insert item: %w", err)
 	}
@@ -155,6 +165,56 @@ func (s *Items) Delete(ctx context.Context, id, collectionID, userID string) err
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
+	}
+	return nil
+}
+
+// SetCatalogEntry links the user's item to an approved catalog entry in the
+// collection's category, or unlinks it when entryID is nil. Only the link
+// changes: the owner's name and attributes stay exactly as they were (ADR
+// 0004). ErrNotFound when the item isn't the user's;
+// ErrCatalogEntryUnavailable when the entry can't be linked.
+func (s *Items) SetCatalogEntry(ctx context.Context, id, collectionID, userID string, entryID *string) (Item, error) {
+	if _, err := s.GetInCollectionForUser(ctx, id, collectionID, userID); err != nil {
+		return Item{}, err
+	}
+	if entryID != nil {
+		if err := s.assertCatalogEntryLinkable(ctx, *entryID, collectionID); err != nil {
+			return Item{}, err
+		}
+	}
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE items SET catalog_entry_id = $1, updated_at = now()
+		FROM collections c
+		WHERE items.id = $2 AND items.collection_id = $3 AND c.id = items.collection_id AND c.user_id = $4
+	`, entryID, id, collectionID, userID)
+	if err != nil {
+		return Item{}, fmt.Errorf("set catalog entry: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return Item{}, ErrNotFound
+	}
+	return s.GetInCollectionForUser(ctx, id, collectionID, userID)
+}
+
+// assertCatalogEntryLinkable returns ErrCatalogEntryUnavailable unless the
+// entry exists, is approved, and is in the collection's category.
+func (s *Items) assertCatalogEntryLinkable(ctx context.Context, entryID, collectionID string) error {
+	if !validIDs(entryID, collectionID) {
+		return ErrCatalogEntryUnavailable
+	}
+	var ok bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM catalog_entries ce
+			JOIN collections c ON c.category_id = ce.category_id
+			WHERE ce.id = $1 AND c.id = $2 AND ce.status = 'approved'
+		)`, entryID, collectionID).Scan(&ok)
+	if err != nil {
+		return fmt.Errorf("check catalog entry: %w", err)
+	}
+	if !ok {
+		return ErrCatalogEntryUnavailable
 	}
 	return nil
 }
