@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import SuggestEntryForm from "./SuggestEntryForm.vue";
 import { catalogEntryPath, matchLabel } from "~/utils/catalog";
-import type { CatalogSuggestion, Item } from "~/types/api";
+import type { AttributeSchema, CatalogSuggestion, Item, SubmitResult } from "~/types/api";
 
 /**
  * Link one of your items to the global catalog, or unlink it (ADR 0004).
  * For a free-form item, "Find in catalog" asks the API for likely matches;
  * nothing is linked until you pick one. Linking only sets the link: your
- * name and details stay as you wrote them.
+ * name and details stay as you wrote them. "Suggest this for the catalog"
+ * sends the item to the moderation queue (ADR 0012); it's linked to the
+ * new entry when an admin approves it.
  */
 const props = defineProps<{
   item: Item;
   categorySlug: string;
   /** Human label of the category's identifier attribute ("Set number"), if any. */
   identifierTitle?: string | null;
+  schema?: AttributeSchema;
 }>();
 
 const emit = defineEmits<{ (e: "changed", item: Item): void }>();
@@ -25,6 +29,12 @@ const loading = ref(false);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const suggestions = ref<CatalogSuggestion[]>([]);
+const suggesting = ref(false);
+
+function onSuggested(result: SubmitResult) {
+  // Already in the catalog: the API linked the item on the spot.
+  if (result.item_linked && result.entry) emit("changed", { ...props.item, catalog_entry_id: result.entry.id });
+}
 
 async function onFind() {
   open.value = true;
@@ -92,16 +102,48 @@ async function onUnlink() {
       </button>
     </div>
 
+    <div v-else-if="suggesting" class="space-y-2">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">Suggest this for the catalog</p>
+        <button
+          type="button"
+          class="text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+          @click="suggesting = false"
+        >
+          Close
+        </button>
+      </div>
+      <SuggestEntryForm
+        :category-slug="categorySlug"
+        :schema="schema"
+        :initial-name="item.name"
+        :initial-attributes="item.attributes"
+        :item-id="item.id"
+        @submitted="onSuggested"
+        @cancel="suggesting = false"
+      />
+    </div>
+
     <template v-else>
-      <button
-        v-if="!open"
-        type="button"
-        class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-        @click="onFind"
-      >
-        <Icon name="lucide:search" class="h-3.5 w-3.5" aria-hidden="true" />
-        Find in catalog
-      </button>
+      <div v-if="!open" class="flex flex-wrap gap-x-4 gap-y-1">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+          @click="onFind"
+        >
+          <Icon name="lucide:search" class="h-3.5 w-3.5" aria-hidden="true" />
+          Find in catalog
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+          data-testid="catalog-suggest"
+          @click="suggesting = true"
+        >
+          <Icon name="lucide:send" class="h-3.5 w-3.5" aria-hidden="true" />
+          Suggest this for the catalog
+        </button>
+      </div>
 
       <div v-else class="space-y-2" data-testid="catalog-suggestions">
         <div class="flex items-center justify-between">
@@ -142,6 +184,10 @@ async function onUnlink() {
         <p v-else-if="!error" class="text-xs text-slate-500 dark:text-slate-400" data-testid="catalog-suggestions-empty">
           No likely matches.
           <NuxtLink :to="`/categories/${categorySlug}`" class="underline">Browse the catalog</NuxtLink>
+          or
+          <button type="button" class="underline" @click="(open = false), (suggesting = true)">
+            suggest it for the catalog
+          </button>.
         </p>
       </div>
     </template>

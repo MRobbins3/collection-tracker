@@ -7,7 +7,10 @@ import { normalizeSearchQuery } from "~/utils/search";
 /**
  * Add an item: type to search the category's catalog, pick a match to link
  * the new item to it with name and details filled in (still editable,
- * ADR 0004), or enter it manually. Manual entry is always available.
+ * ADR 0004), or enter it manually. Manual entry is always available, and
+ * can also suggest the item for the catalog (ADR 0012): the parent creates
+ * the item, then sends the suggestion with it, so the item is linked when
+ * an admin approves.
  */
 const props = defineProps<{
   categorySlug: string;
@@ -25,6 +28,8 @@ const emit = defineEmits<{
       condition?: string;
       attributes: Record<string, unknown>;
       catalog_entry_id?: string;
+      /** Also suggest this item for the catalog. */
+      suggest?: boolean;
     },
   ): void;
 }>();
@@ -38,6 +43,7 @@ const showingForm = ref(false);
 const prefilledName = ref("");
 const prefilledAttributes = ref<Record<string, unknown>>({});
 const linkedEntry = ref<CatalogEntry | null>(null);
+const suggestToCatalog = ref(false);
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 // Bumped by every new search: a slower, older response must not overwrite
@@ -66,10 +72,11 @@ watch(query, (raw) => {
   }, 200);
 });
 
-function openManualForm(fromQuery: boolean) {
+function openManualForm(fromQuery: boolean, suggest = false) {
   prefilledName.value = fromQuery ? normalizeSearchQuery(query.value) : "";
   prefilledAttributes.value = {};
   linkedEntry.value = null;
+  suggestToCatalog.value = suggest;
   showingForm.value = true;
 }
 
@@ -83,12 +90,14 @@ function pickFromCatalog(entry: CatalogEntry) {
 function reset() {
   showingForm.value = false;
   linkedEntry.value = null;
+  suggestToCatalog.value = false;
   query.value = "";
   results.value = [];
 }
 
 function onSubmit(payload: { name: string; quantity: number; condition?: string; attributes: Record<string, unknown> }) {
-  emit("create", linkedEntry.value ? { ...payload, catalog_entry_id: linkedEntry.value.id } : payload);
+  if (linkedEntry.value) emit("create", { ...payload, catalog_entry_id: linkedEntry.value.id });
+  else emit("create", suggestToCatalog.value ? { ...payload, suggest: true } : payload);
   reset();
 }
 </script>
@@ -141,6 +150,14 @@ function onSubmit(payload: { name: string; quantity: number; condition?: string;
         data-testid="new-item-empty-catalog"
       >
         Not in the catalog yet — you can enter it manually.
+        <button
+          type="button"
+          class="font-medium text-slate-900 underline underline-offset-2 dark:text-slate-100"
+          data-testid="new-item-suggest-open"
+          @click="openManualForm(true, true)"
+        >
+          Can’t find it? Suggest it for the catalog
+        </button>
       </p>
 
       <button
@@ -172,6 +189,20 @@ function onSubmit(payload: { name: string; quantity: number; condition?: string;
           Don’t link
         </button>
       </div>
+      <label
+        v-if="!linkedEntry"
+        class="mt-3 flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300"
+      >
+        <input
+          v-model="suggestToCatalog"
+          type="checkbox"
+          class="mt-0.5 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-900"
+          data-testid="new-item-suggest"
+        >
+        <span>
+          Also suggest it for the catalog. An admin reviews it first; your item is linked once it’s approved.
+        </span>
+      </label>
       <ItemForm
         class="mt-3"
         :schema="schema"

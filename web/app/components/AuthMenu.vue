@@ -10,6 +10,8 @@ const { user, isSignedIn, providers, loginURL, logout } = useAuth();
 // hidden only when we know it's off and test-user sign-in is the way in.
 const showDev = computed(() => providers.value?.dev === true);
 const showGoogle = computed(() => !providers.value || providers.value.google || !providers.value.dev);
+// Admin navigation only; the API enforces the role on every admin route.
+const isAdmin = computed(() => user.value?.role === "admin");
 
 // Account menu: a disclosure (button + list of links), not an ARIA menu, so
 // links stay links and Tab works as usual. Escape and clicking outside close it.
@@ -90,6 +92,28 @@ const itemClass =
             @click="close()"
           >
             Your profile
+          </NuxtLink>
+        </li>
+        <li>
+          <NuxtLink
+            to="/my/submissions"
+            :class="itemClass"
+            data-menu-item
+            data-testid="account-menu-submissions"
+            @click="close()"
+          >
+            My submissions
+          </NuxtLink>
+        </li>
+        <li v-if="isAdmin">
+          <NuxtLink
+            to="/admin/moderation"
+            :class="itemClass"
+            data-menu-item
+            data-testid="account-menu-moderation"
+            @click="close()"
+          >
+            Moderation
           </NuxtLink>
         </li>
         <li>

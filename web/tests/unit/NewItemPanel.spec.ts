@@ -140,4 +140,28 @@ describe("NewItemPanel", () => {
     expect(wrapper.find('[data-testid="new-item-results"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="new-item-empty-catalog"]').exists()).toBe(true);
   });
+
+  it("“Can’t find it?” opens the manual form set to also suggest it for the catalog", async () => {
+    const wrapper = mount(NewItemPanel, { props: { categorySlug: "lego-sets", schema } });
+    await wrapper.get('[data-testid="new-item-search"]').setValue("Ultimate Tower");
+    await new Promise((r) => setTimeout(r, 220));
+    await flushPromises();
+    await wrapper.get('[data-testid="new-item-suggest-open"]').trigger("click");
+
+    expect((wrapper.get('[data-testid="new-item-suggest"]').element as HTMLInputElement).checked).toBe(true);
+    expect((wrapper.get('[data-testid="item-form-name"]').element as HTMLInputElement).value).toBe("Ultimate Tower");
+    await wrapper.get('[data-testid="item-form-submit"]').trigger("submit");
+    await flushPromises();
+    expect(wrapper.emitted("create")?.[0]?.[0]).toMatchObject({ name: "Ultimate Tower", suggest: true });
+  });
+
+  it("plain manual entry doesn't suggest unless you tick the box", async () => {
+    const wrapper = mount(NewItemPanel, { props: { categorySlug: "lego-sets", schema } });
+    await wrapper.get('[data-testid="new-item-manual"]').trigger("click");
+    expect((wrapper.get('[data-testid="new-item-suggest"]').element as HTMLInputElement).checked).toBe(false);
+    await wrapper.get('[data-testid="item-form-name"]').setValue("Mine");
+    await wrapper.get('[data-testid="item-form-submit"]').trigger("submit");
+    await flushPromises();
+    expect(wrapper.emitted("create")?.[0]?.[0]).not.toHaveProperty("suggest");
+  });
 });

@@ -87,6 +87,7 @@ function humanize(key: string): string {
         :item="item"
         :category-slug="categorySlug"
         :identifier-title="identifierTitle"
+        :schema="schema"
         @changed="(it) => emit('catalog-changed', it)"
       />
     </div>

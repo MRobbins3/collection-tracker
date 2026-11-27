@@ -107,6 +107,18 @@ describe("AuthMenu", () => {
     expect(menu.text()).toContain("@alice");
   });
 
+  it("links everyone to their submissions, and only admins to moderation", async () => {
+    stub.user.value = alice;
+    const wrapper = mount(AuthMenu);
+    await wrapper.get('[data-testid="account-menu-button"]').trigger("click");
+    expect(wrapper.get('[data-testid="account-menu-submissions"]').attributes("href")).toBe("/my/submissions");
+    expect(wrapper.find('[data-testid="account-menu-moderation"]').exists()).toBe(false);
+
+    stub.user.value = { ...alice, role: "admin" };
+    await flushPromises();
+    expect(wrapper.get('[data-testid="account-menu-moderation"]').attributes("href")).toBe("/admin/moderation");
+  });
+
   it("closes the menu on Escape", async () => {
     stub.user.value = alice;
     const wrapper = mount(AuthMenu);

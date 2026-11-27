@@ -20,8 +20,12 @@ export interface User {
   handle: string;
   /** Palette color name for the initials avatar (see utils/avatar.ts). */
   avatar_color: string;
+  /** null for almost everyone; "admin" shows the moderation pages. The API enforces it. */
+  role?: UserRole | null;
   created_at: string;
 }
+
+export type UserRole = "admin";
 
 /** Who can see a user's collections (ADR 0009). Shown via utils/privacy.ts labels, never raw. */
 export type CollectionVisibility = "public" | "followers_and_friends" | "friends_only" | "private";
@@ -244,4 +248,98 @@ export interface OverviewResponse {
   /** Items matching the filter across every page. */
   total: number;
   has_more: boolean;
+}
+
+// ---- Catalog suggestions and moderation (ADR 0012) ----------------------
+
+/** What a moderation request asks admins to review. Shown via utils/moderation.ts labels. */
+export type ModerationKind = "catalog_entry" | "catalog_correction";
+export type ModerationStatus = "pending" | "approved" | "rejected" | "merged";
+
+/** Catalog entry fields in a correction, an admin's edits, or the audit record. */
+export interface EntryFields {
+  name?: string;
+  /** "" clears the description. */
+  description?: string;
+  attributes?: Record<string, unknown>;
+}
+
+/** One of your own suggestions or corrections (GET /me/catalog-submissions). */
+export interface Submission {
+  id: string;
+  kind: ModerationKind;
+  status: ModerationStatus;
+  category_slug: string;
+  category_name: string;
+  name: string;
+  identifier?: string;
+  attributes: Record<string, unknown>;
+  proposed?: EntryFields;
+  note?: string;
+  /** The admin's explanation (rejections, merges). */
+  reason?: string;
+  decided_at?: string;
+  created_at: string;
+  /** The public catalog entry this led to, once there is one. */
+  entry_id?: string;
+  merged_into_name?: string;
+}
+
+export interface SubmissionsResponse {
+  submissions: Submission[];
+}
+
+export type SubmitOutcome = "submitted" | "already_in_catalog" | "already_submitted" | "pending_review";
+
+/** POST /me/catalog-submissions */
+export interface SubmitResult {
+  outcome: SubmitOutcome;
+  entry?: CatalogEntry;
+  submission?: Submission;
+  item_linked: boolean;
+}
+
+export interface UserRef {
+  display_name: string;
+  handle: string;
+}
+
+export interface QueueItem {
+  id: string;
+  kind: ModerationKind;
+  category_slug: string;
+  category_name: string;
+  name: string;
+  identifier?: string;
+  note?: string;
+  submitter: UserRef;
+  created_at: string;
+}
+
+/** GET /admin/moderation */
+export interface QueuePage {
+  requests: QueueItem[];
+  total: number;
+  has_more: boolean;
+}
+
+/** GET /admin/moderation/{id} */
+export interface ModerationRequest {
+  id: string;
+  kind: ModerationKind;
+  status: ModerationStatus;
+  category_slug: string;
+  category_name: string;
+  /** The submitted entry, or for a correction the entry as it is now. */
+  entry: CatalogEntry;
+  proposed?: EntryFields;
+  previous?: EntryFields;
+  applied?: EntryFields;
+  note?: string;
+  submitter: UserRef;
+  decided_by?: UserRef;
+  decided_at?: string;
+  reason?: string;
+  merged_into?: CatalogEntry;
+  created_at: string;
 }
