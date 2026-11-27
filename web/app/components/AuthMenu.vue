@@ -4,8 +4,8 @@ import DevSignIn from "./DevSignIn.vue";
 
 const { user, isSignedIn, providers, loginURL, logout } = useAuth();
 
-// providers is null during SSR and the first client render (it loads after
-// app:mounted), so null must render the Google-only default. Google is
+// providers is null during SSR and the first client render (it loads in
+// onNuxtReady, after hydration), so null must render the Google-only default. Google is
 // hidden only when we know it's off and test-user sign-in is the way in.
 const showDev = computed(() => providers.value?.dev === true);
 const showGoogle = computed(() => !providers.value || providers.value.google || !providers.value.dev);

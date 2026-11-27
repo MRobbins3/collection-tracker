@@ -41,6 +41,25 @@ test.describe("test-user sign-in", () => {
   });
 });
 
+test.describe("anonymous visitors to signed-in pages", () => {
+  // CLAUDE.md: no red 401s in the console at app boot. Signed-in data
+  // fetches must wait for /me instead of firing and failing.
+  for (const path of ["/my", "/my/d0000000-0000-4000-8000-000000000101"]) {
+    test(`${path} makes no /me/collections request`, async ({ page }) => {
+      const meRequests: string[] = [];
+      page.on("request", (req) => {
+        if (new URL(req.url()).pathname.startsWith("/me/collections")) meRequests.push(req.url());
+      });
+      await page.goto(path);
+      // The test-user button appears once auth has loaded after hydration.
+      await expect(page.getByRole("button", { name: "Test sign-in" })).toBeVisible();
+      await expect(page.getByTestId("signin-prompt")).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      expect(meRequests).toEqual([]);
+    });
+  }
+});
+
 test.describe("signed-in collection flow", () => {
   test("create a collection, add an item, and delete the collection", async ({ page }) => {
     // Unique name: projects run in parallel against one shared database.

@@ -6,7 +6,7 @@ import type { AuthProviders, DevPersona, User } from "~/types/api";
  * useState shared across the whole app; refresh() re-fetches /me and is safe
  * to call multiple times.
  *
- * `providers` stays null until the auth plugin loads it after app:mounted,
+ * `providers` stays null until the auth plugin loads it in onNuxtReady,
  * so SSR and the first client render agree (hydration parity). Components
  * treat null as "Google only", the pre-dev-auth default.
  */
@@ -54,7 +54,8 @@ export function useAuth() {
   /**
    * Local/CI only: sign in as a seeded test user. The API sets the same
    * session cookie Google sign-in does. There's no page reload (unlike the
-   * Google redirect), so re-run every page's data fetch for the new user.
+   * Google redirect); signed-in data fetches watch isSignedIn
+   * (signedInFetchOptions), so setting the user reloads them.
    */
   async function devLogin(handle: string): Promise<void> {
     // An object body makes $fetch send Content-Type: application/json, which
@@ -65,13 +66,15 @@ export function useAuth() {
       body: { persona: handle },
     });
     user.value = res.user;
-    await refreshNuxtData();
   }
 
   async function logout(): Promise<void> {
+    // JSON body for the same reason as devLogin: the API rejects non-JSON
+    // logout posts so a cross-site form can't sign the user out.
     await $fetch(`${api.publicBaseURL}/auth/logout`, {
       method: "POST",
       credentials: "include",
+      body: {},
     });
     user.value = null;
   }
