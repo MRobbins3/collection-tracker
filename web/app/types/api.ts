@@ -4,6 +4,8 @@ export interface Category {
   name: string;
   description?: string;
   attribute_schema: Record<string, unknown>;
+  /** The attribute that, with the name, tells catalog entries apart (e.g. set number). */
+  catalog_identifier?: string;
 }
 
 export interface CategoriesResponse {
@@ -123,18 +125,52 @@ export interface ItemsResponse {
   items: Item[];
 }
 
+/** An approved entry in the global catalog (ADR 0004): a thing that exists in the world. */
 export interface CatalogEntry {
   id: string;
   category_id: string;
+  category_slug: string;
+  category_name: string;
   name: string;
+  /** Value of the category's identifier attribute (set number, artist...), when it has one. */
+  identifier?: string;
   description?: string;
   attributes: Record<string, unknown>;
   source: "seed" | "user_submitted" | "import";
   status: "pending" | "approved" | "rejected";
 }
 
-export interface CatalogSearchResponse {
+/** GET /catalog/entries: one page of a category's approved entries. */
+export interface CatalogPage {
   entries: CatalogEntry[];
+  /** Entries matching the search across every page. */
+  total: number;
+  has_more: boolean;
+}
+
+/** Why an entry was suggested for a free-form item. Shown via utils/catalog.ts labels, never raw. */
+export type CatalogMatch = "name_and_identifier" | "identifier" | "name" | "similar_name";
+
+export interface CatalogSuggestion extends CatalogEntry {
+  match: CatalogMatch;
+}
+
+/** GET /me/collections/{id}/items/{itemID}/catalog-suggestions */
+export interface CatalogSuggestionsResponse {
+  suggestions: CatalogSuggestion[];
+}
+
+/** One of your items linked to a catalog entry. */
+export interface CatalogOwnership {
+  catalog_entry_id: string;
+  item_id: string;
+  collection_id: string;
+  collection_name: string;
+}
+
+/** GET /me/catalog-ownership?category_slug= */
+export interface CatalogOwnershipResponse {
+  owned: CatalogOwnership[];
 }
 
 // Shape of a category's JSON schema property after we extend it with

@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import ItemForm from "./ItemForm.vue";
+import CatalogLinkPanel from "./CatalogLinkPanel.vue";
 import type { AttributeSchema, Item } from "~/types/api";
 
-// readonly hides Edit/Delete: used on other people's profiles.
-const props = defineProps<{ item: Item; schema?: AttributeSchema; readonly?: boolean }>();
+// readonly hides Edit/Delete: used on other people's profiles. categorySlug
+// turns on the catalog link controls (link/unlink, only when not readonly).
+const props = defineProps<{
+  item: Item;
+  schema?: AttributeSchema;
+  readonly?: boolean;
+  categorySlug?: string;
+  identifierTitle?: string | null;
+}>();
 
 const emit = defineEmits<{
   (e: "update", input: { name: string; quantity: number; condition?: string; attributes: Record<string, unknown> }): void;
   (e: "delete"): void;
+  (e: "catalog-changed", item: Item): void;
 }>();
 
 const editing = ref(false);
@@ -73,6 +82,13 @@ function humanize(key: string): string {
           </button>
         </div>
       </div>
+      <CatalogLinkPanel
+        v-if="!readonly && categorySlug"
+        :item="item"
+        :category-slug="categorySlug"
+        :identifier-title="identifierTitle"
+        @changed="(it) => emit('catalog-changed', it)"
+      />
     </div>
     <ItemForm
       v-else
