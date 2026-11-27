@@ -40,6 +40,6 @@ Dependabot can't see the plain version values in `ci.yml`. When it bumps a compo
   ```
 - **Runner OS.** Before moving `runs-on` to a newer Ubuntu, check that the pinned Playwright version supports it (`playwright install --with-deps` fails on unsupported OS releases).
 - **Node.** Use the newest Node major that's a stable release (not an alpha, beta, or RC). Bump `.nvmrc`, `@types/node`, and the `node:` image in `docker/web/Dockerfile` together; CI reads `.nvmrc`. Nuxt must run on Node, not Bun's runtime (ADR 0005); Bun lacks some Node APIs that Nuxt modules use.
-- **Bun.** `bun.lock` is written by whichever Bun ran `bun install`, and CI installs with `--frozen-lockfile`. Keep the `oven/bun:` stage in `docker/web/Dockerfile` and `bun-version` identical so the lockfile CI reads is one it accepts.
+- **Bun.** `bun.lock` is written by whichever Bun ran `bun install`, and CI installs with `--frozen-lockfile`. Keep the `oven/bun:` stage in `docker/web/Dockerfile` and `bun-version` identical so the lockfile CI reads is one it accepts. The dev container also installs with `--frozen-lockfile`, so starting the stack never rewrites `bun.lock`; after changing `package.json`, run `docker compose exec web bun install` to update the lockfile and commit it.
 
 Check golangci-lint and the runner OS for new versions every few months, since nothing automated watches them.
