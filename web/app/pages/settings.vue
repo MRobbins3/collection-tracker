@@ -47,7 +47,7 @@ async function onDeleted() {
             class="text-slate-700 underline underline-offset-2 dark:text-slate-300"
             data-testid="settings-view-profile"
           >
-            See your profile as others do
+            View your profile
           </NuxtLink>
         </p>
         <DeleteAccount :handle="profile.handle" @deleted="onDeleted" />
