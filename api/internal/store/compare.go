@@ -170,7 +170,9 @@ type ownedCopy struct {
 // approved entry in the category counts as that entry. When the name is
 // shared by several entries (two "Batmobile" sets), the item's catalog
 // identifier value (set number) picks among them. Any other free-form item
-// matches by normalized name. Owning one copy is enough; quantities
+// matches by normalized name, and if only one person has it, it also matches
+// the other person's only catalog-matched row of that name (see
+// mergeNameRows). Owning one copy is enough; quantities
 // and copies are summed per side for display.
 //
 // Errors: ErrCompareSelf, ErrNotFound (unknown or hidden category).
@@ -215,6 +217,7 @@ func (c *Compare) Compare(ctx context.Context, q CompareQuery) (CompareResult, e
 	if err := c.labelEntryRows(ctx, rows); err != nil {
 		return CompareResult{}, err
 	}
+	rows = mergeNameRows(rows)
 
 	buckets := map[CompareBucket][]*CompareRow{}
 	for _, r := range rows {
@@ -405,6 +408,47 @@ func groupCopies(copies []ownedCopy, entries entryMatcher) ([]*CompareRow, map[s
 		sort.Strings(s.Conditions)
 	}
 	return rows, owned
+}
+
+// mergeNameRows keeps a missing set number from splitting a match. A
+// name-only row held by one person (a free-form "Batmobile" with no usable
+// identifier) joins the other person's catalog row of the same normalized
+// name when that's the only such row they have and the first person isn't
+// already on it. With several (both Batmobiles) it can't say which, so it
+// stays by name. Runs after labelEntryRows, so entry rows carry the entry's
+// name.
+func mergeNameRows(rows []*CompareRow) []*CompareRow {
+	byName := map[string][]*CompareRow{}
+	for _, r := range rows {
+		if r.CatalogEntryID != nil {
+			k := textnorm.Key(r.Name)
+			byName[k] = append(byName[k], r)
+		}
+	}
+	out := rows[:0:0]
+	for _, r := range rows {
+		if r.CatalogEntryID == nil && (r.Mine == nil) != (r.Theirs == nil) {
+			mine := r.Mine != nil
+			var target *CompareRow
+			n := 0
+			for _, e := range byName[textnorm.Key(r.Name)] {
+				if (mine && e.Theirs != nil) || (!mine && e.Mine != nil) {
+					target = e
+					n++
+				}
+			}
+			if n == 1 && mine && target.Mine == nil {
+				target.Mine = r.Mine
+				continue
+			}
+			if n == 1 && !mine && target.Theirs == nil {
+				target.Theirs = r.Theirs
+				continue
+			}
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 // labelEntryRows names catalog-matched rows after their entry (name and

@@ -55,8 +55,8 @@ func TestCompare(t *testing.T) {
 	treeHouse := insertCatalogEntry(t, pool, "lego-sets", "Tree House", "approved", map[string]any{"set_number": "21318"})
 	insertCatalogEntry(t, pool, "lego-sets", "Galaxy Explorer", "approved", map[string]any{"set_number": "10497"})
 	insertCatalogEntry(t, pool, "lego-sets", "Colosseum", "approved", map[string]any{"set_number": "10276"})
-	// Two approved entries share a name: a free-form "Batmobile" with no set number can't say
-	// which one it is, so it's matched by name only.
+	// Two approved entries share a name: a free-form "Batmobile" with no set
+	// number can't say which one it is, so it's matched by name only.
 	batmobileA := insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "76139"})
 	batmobileB := insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "7784"})
 	insertCatalogEntry(t, pool, "lego-sets", "Pending Set", "pending", map[string]any{"set_number": "1"})
@@ -289,6 +289,73 @@ func TestCompareDisambiguatesSharedNamesByIdentifier(t *testing.T) {
 	require.Equal(t, batmobileA, *res.Items[1].CatalogEntryID)
 	require.Equal(t, batmobileB, *res.Items[2].CatalogEntryID)
 	require.Nil(t, res.Items[0].CatalogEntryID)
+}
+
+// A free-form item with a shared name and no set number still matches the
+// other person's only item of that name, even when theirs was resolved to an
+// entry by its set number. If they have several, it can't say which and
+// stays by name.
+func TestCompareMatchesANumberlessNameToTheOtherSidesOnlyMatch(t *testing.T) {
+	pool, cleanup := provisionSeededDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	users := store.NewUsers(pool)
+	alice, err := users.UpsertByGoogleSub(ctx, "alice-sub", "alice@example.com", "Alice")
+	require.NoError(t, err)
+	bob, err := users.UpsertByGoogleSub(ctx, "bob-sub", "bob@example.com", "Bob")
+	require.NoError(t, err)
+	carol, err := users.UpsertByGoogleSub(ctx, "carol-sub", "carol@example.com", "Carol")
+	require.NoError(t, err)
+
+	batmobileA := insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "76139"})
+	insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "7784"})
+
+	colls := store.NewCollections(pool)
+	items := store.NewItems(pool)
+	add := func(userID, name, attrs string) {
+		t.Helper()
+		coll, err := colls.Create(ctx, userID, "lego-sets", "Lego")
+		require.NoError(t, err)
+		_, err = items.Create(ctx, coll.ID, userID, store.ItemInput{Name: name, Quantity: 1, Attributes: json.RawMessage(attrs)})
+		require.NoError(t, err)
+	}
+	add(alice.ID, "Batmobile", `{"set_number":"76139"}`)
+	add(bob.ID, "batmobile", `{}`)
+	add(carol.ID, "Batmobile", `{"set_number":"76139"}`)
+	add(carol.ID, "Batmobile", `{"set_number":"7784"}`)
+
+	cmp := store.NewCompare(pool)
+	run := func(viewer, other string, b store.CompareBucket) store.CompareResult {
+		t.Helper()
+		res, err := cmp.Compare(ctx, store.CompareQuery{
+			ViewerID: viewer, OtherID: other, CategorySlug: "lego-sets", Bucket: b, Limit: 50,
+		})
+		require.NoError(t, err)
+		return res
+	}
+
+	t.Run("one numbered match on the other side: both own it", func(t *testing.T) {
+		for _, viewer := range []string{alice.ID, bob.ID} {
+			other := bob.ID
+			if viewer == bob.ID {
+				other = alice.ID
+			}
+			res := run(viewer, other, store.BucketBoth)
+			require.Equal(t, store.CompareCounts{Both: 1, Neither: 1}, res.Counts)
+			require.Equal(t, []string{"Batmobile 76139"}, compareNames(res.Items))
+			require.Equal(t, batmobileA, *res.Items[0].CatalogEntryID)
+			require.NotNil(t, res.Items[0].Mine)
+			require.NotNil(t, res.Items[0].Theirs)
+		}
+	})
+
+	t.Run("several on the other side: it stays by name", func(t *testing.T) {
+		res := run(bob.ID, carol.ID, store.BucketMineOnly)
+		require.Equal(t, store.CompareCounts{MineOnly: 1, TheirsOnly: 2}, res.Counts)
+		require.Equal(t, []string{"batmobile"}, compareNames(res.Items))
+	})
 }
 
 // Unapproved categories follow ADR 0013: your own are visible, and so is

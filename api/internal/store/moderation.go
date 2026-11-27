@@ -1092,7 +1092,7 @@ func changedFields(cur entryValues, p EntryFields) (EntryFields, error) {
 	return out, nil
 }
 
-// cleanAttributes trims and collapses whitespace in every top-level string
+// CleanAttributes trims and collapses whitespace in every top-level string
 // value (textnorm.Clean), dropping values that end up empty. Numbers keep
 // their exact JSON text.
 func CleanAttributes(raw json.RawMessage) (json.RawMessage, error) {

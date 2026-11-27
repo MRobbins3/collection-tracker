@@ -13,6 +13,7 @@ Small gaps found by a cross-stack audit of #23–#32, fixed on one branch stacke
 ## Compare: ambiguous names
 
 - When a free-form name matches several approved entries, the item's value for the category's `catalog_identifier` (normalized like `identifier_key`) picks the entry; otherwise name-only. A name that matches exactly one entry still matches it even if the item's set number disagrees (unchanged behavior). Alternative: require the identifier to agree whenever the item has one. Stricter, but would split matches people expect today.
+- **A missing set number doesn't split a match.** A free-form item with a shared name and no usable set number, owned by only one person, joins the other person's catalog row of that name when it's the only one they have (whether theirs was set-number-matched or linked) and the first person isn't already on it. If the other person has several (both Batmobiles), it can't say which and stays by name. Alternative: always keep it by name (honest but splits "Batmobile" vs "Batmobile 76139", which matched before this branch), or attach it to every candidate (double-counts).
 
 ## Migration 0008 Down
 
