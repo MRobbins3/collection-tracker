@@ -647,6 +647,14 @@ func TestUserCategoriesMigration(t *testing.T) {
 		require.NoError(t, err)
 		_, err = db.ExecContext(ctx, q, catID, alice)
 		require.Error(t, err, "a second pending request for the same category")
+
+		var entryID string
+		require.NoError(t, db.QueryRowContext(ctx,
+			`INSERT INTO catalog_entries (category_id, name, status) VALUES ($1, 'Set', 'approved') RETURNING id`, legoID).Scan(&entryID))
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO moderation_requests (kind, category_id, catalog_entry_id, submitted_by, status, decided_at)
+			VALUES ('category', $1, $2, $3, 'rejected', now())`, catID, entryID, alice)
+		require.Error(t, err, "a category request never points at a catalog entry")
 	})
 
 	t.Run("rolls back, deleting unapproved user categories and their collections", func(t *testing.T) {

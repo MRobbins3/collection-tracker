@@ -55,7 +55,9 @@ CREATE INDEX categories_created_by_idx ON categories (created_by);
 ALTER TABLE moderation_requests
     DROP CONSTRAINT moderation_requests_kind_check,
     ADD CONSTRAINT moderation_requests_kind_check
-        CHECK (kind IN ('catalog_entry', 'catalog_correction', 'category'));
+        CHECK (kind IN ('catalog_entry', 'catalog_correction', 'category')),
+    ADD CONSTRAINT moderation_requests_category_has_no_entry
+        CHECK (kind <> 'category' OR catalog_entry_id IS NULL);
 CREATE UNIQUE INDEX moderation_requests_one_pending_per_category
     ON moderation_requests (category_id) WHERE kind = 'category' AND status = 'pending';
 
@@ -69,6 +71,7 @@ CREATE UNIQUE INDEX moderation_requests_one_pending_per_category
 DELETE FROM moderation_requests WHERE kind = 'category';
 DROP INDEX IF EXISTS moderation_requests_one_pending_per_category;
 ALTER TABLE moderation_requests
+    DROP CONSTRAINT IF EXISTS moderation_requests_category_has_no_entry,
     DROP CONSTRAINT moderation_requests_kind_check,
     ADD CONSTRAINT moderation_requests_kind_check
         CHECK (kind IN ('catalog_entry', 'catalog_correction'));
