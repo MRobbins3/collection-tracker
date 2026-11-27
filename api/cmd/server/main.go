@@ -25,6 +25,9 @@ func main() {
 
 	cfg := config.FromEnv()
 	logger.Info("startup", "env", cfg.Env, "addr", cfg.HTTPAddr)
+	for _, w := range cfg.Warnings {
+		logger.Warn("config", "warning", w)
+	}
 
 	startupCtx, startupCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer startupCancel()

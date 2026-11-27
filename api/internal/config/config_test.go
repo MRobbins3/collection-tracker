@@ -83,6 +83,7 @@ func TestFromEnv(t *testing.T) {
 				CORSOrigins:       []string{"http://localhost:3000"},
 				WebBaseURL:        "http://localhost:3000",
 				GoogleRedirectURL: "http://localhost:8080/auth/google/callback",
+				Warnings:          []string{`SEED_DEV_DATA="yes please" is not a boolean (use true or false); treating it as false`},
 			},
 		},
 	}
@@ -102,7 +103,8 @@ func TestFromEnv(t *testing.T) {
 				got.GoogleClientID != tc.want.GoogleClientID ||
 				got.GoogleClientSecret != tc.want.GoogleClientSecret ||
 				got.GoogleRedirectURL != tc.want.GoogleRedirectURL ||
-				got.SeedDevData != tc.want.SeedDevData {
+				got.SeedDevData != tc.want.SeedDevData ||
+				!equalStrings(got.Warnings, tc.want.Warnings) {
 				t.Fatalf("FromEnv() = %+v, want %+v", got, tc.want)
 			}
 		})
