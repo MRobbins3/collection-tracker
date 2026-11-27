@@ -43,14 +43,17 @@ export function useProfileActions() {
     return await api.get<HandleAvailability>("/me/handle-availability", { handle });
   }
 
-  /** DELETE /me. The API requires the handle again and clears the session. */
+  /**
+   * DELETE /me. The API requires the handle again and clears the session
+   * cookie. The caller navigates away and then clears `user` (clearing it
+   * first would unmount the settings page mid-flow).
+   */
   async function deleteAccount(confirmHandle: string): Promise<void> {
     await $fetch(`${publicBaseURL}/me`, {
       method: "DELETE",
       credentials: "include",
       body: { confirm_handle: confirmHandle },
     });
-    user.value = null;
   }
 
   return { update, checkHandle, deleteAccount };

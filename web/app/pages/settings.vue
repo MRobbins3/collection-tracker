@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Profile } from "~/types/api";
 
-const { isSignedIn, ready } = useAuth();
+const { isSignedIn, ready, user } = useAuth();
 const { data: profile, pending, error, refresh } = useMyProfile();
 
 useHead({ title: "Settings · Collection Tracker" });
@@ -10,8 +10,11 @@ function onSaved(p: Profile) {
   profile.value = p;
 }
 
+// The API has already cleared the session cookie. Leave the page first, then
+// drop the signed-in state, so this page doesn't flash its sign-in prompt.
 async function onDeleted() {
   await navigateTo("/");
+  user.value = null;
 }
 </script>
 
@@ -37,7 +40,7 @@ async function onDeleted() {
         <button type="button" class="font-medium underline" @click="() => refresh()">Try again</button>
       </div>
       <template v-else-if="profile">
-        <ProfileForm :key="profile.handle" :profile="profile" @saved="onSaved" />
+        <ProfileForm :profile="profile" @saved="onSaved" />
         <p class="text-sm">
           <NuxtLink
             :to="`/u/${profile.handle}`"
