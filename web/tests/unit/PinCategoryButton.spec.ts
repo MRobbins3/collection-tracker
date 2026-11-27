@@ -19,7 +19,7 @@ const NuxtLinkStub = defineComponent({
   },
 });
 
-function mountButton(state: "none" | "pinned" | "collecting", busy = false) {
+function mountButton(state: "unknown" | "none" | "pinned" | "collecting", busy = false) {
   return mount(PinCategoryButton, {
     props: { slug: "coins", name: "Coins", state, busy },
     global: { stubs: { Icon: IconStub, NuxtLink: NuxtLinkStub } },
@@ -51,6 +51,13 @@ describe("PinCategoryButton", () => {
     const link = wrapper.get("a");
     expect(link.attributes("href")).toBe("/my?category=coins");
     expect(link.text()).toBe("In my collection");
+  });
+
+  it("renders a placeholder, not a button, while your collection is loading", () => {
+    const wrapper = mountButton("unknown");
+    expect(wrapper.find("button").exists()).toBe(false);
+    expect(wrapper.find("a").exists()).toBe(false);
+    expect(wrapper.get('[data-testid="pin-category-coins-loading"]').attributes("aria-hidden")).toBe("true");
   });
 
   it("disables the button while saving", () => {

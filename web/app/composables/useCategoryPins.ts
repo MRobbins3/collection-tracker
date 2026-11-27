@@ -5,14 +5,25 @@
  */
 export function useCategoryPins() {
   const { isSignedIn } = useAuth();
-  const { data, refresh } = useMyOverviewCategories();
+  const { data, refresh, status } = useMyOverviewCategories();
+  // Until the first fetch resolves we don't know what's in your collection,
+  // so buttons render a placeholder instead of flickering "Add" → "Added".
+  const ready = ref(false);
+  watch(
+    status,
+    (s) => {
+      if (s === "success") ready.value = true;
+    },
+    { immediate: true },
+  );
   const { pin, unpin } = useOverviewActions();
   const busySlug = ref<string | null>(null);
   const error = ref<string | null>(null);
 
   const bySlug = computed(() => new Map(data.value.categories.map((c) => [c.slug, c])));
 
-  function stateOf(slug: string): "none" | "pinned" | "collecting" {
+  function stateOf(slug: string): "unknown" | "none" | "pinned" | "collecting" {
+    if (!ready.value) return "unknown";
     const c = bySlug.value.get(slug);
     if (!c) return "none";
     return c.collection_count > 0 ? "collecting" : "pinned";

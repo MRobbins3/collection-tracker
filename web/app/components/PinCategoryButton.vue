@@ -7,15 +7,22 @@
 defineProps<{
   slug: string;
   name: string;
-  state: "none" | "pinned" | "collecting";
+  /** "unknown" while your collection is still loading: a same-size placeholder. */
+  state: "unknown" | "none" | "pinned" | "collecting";
   busy?: boolean;
 }>();
 const emit = defineEmits<{ add: []; remove: [] }>();
 </script>
 
 <template>
+  <span
+    v-if="state === 'unknown'"
+    class="inline-block h-9 w-16 shrink-0 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800"
+    aria-hidden="true"
+    :data-testid="`pin-category-${slug}-loading`"
+  />
   <NuxtLink
-    v-if="state === 'collecting'"
+    v-else-if="state === 'collecting'"
     :to="`/my?category=${slug}`"
     class="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-300"
     :data-testid="`pin-category-${slug}`"
