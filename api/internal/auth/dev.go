@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -16,7 +18,13 @@ import (
 type DevUserStore interface {
 	ListDevPersonas(ctx context.Context) ([]store.Persona, error)
 	GetByGoogleSub(ctx context.Context, sub string) (store.User, error)
+	UpsertByGoogleSub(ctx context.Context, sub, email, displayName string) (store.User, error)
 }
+
+// DisposableSubPrefix marks throwaway users made by POST /auth/dev/disposable.
+// It deliberately isn't store.DevSubPrefix, so they never appear in the
+// persona picker. Like 'dev:', it can't collide with a numeric Google sub.
+const DisposableSubPrefix = "dev-disposable:"
 
 // Dev is the local/CI-only sign-in provider (ADR 0008): it signs the browser
 // in as one of the persona users from the dev seed set, with no Google round
@@ -96,6 +104,37 @@ func (d *Dev) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.logger.Info("dev user signed in", "user_id", user.ID, "persona", body.Persona)
+	writeAuthJSON(w, http.StatusOK, map[string]any{"user": user})
+}
+
+// Disposable creates a brand-new throwaway user and signs in as them. E2E
+// specs use it for flows that change or destroy an account (editing a
+// profile, deleting the account) so the shared seeded personas stay intact.
+// Same CSRF guard as Login.
+func (d *Dev) Disposable(w http.ResponseWriter, r *http.Request) {
+	if !checkJSONAndOrigin(w, r, d.allowedOrigins) {
+		return
+	}
+	var raw [8]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		d.logger.Error("dev disposable: random failed", "err", err)
+		writeAuthJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
+	id := hex.EncodeToString(raw[:])
+	user, err := d.users.UpsertByGoogleSub(r.Context(), DisposableSubPrefix+id,
+		"disposable-"+id+"@example.com", "Disposable Tester")
+	if err != nil {
+		d.logger.Error("dev disposable: create failed", "err", err)
+		writeAuthJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
+	if err := d.sessions.Write(w, Session{UserID: user.ID}); err != nil {
+		d.logger.Error("dev disposable: session write failed", "err", err)
+		writeAuthJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
+	d.logger.Info("disposable test user signed in", "user_id", user.ID)
 	writeAuthJSON(w, http.StatusOK, map[string]any{"user": user})
 }
 
