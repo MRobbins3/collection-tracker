@@ -14,6 +14,7 @@ Mobile-first web app for tracking collections of anything — Lego, Funko, coins
 | `Documentation/testing.md` | **Living** testing strategy — per-language tooling, policies, commands. |
 | `Documentation/decisions/` | Architecture Decision Records (ADRs), one numbered file per decision. |
 | `Documentation/categories/` | Placeholder for future human-readable per-category notes. The actual attribute schemas are seeded from `api/internal/seed/data/categories.json`. |
+| `docker/web/Dockerfile` | Dev image for the `web` service: Node runtime + Bun package manager (Nuxt must not run on Bun's runtime; ADR 0005). |
 | `.github/workflows/ci.yml` | GitHub Actions — api (lint + unit + integration), web (lint + typecheck + vitest), e2e (Playwright smoke). |
 
 ## Booting the stack
