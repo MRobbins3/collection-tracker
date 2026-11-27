@@ -6,7 +6,7 @@ A mobile-first web app for tracking collections of anything — Lego sets, Funko
 
 ## Stack
 
-- **Frontend:** Nuxt 3 (Vue) + PWA, in `web/`
+- **Frontend:** Nuxt 4 (Vue) + PWA, in `web/`
 - **Backend:** Go (chi + pgx), in `api/`
 - **Database:** Postgres 16 (JSONB for per-category attributes)
 - **Auth:** Google OAuth 2.0
@@ -50,7 +50,7 @@ export GOOGLE_OAUTH_CLIENT_SECRET=...
 ## Repo layout
 
 ```
-web/              Nuxt 3 app
+web/              Nuxt 4 app
 api/              Go service
 Documentation/    Living requirements, testing strategy, ADRs
 docker-compose.yml

@@ -1,4 +1,4 @@
-// Minimal flat-config ESLint setup for Nuxt 3 + Vue 3 + TypeScript.
+// Minimal flat-config ESLint setup for Nuxt 4 + Vue 3 + TypeScript.
 // The Nuxt module (`@nuxt/eslint`) extends a baseline that matches Nuxt's
 // own recommended rules. Local overrides are deliberately small — we lean
 // on TypeScript's strict mode for correctness and keep stylistic rules

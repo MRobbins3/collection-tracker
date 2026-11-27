@@ -5,13 +5,13 @@ export default <Partial<Config>>{
   // inline script (no flash) and by the useTheme composable at runtime.
   darkMode: "class",
   content: [
-    "./components/**/*.{vue,js,ts}",
-    "./layouts/**/*.vue",
-    "./pages/**/*.vue",
-    "./composables/**/*.{js,ts}",
-    "./plugins/**/*.{js,ts}",
-    "./app.vue",
-    "./error.vue",
+    "./app/components/**/*.{vue,js,ts}",
+    "./app/layouts/**/*.vue",
+    "./app/pages/**/*.vue",
+    "./app/composables/**/*.{js,ts}",
+    "./app/plugins/**/*.{js,ts}",
+    "./app/app.vue",
+    "./app/error.vue",
   ],
   theme: {
     extend: {},

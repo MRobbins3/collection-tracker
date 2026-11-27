@@ -35,7 +35,7 @@ describe("NewCollectionForm", () => {
     const wrapper = mount(NewCollectionForm, { props: { categories } });
     const options = wrapper.findAll('[data-testid="new-collection-category"] option');
     expect(options).toHaveLength(categories.length);
-    expect(options[0].text()).toBe("Lego Sets");
+    expect(options[0]?.text()).toBe("Lego Sets");
   });
 
   it("refuses to submit with an empty name", async () => {
@@ -58,7 +58,7 @@ describe("NewCollectionForm", () => {
 
     const emitted = wrapper.emitted("created");
     expect(emitted).toBeTruthy();
-    expect(emitted?.[0][0]).toMatchObject({ name: "Alice's Lego", category_slug: "funko-pops" });
+    expect(emitted?.[0]?.[0]).toMatchObject({ name: "Alice's Lego", category_slug: "funko-pops" });
   });
 
   it("shows an error message when the API call fails", async () => {

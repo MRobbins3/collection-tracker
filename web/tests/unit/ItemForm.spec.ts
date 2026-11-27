@@ -33,7 +33,7 @@ describe("ItemForm", () => {
 
     const emitted = wrapper.emitted("submit");
     expect(emitted).toBeTruthy();
-    expect(emitted?.[0][0]).toEqual({
+    expect(emitted?.[0]?.[0]).toEqual({
       name: "Falcon",
       quantity: 2,
       condition: "New",
