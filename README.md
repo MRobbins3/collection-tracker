@@ -25,8 +25,10 @@ See `Documentation/requirements.md` for the living feature list, `Documentation/
 ## Getting started
 
 ```sh
-docker compose up
+docker compose up --build
 ```
+
+`--build` rebuilds the web dev image (`docker/web/Dockerfile`) when it changes; without it, Compose keeps using the image it built first.
 
 - Web: http://localhost:3000
 - API: http://localhost:8080
@@ -40,7 +42,7 @@ By default, `/auth/google/*` returns 503 until you provide OAuth credentials.
 Create a Google OAuth 2.0 Web Client at
 <https://console.cloud.google.com/apis/credentials> with authorized redirect URI
 `http://localhost:8080/auth/google/callback`, then export the client id/secret
-before `docker compose up`:
+before `docker compose up --build`:
 
 ```sh
 export GOOGLE_OAUTH_CLIENT_ID=...
