@@ -5,7 +5,10 @@ export function useMyCollections() {
   return useAsyncData<CollectionsResponse>(
     "me:collections",
     () => api.get<CollectionsResponse>("/me/collections"),
-    { default: () => ({ collections: [] }) },
+    // server: false — the session cookie never reaches SSR fetches, so a
+    // server-side /me/* call is always a 401 that hydrates as "no data".
+    // Fetch in the browser, where the cookie is sent.
+    { default: () => ({ collections: [] }), server: false },
   );
 }
 
@@ -14,6 +17,7 @@ export function useMyCollection(id: string) {
   return useAsyncData<Collection>(
     `me:collection:${id}`,
     () => api.get<Collection>(`/me/collections/${id}`),
+    { server: false }, // see useMyCollections
   );
 }
 

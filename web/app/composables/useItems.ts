@@ -5,7 +5,7 @@ export function useCollectionItems(collectionId: string) {
   return useAsyncData<ItemsResponse>(
     `collection:${collectionId}:items`,
     () => api.get<ItemsResponse>(`/me/collections/${collectionId}/items`),
-    { default: () => ({ items: [] }) },
+    { default: () => ({ items: [] }), server: false }, // see useMyCollections
   );
 }
 
