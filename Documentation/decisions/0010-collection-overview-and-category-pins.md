@@ -1,6 +1,6 @@
 # ADR 0010: Collection overview and category pins
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-27
 
 ## Context

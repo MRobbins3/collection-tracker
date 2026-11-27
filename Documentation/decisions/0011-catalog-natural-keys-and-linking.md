@@ -1,6 +1,6 @@
 # ADR 0011: Catalog natural keys and explicit item linking
 
-- **Status:** Proposed
+- **Status:** Deferred
 - **Date:** 2026-11-27
 
 ## Context

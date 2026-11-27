@@ -1,6 +1,6 @@
 # ADR 0008: Local-only test-user sign-in (dev auth)
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-27
 
 ## Context

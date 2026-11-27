@@ -1,6 +1,6 @@
 # ADR 0013: User-built categories
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-27
 
 ## Context

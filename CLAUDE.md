@@ -56,6 +56,7 @@ The one copy of the lint, test, and typecheck commands lives in `Documentation/t
 
 - Update the roadmap table in `Documentation/requirements.md` if you touch a milestone.
 - Update `Documentation/next-steps.md` in the same commit that changes what's queued.
+- File follow-ups, enhancements, and open owner decisions as GitHub issues (labels `decision`, `follow-up`, `enhancement`, `documentation`); `next-steps.md` links the top few instead of repeating them.
 - Add a changelog entry for any user-visible change.
 - Add an ADR for any architectural choice worth remembering.
 - If introducing a new pattern, document it in this file so the next Claude session picks it up automatically.
