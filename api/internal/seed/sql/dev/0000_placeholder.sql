@@ -7,4 +7,3 @@
 -- INSERT ... ON CONFLICT ... DO UPDATE / DO NOTHING with stable keys.
 --
 -- Nothing here yet; persona users and sample collections land in later PRs.
-SELECT 1;
