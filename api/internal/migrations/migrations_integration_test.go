@@ -255,3 +255,91 @@ func TestQuantityCheckConstraint(t *testing.T) {
 	)
 	require.Error(t, err, "negative quantity should violate CHECK constraint")
 }
+
+// TestProfilesMigrationBackfillsExistingUsers runs migration 0003 against a
+// database that already has users, as production will, and checks every row
+// gets a valid, unique handle and the privacy-respecting defaults. Then it
+// rolls back and forward again.
+func TestProfilesMigrationBackfillsExistingUsers(t *testing.T) {
+	dbURL, cleanup := provisionDB(t, t.Name())
+	t.Cleanup(cleanup)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	require.NoError(t, migrations.UpTo(ctx, dbURL, 2))
+
+	db, err := sql.Open("pgx", dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	// Inserted in created_at order; earlier rows win a contested handle.
+	existing := []struct{ sub, email, name, wantHandle string }{
+		{"s1", "liam.johnson@example.com", "Liam Johnson", "liam_johnson"},
+		{"s2", "liam.j@example.com", "Liam Johnson", "liam_johnson2"},
+		{"s3", "lj@example.com", "LIAM   johnson", "liam_johnson3"},
+		{"s4", "jg@example.com", "José García", "jose_garcia"},
+		{"s5", "fan.club@example.com", "42", "fan_club"},
+		{"s6", "r2@example.com", "R2", "collector"},
+		{"s7", "boss@example.com", "Admin", "admin2"},
+		{"s8", "x@example.com", "3PO Fan", "u_3po_fan"},
+		{"s9", "e@example.com", "An Extremely Long Display Name Indeed", "an_extremely_long_displa"},
+	}
+	for i, u := range existing {
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO users (google_sub, email, display_name, created_at)
+			 VALUES ($1, $2, $3, now() - make_interval(mins => $4))`,
+			u.sub, u.email, u.name, len(existing)-i)
+		require.NoError(t, err)
+	}
+	var userWithData string
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT id FROM users WHERE google_sub='s1'`).Scan(&userWithData))
+	var categoryID string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO categories (slug, name) VALUES ('c','C') RETURNING id`).Scan(&categoryID))
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO collections (user_id, category_id, name) VALUES ($1, $2, 'Kept')`, userWithData, categoryID)
+	require.NoError(t, err)
+
+	require.NoError(t, migrations.Up(ctx, dbURL), "0003 must apply on a DB with existing rows")
+
+	for _, u := range existing {
+		var handle, bio, vis string
+		var acceptFriends, acceptFollows bool
+		require.NoError(t, db.QueryRowContext(ctx, `
+			SELECT handle, bio, collection_visibility, accept_friend_requests, accept_follow_requests
+			FROM users WHERE google_sub = $1`, u.sub,
+		).Scan(&handle, &bio, &vis, &acceptFriends, &acceptFollows))
+		require.Equal(t, u.wantHandle, handle, u.name)
+		require.Empty(t, bio)
+		require.Equal(t, "friends_only", vis)
+		require.True(t, acceptFriends)
+		require.True(t, acceptFollows)
+	}
+
+	// The database enforces the rules too.
+	_, err = db.ExecContext(ctx, `UPDATE users SET handle = 'Liam_Johnson4' WHERE google_sub = 's1'`)
+	require.Error(t, err, "uppercase handles violate the format check")
+	_, err = db.ExecContext(ctx, `UPDATE users SET handle = 'jose_garcia' WHERE google_sub = 's1'`)
+	require.Error(t, err, "handles are unique")
+	_, err = db.ExecContext(ctx, `UPDATE users SET collection_visibility = 'everyone' WHERE google_sub = 's1'`)
+	require.Error(t, err, "visibility is a closed set")
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO users (google_sub, email, display_name) VALUES ('s10', 'n@example.com', 'No Handle')`)
+	require.Error(t, err, "handle is required once the backfill has run")
+
+	// Reversible: down drops the new columns and keeps the rows and their data.
+	require.NoError(t, migrations.DownTo(ctx, dbURL, 2))
+	var hasHandle bool
+	require.NoError(t, db.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		               WHERE table_name = 'users' AND column_name = 'handle')`).Scan(&hasHandle))
+	require.False(t, hasHandle)
+	var users, collections int
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM users`).Scan(&users))
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM collections`).Scan(&collections))
+	require.Equal(t, len(existing), users)
+	require.Equal(t, 1, collections)
+
+	require.NoError(t, migrations.Up(ctx, dbURL), "and forward again")
+}
