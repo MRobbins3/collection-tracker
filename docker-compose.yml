@@ -51,6 +51,8 @@ services:
     environment:
       NUXT_API_BASE: http://api:8080
       NUXT_PUBLIC_API_BASE: http://localhost:8080
+      # Lets `docker compose exec web bun run test:e2e` reach the API at localhost:8080 (see playwright.config.ts).
+      E2E_API_PROXY_TARGET: http://api:8080
     ports:
       - "3000:3000"
     volumes:
