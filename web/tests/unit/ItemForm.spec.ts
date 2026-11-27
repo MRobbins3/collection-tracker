@@ -41,6 +41,43 @@ describe("ItemForm", () => {
     });
   });
 
+  it("collapses inner whitespace in the name, condition, and text attributes", async () => {
+    const wrapper = mount(ItemForm, { props: { schema } });
+    await wrapper.get('[data-testid="item-form-name"]').setValue("  Millennium \t Falcon   UCS ");
+    await wrapper.get('[data-testid="item-form-condition"]').setValue(" New,   sealed ");
+    await wrapper.get('[data-testid="attribute-field-set_number"]').setValue("  75192  ");
+    await wrapper.get('[data-testid="item-form-submit"]').trigger("submit");
+    await flushPromises();
+    expect(wrapper.emitted("submit")?.[0]?.[0]).toEqual({
+      name: "Millennium Falcon UCS",
+      quantity: 1,
+      condition: "New, sealed",
+      attributes: { set_number: "75192" },
+    });
+  });
+
+  it("suggests Title Case for an all-lowercase name without forcing it", async () => {
+    const wrapper = mount(ItemForm, { props: { schema } });
+    await wrapper.get('[data-testid="item-form-name"]').setValue("millennium falcon");
+    const tip = wrapper.get('[data-testid="item-form-title-case"]');
+    expect(tip.text()).toContain("Millennium Falcon");
+
+    // Keeping the lowercase name still submits it as typed.
+    await wrapper.get('[data-testid="item-form-submit"]').trigger("submit");
+    await flushPromises();
+    expect(wrapper.emitted("submit")?.[0]?.[0]).toMatchObject({ name: "millennium falcon" });
+
+    await tip.trigger("click");
+    expect((wrapper.get('[data-testid="item-form-name"]').element as HTMLInputElement).value).toBe("Millennium Falcon");
+    expect(wrapper.find('[data-testid="item-form-title-case"]').exists()).toBe(false);
+  });
+
+  it("offers no suggestion when the name already has deliberate capitals", async () => {
+    const wrapper = mount(ItemForm, { props: { schema } });
+    await wrapper.get('[data-testid="item-form-name"]').setValue("LEGO ucs falcon");
+    expect(wrapper.find('[data-testid="item-form-title-case"]').exists()).toBe(false);
+  });
+
   it("pre-fills from the initial item when editing", () => {
     const wrapper = mount(ItemForm, {
       props: {

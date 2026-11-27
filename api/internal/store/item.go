@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
 )
 
 // Item is the user-owned record in a collection. It may reference an
@@ -52,6 +54,20 @@ const itemSelectCols = `
 	i.attributes, i.created_at, i.updated_at
 `
 
+// cleaned applies the write-time text rules (textnorm.Clean) to everything the
+// owner typed: the name, the condition (blank becomes nil), and every string
+// attribute. Case is kept; Title Case is only a UI suggestion.
+func (in ItemInput) cleaned() (ItemInput, error) {
+	in.Name = textnorm.Clean(in.Name)
+	in.Condition = cleanOptional(in.Condition)
+	attrs, err := CleanAttributes(in.Attributes)
+	if err != nil {
+		return ItemInput{}, err
+	}
+	in.Attributes = attrs
+	return in, nil
+}
+
 // Create inserts a new item in the given collection, owned by the user.
 // Returns ErrNotFound if the collection doesn't exist for that user, so
 // callers can respond with a single NotFound without leaking existence.
@@ -62,19 +78,19 @@ func (s *Items) Create(ctx context.Context, collectionID, userID string, in Item
 	if in.CatalogEntryID != nil && !validIDs(*in.CatalogEntryID) {
 		return Item{}, ErrCatalogEntryUnavailable
 	}
-	attrs := in.Attributes
-	if len(attrs) == 0 {
-		attrs = json.RawMessage("{}")
+	in, err := in.cleaned()
+	if err != nil {
+		return Item{}, err
 	}
 	// The catalog check is part of the insert, so an entry rejected
 	// concurrently can't be linked between a check and the write.
 	var id string
-	err := s.pool.QueryRow(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		INSERT INTO items (collection_id, name, quantity, condition, attributes, catalog_entry_id)
 		SELECT $1, $2, $3, $4, $5::jsonb, $6::uuid
 		WHERE `+catalogLinkable("$6", "$1")+`
 		RETURNING id
-	`, collectionID, in.Name, in.Quantity, in.Condition, string(attrs), in.CatalogEntryID).Scan(&id)
+	`, collectionID, in.Name, in.Quantity, in.Condition, string(in.Attributes), in.CatalogEntryID).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Item{}, ErrCatalogEntryUnavailable
 	}
@@ -136,16 +152,16 @@ func (s *Items) Update(ctx context.Context, id, collectionID, userID string, in 
 	if !validIDs(id, collectionID, userID) {
 		return Item{}, ErrNotFound
 	}
-	attrs := in.Attributes
-	if len(attrs) == 0 {
-		attrs = json.RawMessage("{}")
+	in, err := in.cleaned()
+	if err != nil {
+		return Item{}, err
 	}
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE items
 		SET name = $1, quantity = $2, condition = $3, attributes = $4::jsonb, updated_at = now()
 		FROM collections c
 		WHERE items.id = $5 AND items.collection_id = $6 AND c.id = items.collection_id AND c.user_id = $7
-	`, in.Name, in.Quantity, in.Condition, string(attrs), id, collectionID, userID)
+	`, in.Name, in.Quantity, in.Condition, string(in.Attributes), id, collectionID, userID)
 	if err != nil {
 		return Item{}, fmt.Errorf("update item: %w", err)
 	}

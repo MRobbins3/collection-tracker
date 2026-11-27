@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { computed, ref, reactive } from "vue";
 import AttributeFields from "./AttributeFields.vue";
 import type { AttributeSchema, Item } from "~/types/api";
+import { collapseWhitespace, suggestTitleCase } from "~/utils/text";
 
 const props = defineProps<{
   schema?: AttributeSchema;
@@ -22,9 +23,21 @@ const attrs = reactive<Record<string, unknown>>({ ...(props.initial?.attributes 
 const submitting = ref(false);
 const error = ref<string | null>(null);
 
+const nameSuggestion = computed(() => suggestTitleCase(name.value));
+
+/** Text attributes get the same whitespace cleanup the API applies; blanks are dropped. */
+function cleanedAttributes(): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(attrs)) {
+    const value = typeof v === "string" ? collapseWhitespace(v) : v;
+    if (value !== undefined && value !== "") out[k] = value;
+  }
+  return out;
+}
+
 async function onSubmit() {
   error.value = null;
-  const trimmed = name.value.trim();
+  const trimmed = collapseWhitespace(name.value);
   if (trimmed.length < 1 || trimmed.length > 200) {
     error.value = "Name must be 1–200 characters.";
     return;
@@ -38,8 +51,8 @@ async function onSubmit() {
     emit("submit", {
       name: trimmed,
       quantity: quantity.value,
-      condition: condition.value.trim() || undefined,
-      attributes: Object.fromEntries(Object.entries(attrs).filter(([, v]) => v !== undefined && v !== "")),
+      condition: collapseWhitespace(condition.value) || undefined,
+      attributes: cleanedAttributes(),
     });
   } finally {
     submitting.value = false;
@@ -49,17 +62,30 @@ async function onSubmit() {
 
 <template>
   <form class="space-y-3" data-testid="item-form" @submit.prevent="onSubmit">
-    <label class="block">
-      <span class="block text-xs font-medium text-slate-700 dark:text-slate-300">Name</span>
-      <input
-        v-model="name"
-        type="text"
-        maxlength="200"
-        placeholder="e.g. Millennium Falcon UCS"
-        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
-        data-testid="item-form-name"
-      />
-    </label>
+    <div>
+      <label class="block">
+        <span class="block text-xs font-medium text-slate-700 dark:text-slate-300">Name</span>
+        <input
+          v-model="name"
+          type="text"
+          maxlength="200"
+          placeholder="e.g. Millennium Falcon UCS"
+          class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
+          data-testid="item-form-name"
+        />
+      </label>
+      <p v-if="nameSuggestion" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        Tip: names usually look best in Title Case.
+        <button
+          type="button"
+          class="font-medium text-slate-900 underline underline-offset-2 dark:text-slate-100"
+          data-testid="item-form-title-case"
+          @click="name = nameSuggestion ?? name"
+        >
+          Use “{{ nameSuggestion }}”
+        </button>
+      </p>
+    </div>
 
     <div class="grid grid-cols-2 gap-3">
       <label class="block">

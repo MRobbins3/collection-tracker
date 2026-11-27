@@ -46,6 +46,26 @@ describe("NewCollectionForm", () => {
     expect(wrapper.get('[data-testid="new-collection-error"]').text()).toContain("1–100");
   });
 
+  it("collapses inner whitespace before sending the name", async () => {
+    const wrapper = mount(NewCollectionForm, { props: { categories } });
+    await wrapper.get('[data-testid="new-collection-name"]').setValue("  my \t UCS   sets ");
+    await wrapper.get('[data-testid="new-collection-submit"]').trigger("submit");
+    await flushPromises();
+    expect(createMock).toHaveBeenCalledWith({ categorySlug: "lego-sets", name: "my UCS sets" });
+  });
+
+  it("suggests Title Case for an all-lowercase name, and the user can take it", async () => {
+    const wrapper = mount(NewCollectionForm, { props: { categories } });
+    await wrapper.get('[data-testid="new-collection-name"]').setValue("star wars lego");
+    const tip = wrapper.get('[data-testid="new-collection-title-case"]');
+    expect(tip.text()).toContain("Star Wars Lego");
+    await tip.trigger("click");
+    expect((wrapper.get('[data-testid="new-collection-name"]').element as HTMLInputElement).value).toBe("Star Wars Lego");
+
+    await wrapper.get('[data-testid="new-collection-name"]').setValue("My LEGO");
+    expect(wrapper.find('[data-testid="new-collection-title-case"]').exists()).toBe(false);
+  });
+
   it("submits the trimmed name and the selected category slug", async () => {
     const wrapper = mount(NewCollectionForm, { props: { categories } });
     await wrapper.get('[data-testid="new-collection-name"]').setValue("  Alice's Lego  ");

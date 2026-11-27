@@ -89,6 +89,16 @@ func TestCollectionsEndToEnd(t *testing.T) {
 			updated.UpdatedAt.Equal(c.UpdatedAt), "updated_at should advance")
 	})
 
+	t.Run("create and rename clean whitespace but keep case", func(t *testing.T) {
+		c, err := colls.Create(ctx, alice.ID, "stamps", "  my \t  UK stamps ")
+		require.NoError(t, err)
+		require.Equal(t, "my UK stamps", c.Name)
+
+		renamed, err := colls.Rename(ctx, c.ID, alice.ID, " Penny   Blacks ")
+		require.NoError(t, err)
+		require.Equal(t, "Penny Blacks", renamed.Name)
+	})
+
 	t.Run("delete removes only the caller's row", func(t *testing.T) {
 		c, err := colls.Create(ctx, alice.ID, "plants", "Green")
 		require.NoError(t, err)

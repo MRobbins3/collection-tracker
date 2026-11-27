@@ -12,6 +12,7 @@ import (
 
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
 )
 
 // CollectionStore is the narrow view the HTTP layer needs over store.Collections.
@@ -55,7 +56,7 @@ func (h *handlers) createMyCollection(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	body.Name = strings.TrimSpace(body.Name)
+	body.Name = textnorm.Clean(body.Name)
 	body.CategorySlug = strings.TrimSpace(body.CategorySlug)
 
 	if err := validateCollectionName(body.Name); err != nil {
@@ -103,7 +104,7 @@ func (h *handlers) renameMyCollection(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	body.Name = strings.TrimSpace(body.Name)
+	body.Name = textnorm.Clean(body.Name)
 	if err := validateCollectionName(body.Name); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return

@@ -238,7 +238,7 @@ func (m *Moderation) Submit(ctx context.Context, userID string, in SubmissionInp
 	if !validIDs(userID) || (in.SourceItemID != nil && !validIDs(*in.SourceItemID)) {
 		return SubmitResult{}, ErrNotFound
 	}
-	attrs, err := cleanAttributes(in.Attributes)
+	attrs, err := CleanAttributes(in.Attributes)
 	if err != nil {
 		return SubmitResult{}, err
 	}
@@ -1077,7 +1077,7 @@ func changedFields(cur entryValues, p EntryFields) (EntryFields, error) {
 		}
 	}
 	if p.Attributes != nil {
-		attrs, err := cleanAttributes(p.Attributes)
+		attrs, err := CleanAttributes(p.Attributes)
 		if err != nil {
 			return EntryFields{}, err
 		}
@@ -1095,7 +1095,7 @@ func changedFields(cur entryValues, p EntryFields) (EntryFields, error) {
 // cleanAttributes trims and collapses whitespace in every top-level string
 // value (textnorm.Clean), dropping values that end up empty. Numbers keep
 // their exact JSON text.
-func cleanAttributes(raw json.RawMessage) (json.RawMessage, error) {
+func CleanAttributes(raw json.RawMessage) (json.RawMessage, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return json.RawMessage(`{}`), nil
 	}
@@ -1104,6 +1104,9 @@ func cleanAttributes(raw json.RawMessage) (json.RawMessage, error) {
 	var m map[string]any
 	if err := dec.Decode(&m); err != nil {
 		return nil, fmt.Errorf("attributes must be a JSON object: %w", err)
+	}
+	if m == nil {
+		return json.RawMessage(`{}`), nil
 	}
 	for k, v := range m {
 		if s, ok := v.(string); ok {
