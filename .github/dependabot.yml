@@ -3,7 +3,7 @@
 #
 # Not covered: versions typed as plain values in .github/workflows/ci.yml
 # (go-version, bun-version, golangci-lint version, the postgres service
-# images, runs-on). When a docker-compose bump lands, update the matching CI
+# images, runs-on). When a docker or docker-compose bump lands, update the matching CI
 # value in the same PR. See Documentation/dependencies.md (policy: ADR 0006).
 version: 2
 updates:
@@ -29,6 +29,14 @@ updates:
       interval: "monthly"
     groups:
       web-packages:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "docker"
+    directory: "/docker/web"
+    schedule:
+      interval: "monthly"
+    groups:
+      web-dev-image:
         update-types: ["minor", "patch"]
 
   - package-ecosystem: "docker-compose"

@@ -11,20 +11,20 @@ Every version is pinned exactly. Nothing floats (`latest`, `ubuntu-latest`, `ove
 | Tool | Local (`docker-compose.yml`) | CI (`.github/workflows/ci.yml`) | Updated by |
 |---|---|---|---|
 | Go | `golang:` image | `go-version` (api + e2e jobs) | Dependabot (compose); CI value by hand |
-| Bun | `oven/bun:` image | `bun-version` (web + e2e jobs) | Dependabot (compose); CI value by hand |
+| Bun | `oven/bun:` stage in `docker/web/Dockerfile` | `bun-version` (web + e2e jobs) | Dependabot (docker); CI value by hand |
 | Postgres | `postgres:` image | `postgres:` service image (api + e2e jobs) | Dependabot (compose); CI value by hand |
 | golangci-lint | — | `version:` on the golangci-lint step | By hand |
 | Runner OS | — | `runs-on` (all jobs) | By hand |
-| Node (non-Docker tooling) | — | `.nvmrc`, read by `setup-node` | By hand |
+| Node | `node:` base image in `docker/web/Dockerfile` | `.nvmrc`, read by `setup-node` | Dependabot (docker); `.nvmrc` by hand |
 | GitHub Actions | — | `uses:` tags | Dependabot |
 | Go modules | `api/go.mod` + `go.sum` | same | Dependabot |
 | Web packages | `web/package.json` + `bun.lock` | same | Dependabot |
 
-Local and CI must stay on the same Go, Bun, and Postgres versions. Change both in the same commit.
+Local and CI must stay on the same Go, Bun, Node, and Postgres versions. Change both in the same commit.
 
 ## Dependabot
 
-`.github/dependabot.yml` checks monthly for GitHub Actions, Go modules, Bun packages, and the `docker-compose.yml` images. Minor and patch bumps are grouped into one PR per ecosystem; each major bump gets its own PR so breaking changes stay isolated.
+`.github/dependabot.yml` checks monthly for GitHub Actions, Go modules, Bun packages, the `docker-compose.yml` images, and the `docker/web/Dockerfile` images. Minor and patch bumps are grouped into one PR per ecosystem; each major bump gets its own PR so breaking changes stay isolated.
 
 **Reminder PRs, not merges.** Two kinds of Dependabot PR pass CI while being wrong to merge as-is, so treat them as a signal to do the upgrade by hand:
 - **Postgres major** (`docker-compose.yml`). CI's Postgres images aren't touched by the PR, so CI still tests the old major, and a new major can't read the old data directory. Upgrade with a dump and restore (see `next-steps.md`).
@@ -39,7 +39,7 @@ Dependabot can't see the plain version values in `ci.yml`. When it bumps a compo
   docker run --rm -v "$PWD/api":/app -w /app golangci/golangci-lint:<version> golangci-lint run
   ```
 - **Runner OS.** Before moving `runs-on` to a newer Ubuntu, check that the pinned Playwright version supports it (`playwright install --with-deps` fails on unsupported OS releases).
-- **Node.** Use the newest Node major that's a stable release (not an alpha, beta, or RC). Bump `.nvmrc` and `@types/node` together; CI reads `.nvmrc`.
-- **Bun.** `bun.lock` is written by whichever Bun ran `bun install`, and CI installs with `--frozen-lockfile`. Keep the compose image and `bun-version` identical so the lockfile CI reads is one it accepts.
+- **Node.** Use the newest Node major that's a stable release (not an alpha, beta, or RC). Bump `.nvmrc`, `@types/node`, and the `node:` image in `docker/web/Dockerfile` together; CI reads `.nvmrc`. Nuxt must run on Node, not Bun's runtime (ADR 0005); Bun lacks some Node APIs that Nuxt modules use.
+- **Bun.** `bun.lock` is written by whichever Bun ran `bun install`, and CI installs with `--frozen-lockfile`. Keep the `oven/bun:` stage in `docker/web/Dockerfile` and `bun-version` identical so the lockfile CI reads is one it accepts.
 
 Check golangci-lint and the runner OS for new versions every few months, since nothing automated watches them.
