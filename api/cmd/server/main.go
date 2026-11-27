@@ -104,6 +104,7 @@ func main() {
 			Catalog:       store.NewCatalog(pool),
 			Moderation:    store.NewModeration(pool),
 			Overview:      store.NewOverview(pool),
+			Compare:       store.NewCompare(pool),
 			Relationships: relationships,
 			Social:        relationships,
 			Users:         users,
