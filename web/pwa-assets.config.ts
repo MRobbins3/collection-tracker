@@ -1,7 +1,7 @@
 import { defineConfig, minimal2023Preset } from "@vite-pwa/assets-generator/config";
 
 // Generates the full PWA icon set (192, 512, maskable, apple-touch-icon,
-// favicon) from public/logo.svg. Run with `pnpm exec pwa-assets-generator`.
+// favicon) from public/logo.svg. Run with `bunx pwa-assets-generator` from web/.
 export default defineConfig({
   headLinkOptions: {
     preset: "2023",
