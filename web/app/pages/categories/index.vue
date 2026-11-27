@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
+
 const query = ref("");
-const { data, pending, error } = useCategoriesList(query);
+const searchTerm = useDebouncedRef(computed(() => normalizeSearchQuery(query.value)), SEARCH_DEBOUNCE_MS);
+const { data, pending, error } = useCategoriesList(searchTerm);
+// The list is server-rendered; the box only works once hydrated (see useHydrated).
+const hydrated = useHydrated();
 
 useHead({ title: "Browse categories · Collection Tracker" });
 </script>
@@ -19,6 +24,7 @@ useHead({ title: "Browse categories · Collection Tracker" });
         type="search"
         inputmode="search"
         placeholder="Search categories…"
+        :disabled="!hydrated"
         class="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
         data-testid="category-search"
       />
@@ -52,7 +58,7 @@ useHead({ title: "Browse categories · Collection Tracker" });
       class="rounded-lg bg-slate-100 p-4 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
       data-testid="categories-empty"
     >
-      No categories match “{{ query }}”.
+      No categories match “{{ searchTerm }}”.
     </div>
   </section>
 </template>
