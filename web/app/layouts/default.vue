@@ -18,11 +18,14 @@ const { isSignedIn } = useAuth();
           <NuxtLink
             v-if="isSignedIn"
             to="/my"
-            class="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+            class="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
             data-testid="nav-my-collections"
           >
-            My collections
+            <!-- Icon-only on phones, so the header fits next to People. -->
+            <Icon name="lucide:library" class="h-5 w-5 sm:hidden" aria-hidden="true" />
+            <span class="sr-only sm:not-sr-only">My collections</span>
           </NuxtLink>
+          <PeopleNavLink v-if="isSignedIn" />
           <!--
             Wrapped in ClientOnly: the toggle's icon depends on a preference that
             only exists in the browser. The inline head script applies the

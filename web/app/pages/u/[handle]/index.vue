@@ -22,7 +22,7 @@ useHead(() => ({
       We couldn’t load this profile.
       <button type="button" class="font-medium underline" @click="() => refresh()">Try again</button>
     </div>
-    <PublicProfileView v-else-if="data" :data="data" />
+    <PublicProfileView v-else-if="data" :data="data" @changed="() => refresh()" />
     <section v-else class="space-y-3 rounded-xl bg-slate-100 p-6 text-center dark:bg-slate-800" data-testid="profile-not-found">
       <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-50">Profile not found</h1>
       <p class="text-sm text-slate-600 dark:text-slate-300">
