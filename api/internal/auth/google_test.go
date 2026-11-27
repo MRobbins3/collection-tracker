@@ -166,10 +166,9 @@ func TestCallbackHappyPath(t *testing.T) {
 }
 
 func TestLogoutClearsSessionCookie(t *testing.T) {
-	g := NewGoogle(GoogleConfig{}, &fakeUsers{}, newTestManager(), "http://web", newDiscardLogger())
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	rr := httptest.NewRecorder()
-	g.Logout(rr, req)
+	newTestManager().Logout(rr, req)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 

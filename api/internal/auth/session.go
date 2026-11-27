@@ -100,6 +100,14 @@ func (m *Manager) Clear(w http.ResponseWriter) {
 	http.SetCookie(w, m.cookie(m.cookieName, "", -1))
 }
 
+// Logout clears the session cookie whichever provider issued it. Idempotent:
+// no error if no session was present to begin with.
+func (m *Manager) Logout(w http.ResponseWriter, _ *http.Request) {
+	m.Clear(w)
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
 // Middleware places the session (if any) on the request context. It NEVER
 // rejects requests itself — handlers that require a session call Require.
 func (m *Manager) Middleware(next http.Handler) http.Handler {

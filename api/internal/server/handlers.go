@@ -90,6 +90,16 @@ func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": user})
 }
 
+// authProviders reports which sign-in providers this API offers. google is
+// true only when OAuth credentials are configured; dev only when the dev
+// provider is enabled (never in production).
+func (h *handlers) authProviders(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{
+		"google": h.googleAuth != nil && h.googleAuth.Configured(),
+		"dev":    h.devAuth != nil,
+	})
+}
+
 func (h *handlers) serverError(w http.ResponseWriter, _ *http.Request, err error, msg string) {
 	h.logger.Error(msg, "err", err)
 	writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
