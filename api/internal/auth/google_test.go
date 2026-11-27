@@ -165,23 +165,6 @@ func TestCallbackHappyPath(t *testing.T) {
 	require.Equal(t, "user-google-sub-xyz", s.UserID)
 }
 
-func TestLogoutClearsSessionCookie(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
-	rr := httptest.NewRecorder()
-	newTestManager().Logout(rr, req)
-
-	require.Equal(t, http.StatusOK, rr.Code)
-
-	var cleared *http.Cookie
-	for _, c := range rr.Result().Cookies() {
-		if c.Name == sessionCookieName {
-			cleared = c
-		}
-	}
-	require.NotNil(t, cleared)
-	require.Less(t, cleared.MaxAge, 0)
-}
-
 func TestBestNameFallbacks(t *testing.T) {
 	cases := []struct {
 		name    string

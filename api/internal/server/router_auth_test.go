@@ -106,7 +106,10 @@ func TestDevLoginThenMeThenLogout(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 	require.Contains(t, rr.Body.String(), `"display_name":"Liam Johnson"`)
 
-	rr = serve(r, httptest.NewRequest(http.MethodPost, "/auth/logout", nil))
+	logout := httptest.NewRequest(http.MethodPost, "/auth/logout", strings.NewReader(`{}`))
+	logout.Header.Set("Content-Type", "application/json")
+	logout.Header.Set("Origin", "http://localhost:3000")
+	rr = serve(r, logout)
 	require.Equal(t, http.StatusOK, rr.Code)
 	var cleared *http.Cookie
 	for _, c := range rr.Result().Cookies() {
@@ -116,6 +119,13 @@ func TestDevLoginThenMeThenLogout(t *testing.T) {
 	}
 	require.NotNil(t, cleared)
 	require.Less(t, cleared.MaxAge, 0)
+}
+
+func TestLogoutRejectsCrossSiteFormPost(t *testing.T) {
+	r := newAuthRouter(authRouterOpts{dev: true})
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", strings.NewReader("x=1"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	require.Equal(t, http.StatusUnsupportedMediaType, serve(r, req).Code)
 }
 
 func TestDevLoginCORSPreflightOnlyForAllowedOrigin(t *testing.T) {
