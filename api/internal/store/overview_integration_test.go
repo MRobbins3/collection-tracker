@@ -132,6 +132,57 @@ func TestOverview(t *testing.T) {
 		require.Equal(t, 4, p.Total)
 	})
 
+	t.Run("paging is stable when sort keys tie", func(t *testing.T) {
+		carol, err := users.UpsertByGoogleSub(ctx, "carol-sub", "carol@example.com", "Carol")
+		require.NoError(t, err)
+		carolLego, err := colls.Create(ctx, carol.ID, "lego-sets", "Bricks")
+		require.NoError(t, err)
+		carolCoins, err := colls.Create(ctx, carol.ID, "coins", "Coins")
+		require.NoError(t, err)
+		// Same created_at and names that differ only in case, in two
+		// categories, so every sort's leading keys tie.
+		same := day(9)
+		for i, name := range []string{"box", "Box", "BOX", "bOx", "Box"} {
+			coll := carolLego.ID
+			if i%2 == 1 {
+				coll = carolCoins.ID
+			}
+			add(coll, carol.ID, name, same)
+		}
+
+		ids := func(p store.OverviewItemsPage) []string {
+			out := make([]string, 0, len(p.Items))
+			for _, it := range p.Items {
+				out = append(out, it.ID)
+			}
+			return out
+		}
+		for _, sort := range []store.OverviewSort{store.SortNewest, store.SortNameAsc, store.SortCategory} {
+			t.Run(string(sort), func(t *testing.T) {
+				whole, err := ov.Items(ctx, carol.ID, store.OverviewQuery{Sort: sort, Limit: 50})
+				require.NoError(t, err)
+				require.Len(t, whole.Items, 5)
+
+				var paged []string
+				for offset := 0; ; offset += 2 {
+					p, err := ov.Items(ctx, carol.ID, store.OverviewQuery{Sort: sort, Limit: 2, Offset: offset})
+					require.NoError(t, err)
+					require.Equal(t, 5, p.Total)
+					paged = append(paged, ids(p)...)
+					if !p.HasMore {
+						break
+					}
+				}
+				require.Equal(t, ids(whole), paged, "pages concatenate to the single-page order")
+				seen := map[string]bool{}
+				for _, id := range paged {
+					require.False(t, seen[id], "no item appears on two pages")
+					seen[id] = true
+				}
+			})
+		}
+	})
+
 	t.Run("never returns another user's items", func(t *testing.T) {
 		p, err := ov.Items(ctx, bob.ID, store.OverviewQuery{Sort: store.SortNewest, Limit: 50})
 		require.NoError(t, err)
