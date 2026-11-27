@@ -26,13 +26,13 @@ concurrency:
 jobs:
   api:
     name: api — lint + unit + integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: api
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16.13-alpine
         env:
           POSTGRES_USER: collection
           POSTGRES_PASSWORD: collection
@@ -52,7 +52,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.25"
+          go-version: "1.25.9"
           cache-dependency-path: api/go.sum
 
       - name: golangci-lint
@@ -75,7 +75,7 @@ jobs:
 
   web:
     name: web — lint + typecheck + vitest
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: web
@@ -107,14 +107,14 @@ jobs:
 
   e2e:
     name: web — playwright smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: [api, web]
     defaults:
       run:
         working-directory: web
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16.13-alpine
         env:
           POSTGRES_USER: collection
           POSTGRES_PASSWORD: collection
@@ -141,7 +141,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.25"
+          go-version: "1.25.9"
           cache-dependency-path: api/go.sum
 
       # Same Node-version concern as the `web` job — modern Object APIs are
