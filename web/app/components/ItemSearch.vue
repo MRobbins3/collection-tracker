@@ -28,8 +28,9 @@ const searching = computed(() => active.value && (normalized.value !== term.valu
 const results = computed(() => data.value?.items ?? []);
 
 const status = computed(() => {
-  if (!active.value || error.value) return "";
-  if (searching.value) return "Searching…";
+  // Announce only settled results: "Searching…" on every debounced
+  // keystroke would be noise for screen-reader users (it's shown visually).
+  if (!active.value || error.value || searching.value) return "";
   const n = results.value.length;
   if (n === 0) return "No items found";
   return `${n}${data.value?.has_more ? "+" : ""} item${n === 1 ? "" : "s"} found`;

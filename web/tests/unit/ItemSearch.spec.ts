@@ -82,7 +82,9 @@ describe("ItemSearch", () => {
     await wrapper.get('[data-testid="item-search-input"]').setValue("  millennium   falcon ");
     expect(wrapper.props("modelValue")).toBe("  millennium   falcon ");
     expect(term.value).toBe("");
-    expect(wrapper.get('[data-testid="item-search-status"]').text()).toContain("Searching");
+    expect(wrapper.get('[data-testid="item-search-searching"]').text()).toContain("Searching");
+    // Screen readers hear only the final count, not every debounced keystroke.
+    expect(wrapper.get('[data-testid="item-search-status"]').text()).toBe("");
 
     vi.advanceTimersByTime(250);
     await nextTick();
@@ -143,7 +145,8 @@ describe("ItemSearch", () => {
     pending.value = true;
     const wrapper = mountSearch("falcon");
     await flushPromises();
-    expect(wrapper.get('[data-testid="item-search-status"]').text()).toContain("Searching");
+    expect(wrapper.get('[data-testid="item-search-searching"]').text()).toContain("Searching");
+    expect(wrapper.get('[data-testid="item-search-status"]').text()).toBe("");
     expect(wrapper.find('[data-testid="item-search-empty"]').exists()).toBe(false);
   });
 
