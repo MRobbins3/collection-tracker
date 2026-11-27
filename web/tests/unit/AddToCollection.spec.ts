@@ -99,6 +99,7 @@ describe("AddToCollection", () => {
     expect(createCollection).not.toHaveBeenCalled();
     expect(addEntry).toHaveBeenCalledWith("c1", entry);
     expect(wrapper.get('[data-testid="add-to-collection-added"]').text()).toContain("Added to Shelf");
+    expect(wrapper.emitted("added")).toEqual([[{ id: "c1", name: "Shelf" }]]);
   });
 
   it("creates a new collection when you have none in this category", async () => {

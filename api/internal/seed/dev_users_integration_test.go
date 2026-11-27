@@ -44,7 +44,7 @@ func TestDevSeedsCreatePersonas(t *testing.T) {
 		{"dev:amelia", "Amelia Brown", "amelia.brown@example.com", 1, 2},
 		{"dev:emma", "Emma Garcia", "emma.garcia@example.com", 0, 0},
 		{"dev:liam", "Liam Johnson", "liam.johnson@example.com", 2, 6},
-		{"dev:noah", "Noah Williams", "noah.williams@example.com", 1, 2},
+		{"dev:noah", "Noah Williams", "noah.williams@example.com", 2, 6},
 		{"dev:olivia", "Olivia Martinez", "olivia.martinez@example.com", 0, 0},
 	}, got)
 }
@@ -139,4 +139,46 @@ func TestDevSeedsRelateThePersonas(t *testing.T) {
 	n, err := rels.IncomingRequestCount(ctx, id("olivia"))
 	require.NoError(t, err)
 	require.Zero(t, n)
+}
+
+// Liam and Noah are friends with overlapping Lego sets, so comparing their
+// collections shows all four buckets (0004_compare_sample.sql).
+func TestDevSeedsMakeLiamAndNoahComparable(t *testing.T) {
+	pool := provisionMigratedDB(t)
+	ctx := context.Background()
+	_, err := seed.Apply(ctx, pool, seed.Options{Env: "test", Dev: true})
+	require.NoError(t, err)
+
+	users := store.NewUsers(pool)
+	liam, err := users.GetByGoogleSub(ctx, "dev:liam")
+	require.NoError(t, err)
+	noah, err := users.GetByGoogleSub(ctx, "dev:noah")
+	require.NoError(t, err)
+
+	cmp := store.NewCompare(pool)
+	names := map[store.CompareBucket][]string{}
+	var counts store.CompareCounts
+	for _, b := range []store.CompareBucket{store.BucketBoth, store.BucketMineOnly, store.BucketTheirsOnly, store.BucketNeither} {
+		res, err := cmp.Compare(ctx, store.CompareQuery{
+			ViewerID: liam.ID, OtherID: noah.ID, CategorySlug: "lego-sets", Bucket: b, Limit: 50,
+		})
+		require.NoError(t, err)
+		counts = res.Counts
+		for _, r := range res.Items {
+			names[b] = append(names[b], r.Name)
+		}
+	}
+	require.Equal(t, store.CompareCounts{Both: 2, MineOnly: 2, TheirsOnly: 2, Neither: 3}, counts)
+	require.Equal(t, map[store.CompareBucket][]string{
+		store.BucketBoth:       {"Galaxy Explorer", "Tree House"},
+		store.BucketMineOnly:   {"Lamborghini Sián FKP 37", "Millennium Falcon"},
+		store.BucketTheirsOnly: {"NASA Apollo Saturn V", "Typewriter"},
+		store.BucketNeither:    {"AT-AT", "Colosseum", "Titanic"},
+	}, names)
+
+	var linked int
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT count(*) FROM items WHERE collection_id = 'd0000000-0000-4000-8000-000000000105'
+		AND catalog_entry_id IS NOT NULL`).Scan(&linked))
+	require.Equal(t, 2, linked, "Tree House and Typewriter are linked to the catalog")
 }

@@ -121,4 +121,25 @@ describe("PublicProfileView", () => {
     expect(mountView(response()).find('[data-testid="relationship-stub"]').exists()).toBe(false);
     expect(mountView(response({ is_self: true })).find('[data-testid="relationship-stub"]').exists()).toBe(false);
   });
+
+  it("offers Compare collections to a signed-in visitor who can see the collections", () => {
+    const rel = {
+      friend: "friends" as const,
+      following: "none" as const,
+      follows_you: "none" as const,
+      accepts_friend_requests: true,
+      accepts_follow_requests: true,
+    };
+    const link = mountView(response({ relationship: rel })).get('[data-testid="profile-compare-link"]');
+    expect(link.attributes("href")).toBe("/u/liam/compare");
+    expect(link.text()).toContain("Compare collections");
+
+    const none = '[data-testid="profile-compare-link"]';
+    expect(mountView(response()).find(none).exists(), "signed out").toBe(false);
+    expect(mountView(response({ is_self: true })).find(none).exists(), "yourself").toBe(false);
+    expect(
+      mountView(response({ relationship: rel, collections_visible: false, collections: [] })).find(none).exists(),
+      "hidden collections",
+    ).toBe(false);
+  });
 });

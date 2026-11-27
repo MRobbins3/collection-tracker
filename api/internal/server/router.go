@@ -33,7 +33,9 @@ type Deps struct {
 	Relationships RelationshipStore
 	// Social is friends and followers (ADR 0014); the same
 	// store.Relationships in production. nil leaves its routes unwired.
-	Social     SocialStore
+	Social SocialStore
+	// Compare matches two people's collections. nil leaves its route unwired.
+	Compare    CompareStore
 	Sessions   *auth.Manager
 	GoogleAuth *auth.Google
 	// DevAuth is the local/CI-only sign-in provider. nil (the default, and
@@ -85,6 +87,7 @@ type handlers struct {
 	users         UserStore
 	relationships RelationshipStore
 	social        SocialStore
+	compare       CompareStore
 	handleChecks  *keyedLimiter
 	requestLimits *keyedLimiter
 	searchLimits  *keyedLimiter
@@ -109,6 +112,7 @@ func NewRouter(deps Deps) http.Handler {
 		users:         deps.Users,
 		relationships: deps.Relationships,
 		social:        deps.Social,
+		compare:       deps.Compare,
 		handleChecks:  newKeyedLimiter(handleCheckBurst, handleCheckInterval),
 		requestLimits: newKeyedLimiter(requestBurst, requestInterval),
 		searchLimits:  newKeyedLimiter(searchBurst, searchInterval),
@@ -240,6 +244,11 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/me/requests", h.listMyRequests)
 			r.Get("/me/requests/count", h.countMyRequests)
 			r.Get("/people", h.searchPeople)
+		}
+
+		// Compare collections: the privacy rule decides, as on the profile.
+		if h.compare != nil {
+			r.Get("/users/{handle}/compare", h.compareWithUser)
 		}
 
 		// Admin only (ADR 0004 roles, ADR 0012). requireLiveUser put the
