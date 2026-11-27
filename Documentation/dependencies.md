@@ -27,7 +27,7 @@ Local and CI must stay on the same Go, Bun, Node, and Postgres versions. Change 
 `.github/dependabot.yml` checks monthly for GitHub Actions, Go modules, Bun packages, the `docker-compose.yml` images, and the `docker/web/Dockerfile` images. Minor and patch bumps are grouped into one PR per ecosystem; each major bump gets its own PR so breaking changes stay isolated.
 
 **Reminder PRs, not merges.** Two kinds of Dependabot PR pass CI while being wrong to merge as-is, so treat them as a signal to do the upgrade by hand:
-- **Postgres major** (`docker-compose.yml`). CI's Postgres images aren't touched by the PR, so CI still tests the old major, and a new major can't read the old data directory. Upgrade with a dump and restore (see `next-steps.md`).
+- **Postgres major** (`docker-compose.yml`). CI's Postgres images aren't touched by the PR, so CI still tests the old major, and a new major can't read the old data directory. Bump the compose image and both CI service images together. While there's no data worth keeping, recreate the local volume with `docker compose down -v`; once real data exists (or a hosted database), plan a dump and restore instead.
 - **`@types/node` major.** The types describe a Node the app doesn't run yet. Move `.nvmrc` and `@types/node` together instead.
 
 Dependabot can't see the plain version values in `ci.yml`. When it bumps a compose image, push a commit to the same PR that updates the matching CI value from the table above, and merge only when CI is green.
