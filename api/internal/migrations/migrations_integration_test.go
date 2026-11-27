@@ -682,3 +682,79 @@ func TestUserCategoriesMigration(t *testing.T) {
 		require.NoError(t, migrations.Up(ctx, dbURL), "and migrates up again")
 	})
 }
+
+func TestFriendsFollowersMigration(t *testing.T) {
+	dbURL, cleanup := provisionDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, migrations.Up(ctx, dbURL))
+
+	db, err := sql.Open("pgx", dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	newUser := func(handle string) string {
+		var id string
+		require.NoError(t, db.QueryRowContext(ctx,
+			`INSERT INTO users (google_sub, email, display_name, handle) VALUES ($1, $1 || '@example.com', $1, $1) RETURNING id`,
+			handle).Scan(&id))
+		return id
+	}
+	alice, bob, carol := newUser("alice"), newUser("bob"), newUser("carol")
+	// friendships store each pair once, lowest id first.
+	lo, hi := alice, bob
+	if hi < lo {
+		lo, hi = hi, lo
+	}
+
+	friend := func(a, b, by, status string) error {
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO friendships (user_a, user_b, requested_by, status, accepted_at)
+			 VALUES ($1, $2, $3, $4, CASE WHEN $4 = 'accepted' THEN now() END)`, a, b, by, status)
+		return err
+	}
+	follow := func(follower, followee, status string) error {
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO follows (follower_id, followee_id, status, approved_at)
+			 VALUES ($1, $2, $3, CASE WHEN $3 = 'approved' THEN now() END)`, follower, followee, status)
+		return err
+	}
+
+	t.Run("friendships are one row per unordered pair", func(t *testing.T) {
+		require.Error(t, friend(hi, lo, lo, "pending"), "the pair must be stored lowest id first")
+		require.Error(t, friend(alice, alice, alice, "pending"), "no friendship with yourself")
+		require.Error(t, friend(lo, hi, carol, "pending"), "the requester must be one of the pair")
+		require.Error(t, friend(lo, hi, lo, "best_friends"), "unknown statuses are refused")
+		require.NoError(t, friend(lo, hi, lo, "pending"))
+		require.Error(t, friend(lo, hi, hi, "pending"), "a second request for the same pair, either way")
+	})
+
+	t.Run("follows are one row per direction", func(t *testing.T) {
+		require.Error(t, follow(alice, alice, "pending"), "no following yourself")
+		require.Error(t, follow(alice, bob, "maybe"), "unknown statuses are refused")
+		require.NoError(t, follow(alice, bob, "pending"))
+		require.Error(t, follow(alice, bob, "approved"), "one row per direction")
+		require.NoError(t, follow(bob, alice, "approved"), "the other direction is separate")
+		_, err := db.ExecContext(ctx, `INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, 'approved')`, carol, alice)
+		require.Error(t, err, "an approved follow records when it was approved")
+	})
+
+	t.Run("deleting an account removes its relationships", func(t *testing.T) {
+		_, err := db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, alice)
+		require.NoError(t, err)
+		var n int
+		require.NoError(t, db.QueryRowContext(ctx,
+			`SELECT (SELECT count(*) FROM friendships) + (SELECT count(*) FROM follows)`).Scan(&n))
+		require.Zero(t, n)
+	})
+
+	t.Run("rolls back", func(t *testing.T) {
+		require.NoError(t, migrations.DownTo(ctx, dbURL, 8))
+		var exists bool
+		require.NoError(t, db.QueryRowContext(ctx,
+			`SELECT to_regclass('public.friendships') IS NOT NULL OR to_regclass('public.follows') IS NOT NULL`).Scan(&exists))
+		require.False(t, exists)
+		require.NoError(t, migrations.Up(ctx, dbURL), "and migrates up again")
+	})
+}

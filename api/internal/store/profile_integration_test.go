@@ -213,7 +213,7 @@ func TestDeleteUserCascades(t *testing.T) {
 	require.ErrorIs(t, users.Delete(ctx, gone.ID), store.ErrNotFound)
 }
 
-func TestRelationshipsUntilFriendsExist(t *testing.T) {
+func TestRelationshipsSelfAnonymousAndStrangers(t *testing.T) {
 	pool, cleanup := provisionSeededDB(t, t.Name())
 	t.Cleanup(cleanup)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -225,12 +225,12 @@ func TestRelationshipsUntilFriendsExist(t *testing.T) {
 
 	liam, err := users.GetByGoogleSub(ctx, "dev:liam")
 	require.NoError(t, err)
-	noah, err := users.GetByGoogleSub(ctx, "dev:noah")
+	olivia, err := users.GetByGoogleSub(ctx, "dev:olivia")
 	require.NoError(t, err)
 
-	got, err := rels.Between(ctx, noah.ID, liam.ID)
+	got, err := rels.Between(ctx, olivia.ID, liam.ID)
 	require.NoError(t, err)
-	require.Equal(t, privacy.None, got, "no friends or followers exist yet")
+	require.Equal(t, privacy.None, got, "the dev seed gives Olivia and Liam no tie")
 	got, err = rels.Between(ctx, liam.ID, liam.ID)
 	require.NoError(t, err)
 	require.Equal(t, privacy.Self, got)
