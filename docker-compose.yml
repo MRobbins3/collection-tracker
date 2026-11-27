@@ -5,8 +5,9 @@ services:
       POSTGRES_USER: collection
       POSTGRES_PASSWORD: collection
       POSTGRES_DB: collection
+    # Loopback only: the dev database has a well-known password.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql
     healthcheck:
@@ -35,8 +36,9 @@ services:
       GOOGLE_OAUTH_CLIENT_ID: "${GOOGLE_OAUTH_CLIENT_ID:-}"
       GOOGLE_OAUTH_CLIENT_SECRET: "${GOOGLE_OAUTH_CLIENT_SECRET:-}"
       GOOGLE_OAUTH_REDIRECT_URL: "${GOOGLE_OAUTH_REDIRECT_URL:-http://localhost:8080/auth/google/callback}"
+    # Loopback only: with DEV_AUTH_ENABLED anyone who can reach the API can sign in as a test user.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./api:/app
       - go-mod-cache:/go/pkg/mod
