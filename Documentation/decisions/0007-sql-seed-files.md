@@ -1,6 +1,6 @@
 # ADR 0007: Seed data as idempotent SQL files, split into reference and dev sets
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-27
 
 ## Context

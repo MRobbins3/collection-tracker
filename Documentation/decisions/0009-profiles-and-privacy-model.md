@@ -1,6 +1,6 @@
 # ADR 0009: Profiles, handles, and the privacy model
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-27
 
 ## Context
