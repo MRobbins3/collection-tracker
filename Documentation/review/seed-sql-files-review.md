@@ -19,3 +19,4 @@ Decisions made without the owner, for review.
 ## Not finished / not verified
 
 - `scripts/reset-db.sh` was not run end-to-end against the local `collection` database (the session's permission guard blocked the destructive drop). Each step was verified separately on a scratch database: migrations through the API, then both seed sets applied twice with `psql --single-transaction`, ending with 8 categories.
+- **Resolved 2026-11-27:** the owner ran `scripts/reset-db.sh` end-to-end after #23 merged; it rebuilt the database to the latest migration and applied all seed files.
