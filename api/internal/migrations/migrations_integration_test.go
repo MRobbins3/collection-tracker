@@ -583,3 +583,102 @@ func TestModerationMigration(t *testing.T) {
 	require.Equal(t, 1, towers)
 	require.Equal(t, 1, live)
 }
+
+// 0008 gives categories an owner and a status (ADR 0013): existing rows are
+// system categories and become approved; an unapproved category needs an
+// owner; names are unique case-insensitively among approved categories and
+// among one user's own; and the moderation queue accepts a 'category' kind.
+func TestUserCategoriesMigration(t *testing.T) {
+	dbURL, cleanup := provisionDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, migrations.UpTo(ctx, dbURL, 7))
+
+	db, err := sql.Open("pgx", dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	var legoID string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO categories (slug, name) VALUES ('lego-sets','Lego Sets') RETURNING id`).Scan(&legoID))
+	var alice, bob string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO users (google_sub, email, display_name, handle) VALUES ('s1','a@example.com','A','alice') RETURNING id`).Scan(&alice))
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO users (google_sub, email, display_name, handle) VALUES ('s2','b@example.com','B','bob') RETURNING id`).Scan(&bob))
+
+	require.NoError(t, migrations.Up(ctx, dbURL))
+
+	t.Run("existing categories become approved system categories", func(t *testing.T) {
+		var status string
+		var createdBy sql.NullString
+		require.NoError(t, db.QueryRowContext(ctx,
+			`SELECT status, created_by FROM categories WHERE id = $1`, legoID).Scan(&status, &createdBy))
+		require.Equal(t, "approved", status)
+		require.False(t, createdBy.Valid)
+	})
+
+	insert := func(slug, name, status string, owner any) error {
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO categories (slug, name, status, created_by) VALUES ($1, $2, $3, $4)`,
+			slug, name, status, owner)
+		return err
+	}
+
+	t.Run("an unapproved category needs an owner", func(t *testing.T) {
+		require.Error(t, insert("orphan", "Orphan", "private", nil))
+		require.Error(t, insert("weird", "Weird", "draft", alice), "unknown statuses are refused")
+	})
+
+	t.Run("names are unique per owner and among approved, ignoring case and spaces", func(t *testing.T) {
+		require.NoError(t, insert("sneakers-a", "Sneakers", "private", alice))
+		require.Error(t, insert("sneakers-a2", "  sneakers ", "private", alice), "same owner, same name")
+		require.NoError(t, insert("sneakers-b", "SNEAKERS", "pending", bob), "another user may have their own")
+		require.Error(t, insert("lego-b", "lego  sets", "approved", bob), "one approved category per name")
+		require.Error(t, insert("blank", "   ", "private", bob), "blank names are refused")
+	})
+
+	t.Run("the queue accepts category requests, one pending per category", func(t *testing.T) {
+		var catID string
+		require.NoError(t, db.QueryRowContext(ctx, `SELECT id FROM categories WHERE slug = 'sneakers-a'`).Scan(&catID))
+		q := `INSERT INTO moderation_requests (kind, category_id, submitted_by) VALUES ('category', $1, $2)`
+		_, err := db.ExecContext(ctx, q, catID, alice)
+		require.NoError(t, err)
+		_, err = db.ExecContext(ctx, q, catID, alice)
+		require.Error(t, err, "a second pending request for the same category")
+
+		var entryID string
+		require.NoError(t, db.QueryRowContext(ctx,
+			`INSERT INTO catalog_entries (category_id, name, status) VALUES ($1, 'Set', 'approved') RETURNING id`, legoID).Scan(&entryID))
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO moderation_requests (kind, category_id, catalog_entry_id, submitted_by, status, decided_at)
+			VALUES ('category', $1, $2, $3, 'rejected', now())`, catID, entryID, alice)
+		require.Error(t, err, "a category request never points at a catalog entry")
+	})
+
+	t.Run("rolls back, deleting unapproved user categories and their collections", func(t *testing.T) {
+		var catID string
+		require.NoError(t, db.QueryRowContext(ctx, `SELECT id FROM categories WHERE slug = 'sneakers-a'`).Scan(&catID))
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO collections (user_id, category_id, name) VALUES ($1, $2, 'Shoes')`, alice, catID)
+		require.NoError(t, err)
+		require.NoError(t, insert("mugs", "Mugs", "approved", alice))
+
+		require.NoError(t, migrations.DownTo(ctx, dbURL, 7))
+		var slugs []string
+		rows, err := db.QueryContext(ctx, `SELECT slug FROM categories ORDER BY slug`)
+		require.NoError(t, err)
+		for rows.Next() {
+			var s string
+			require.NoError(t, rows.Scan(&s))
+			slugs = append(slugs, s)
+		}
+		require.NoError(t, rows.Err())
+		require.Equal(t, []string{"lego-sets", "mugs"}, slugs)
+		var n int
+		require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM collections`).Scan(&n))
+		require.Zero(t, n)
+		require.NoError(t, migrations.Up(ctx, dbURL), "and migrates up again")
+	})
+}

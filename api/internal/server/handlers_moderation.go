@@ -29,6 +29,7 @@ type ModerationStore interface {
 	Approve(ctx context.Context, adminID, id string, edits *store.EntryFields) (store.ModerationRequest, error)
 	Reject(ctx context.Context, adminID, id, reason string) (store.ModerationRequest, error)
 	Merge(ctx context.Context, adminID, id, targetID string, reason *string) (store.ModerationRequest, error)
+	SubmitCategory(ctx context.Context, userID, slug string, note *string) (store.Submission, error)
 }
 
 const (
@@ -44,12 +45,15 @@ var (
 	msgSubmissionLimit = fmt.Sprintf(
 		"You have %d suggestions waiting for review. You can send more once some of them are reviewed.",
 		store.MaxPendingPerUser)
-	msgNoChanges       = "That doesn't change anything in the catalog entry."
-	msgAlreadyDecided  = "Someone already decided this one. Reload to see the outcome."
-	msgDuplicateEntry  = "Another catalog entry in this category already has that name and identifier."
-	msgMergeTarget     = "Pick an approved catalog entry in the same category to merge into."
-	msgWrongKind       = "Only new entry suggestions can be merged."
-	msgEntryNotPending = "This suggestion's catalog entry was changed outside the queue. Reload to see it."
+	msgNoChanges         = "That doesn't change anything in the catalog entry."
+	msgAlreadyDecided    = "Someone already decided this one. Reload to see the outcome."
+	msgDuplicateEntry    = "Another catalog entry in this category already has that name and identifier."
+	msgMergeTarget       = "Pick an approved catalog entry in the same category to merge into."
+	msgWrongKind         = "Only new entry suggestions can be merged."
+	msgEntryNotPending   = "This suggestion's catalog entry was changed outside the queue. Reload to see it."
+	msgCategoryNotPublic = "Catalog suggestions open once this category is on the public list."
+	msgCategoryNoEdits   = "Categories are approved as their creator built them. Reject with a reason to ask for changes."
+	msgDuplicateCategory = "A category with this name is already on the public list. Reject this one as a duplicate."
 )
 
 // entryFieldsReq is the editable part of a catalog entry in a request
@@ -62,29 +66,29 @@ type entryFieldsReq struct {
 
 // clean normalizes and validates the fields (attributes against the
 // category's schema). It returns an error body for a 400.
-func (h *handlers) cleanEntryFields(ctx context.Context, categorySlug string, in entryFieldsReq) (store.EntryFields, map[string]any, bool) {
+func (h *handlers) cleanEntryFields(ctx context.Context, viewerID, categorySlug string, in entryFieldsReq) (store.EntryFields, int, map[string]any, bool) {
 	var out store.EntryFields
 	if in.Name != nil {
 		n := textnorm.Clean(*in.Name)
 		if n == "" || utf8.RuneCountInString(n) > entryNameMax {
-			return out, map[string]any{"error": "name must be 1–200 characters"}, false
+			return out, http.StatusBadRequest, map[string]any{"error": "name must be 1–200 characters"}, false
 		}
 		out.Name = &n
 	}
 	if in.Description != nil {
 		d := textnorm.Clean(*in.Description)
 		if utf8.RuneCountInString(d) > entryDescriptionMax {
-			return out, map[string]any{"error": "description must be at most 1000 characters"}, false
+			return out, http.StatusBadRequest, map[string]any{"error": "description must be at most 1000 characters"}, false
 		}
 		out.Description = &d
 	}
 	if in.Attributes != nil && string(in.Attributes) != "null" {
-		if errResp, ok := validateAttributesAgainstCategory(h.categories, ctx, categorySlug, in.Attributes); !ok {
-			return out, errResp, false
+		if status, errResp, ok := h.validateAttributes(ctx, viewerID, categorySlug, in.Attributes); !ok {
+			return out, status, errResp, false
 		}
 		out.Attributes = in.Attributes
 	}
-	return out, nil, true
+	return out, 0, nil, true
 }
 
 func cleanNote(s *string, field string, required bool) (*string, string) {
@@ -128,12 +132,19 @@ func (h *handlers) submitCatalogEntry(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "category_slug is required"})
 		return
 	}
-	if _, err := h.categories.GetBySlug(r.Context(), slug); err != nil {
+	cat, err := h.categories.GetBySlug(r.Context(), s.UserID, slug)
+	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "category not found"})
 			return
 		}
 		h.serverError(w, r, err, "submitCatalogEntry: category lookup")
+		return
+	}
+	// The catalog belongs to the public list: a user-built category gets
+	// one once it is approved (ADR 0013).
+	if cat.Status != store.CategoryApproved {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": msgCategoryNotPublic})
 		return
 	}
 	// Omitted attributes are validated as {} (like item create), so a
@@ -142,11 +153,11 @@ func (h *handlers) submitCatalogEntry(w http.ResponseWriter, r *http.Request) {
 	if len(attrs) == 0 || string(attrs) == "null" {
 		attrs = json.RawMessage(`{}`)
 	}
-	fields, errResp, ok := h.cleanEntryFields(r.Context(), slug, entryFieldsReq{
+	fields, status, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, slug, entryFieldsReq{
 		Name: &body.Name, Description: body.Description, Attributes: attrs,
 	})
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, errResp)
+		writeJSON(w, status, errResp)
 		return
 	}
 	res, err := h.moderation.Submit(r.Context(), s.UserID, store.SubmissionInput{
@@ -167,7 +178,7 @@ func (h *handlers) submitCatalogEntry(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	status := http.StatusOK
+	status = http.StatusOK
 	if res.Outcome == store.OutcomeSubmitted {
 		status = http.StatusCreated
 	}
@@ -224,9 +235,9 @@ func (h *handlers) proposeCatalogCorrection(w http.ResponseWriter, r *http.Reque
 		h.serverError(w, r, err, "proposeCatalogCorrection: entry lookup")
 		return
 	}
-	fields, errResp, ok := h.cleanEntryFields(r.Context(), entry.CategorySlug, body.entryFieldsReq)
+	fields, status, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, entry.CategorySlug, body.entryFieldsReq)
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, errResp)
+		writeJSON(w, status, errResp)
 		return
 	}
 	sub, err := h.moderation.ProposeCorrection(r.Context(), s.UserID, entryID, fields, note)
@@ -270,10 +281,10 @@ func (h *handlers) listModerationQueue(w http.ResponseWriter, r *http.Request) {
 func parseQueueQuery(v url.Values) (store.QueueQuery, error) {
 	q := store.QueueQuery{Limit: queueDefaultLimit}
 	switch kind := store.ModerationKind(v.Get("kind")); kind {
-	case "", store.KindCatalogEntry, store.KindCatalogCorrection:
+	case "", store.KindCatalogEntry, store.KindCatalogCorrection, store.KindCategory:
 		q.Kind = kind
 	default:
-		return q, errors.New("kind must be catalog_entry or catalog_correction")
+		return q, errors.New("kind must be catalog_entry, catalog_correction, or category")
 	}
 	if slug := strings.TrimSpace(v.Get("category_slug")); slug != "" {
 		if !validCategorySlug(slug) {
@@ -336,9 +347,13 @@ func (h *handlers) approveModerationRequest(w http.ResponseWriter, r *http.Reque
 	}
 	var edits *store.EntryFields
 	if body.Name != nil || body.Description != nil || body.Attributes != nil {
-		fields, errResp, ok := h.cleanEntryFields(r.Context(), req.CategorySlug, body)
+		if req.Kind == store.KindCategory {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msgCategoryNoEdits})
+			return
+		}
+		fields, status, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, req.CategorySlug, body)
 		if !ok {
-			writeJSON(w, http.StatusBadRequest, errResp)
+			writeJSON(w, status, errResp)
 			return
 		}
 		edits = &fields
@@ -409,6 +424,8 @@ func (h *handlers) writeDecision(w http.ResponseWriter, r *http.Request, out sto
 		writeJSON(w, http.StatusConflict, map[string]string{"error": msgAlreadyDecided})
 	case errors.Is(err, store.ErrDuplicateEntry):
 		writeJSON(w, http.StatusConflict, map[string]string{"error": msgDuplicateEntry})
+	case errors.Is(err, store.ErrDuplicateCategory):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": msgDuplicateCategory})
 	case errors.Is(err, store.ErrMergeTarget):
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": msgMergeTarget})
 	case errors.Is(err, store.ErrWrongKind):

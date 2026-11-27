@@ -83,7 +83,7 @@ func TestCategoriesEndToEnd(t *testing.T) {
 	cats := store.NewCategories(pool)
 
 	t.Run("list returns all seeded categories in alphabetical order", func(t *testing.T) {
-		got, err := cats.List(ctx)
+		got, err := cats.List(ctx, "")
 		require.NoError(t, err)
 		require.Len(t, got, 8)
 
@@ -94,33 +94,33 @@ func TestCategoriesEndToEnd(t *testing.T) {
 	})
 
 	t.Run("get by slug returns the expected row", func(t *testing.T) {
-		got, err := cats.GetBySlug(ctx, "lego-sets")
+		got, err := cats.GetBySlug(ctx, "", "lego-sets")
 		require.NoError(t, err)
 		require.Equal(t, "Lego Sets", got.Name)
 		require.NotEmpty(t, got.AttributeSchema)
 	})
 
 	t.Run("get by unknown slug returns ErrNotFound", func(t *testing.T) {
-		_, err := cats.GetBySlug(ctx, "no-such-thing")
+		_, err := cats.GetBySlug(ctx, "", "no-such-thing")
 		require.ErrorIs(t, err, store.ErrNotFound)
 	})
 
 	t.Run("search by partial name matches", func(t *testing.T) {
-		got, err := cats.Search(ctx, "lego")
+		got, err := cats.Search(ctx, "", "lego")
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(got), 1)
 		require.Equal(t, "Lego Sets", got[0].Name)
 	})
 
 	t.Run("search by slug fragment matches", func(t *testing.T) {
-		got, err := cats.Search(ctx, "vinyl")
+		got, err := cats.Search(ctx, "", "vinyl")
 		require.NoError(t, err)
 		require.Len(t, got, 1)
 		require.Equal(t, "vinyl-records", got[0].Slug)
 	})
 
 	t.Run("empty search returns full list", func(t *testing.T) {
-		got, err := cats.Search(ctx, "")
+		got, err := cats.Search(ctx, "", "")
 		require.NoError(t, err)
 		require.Len(t, got, 8)
 	})

@@ -145,7 +145,13 @@ func validateCollectionName(s string) error {
 // decodeJSONBody keeps JSON parsing tight: small size cap, disallows unknown
 // fields, and surfaces friendly errors.
 func decodeJSONBody(body io.Reader, dst any) error {
-	dec := json.NewDecoder(io.LimitReader(body, 16*1024))
+	return decodeJSONBodyLimit(body, dst, 16*1024)
+}
+
+// decodeJSONBodyLimit is decodeJSONBody with a different size cap, for the
+// few bodies that are legitimately larger (a category's option lists).
+func decodeJSONBodyLimit(body io.Reader, dst any, limit int64) error {
+	dec := json.NewDecoder(io.LimitReader(body, limit))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
 		return errors.New("invalid JSON body")

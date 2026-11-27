@@ -163,6 +163,7 @@ type profileFixture struct {
 	rels  server.RelationshipStore
 	// collection ids by owner handle
 	collIDs map[string]string
+	cats    *fakeCategories
 }
 
 func newProfileFixture(t *testing.T) *profileFixture {
@@ -185,12 +186,12 @@ func newProfileFixture(t *testing.T) *profileFixture {
 		require.NoError(t, err)
 		ids[owner] = c.ID
 	}
-	return &profileFixture{users: users, colls: colls, items: items, collIDs: ids}
+	return &profileFixture{users: users, colls: colls, items: items, collIDs: ids, cats: &fakeCategories{}}
 }
 
 func (f *profileFixture) deps() server.Deps {
 	return server.Deps{
-		Categories:    &fakeCategories{},
+		Categories:    f.cats,
 		Collections:   f.colls,
 		Items:         f.items,
 		Users:         f.users,
@@ -507,9 +508,14 @@ func TestPublicCollection(t *testing.T) {
 		Owner      map[string]any
 		IsSelf     bool `json:"is_self"`
 		Collection store.Collection
+		Category   map[string]any
 		Items      []store.Item
 	}](t, rr)
 	require.Equal(t, "liam", got.Owner["handle"])
+	// The category comes with it (ADR 0013): a viewer allowed to see the
+	// collection sees its category's labels even if it isn't public.
+	require.NotEmpty(t, got.Category["name"])
+	require.Contains(t, got.Category, "attribute_schema")
 	require.Equal(t, "liam's coins", got.Collection.Name)
 	require.Len(t, got.Items, 1)
 	require.False(t, got.IsSelf)
@@ -528,6 +534,37 @@ func TestPublicCollection(t *testing.T) {
 
 	rr = doJSON(t, f.router(t, "u-noah"), http.MethodGet, "/users/noah/collections/"+f.collIDs["noah"], nil)
 	require.Equal(t, http.StatusOK, rr.Code, "owners always see their own")
+}
+
+// The collection's category comes along even when its owner built it and
+// it isn't public (ADR 0013), but viewers only learn whether it's public,
+// never its review status; blocked viewers get the plain 404 with no
+// category data at all.
+func TestPublicCollectionCategoryHidesReviewStatus(t *testing.T) {
+	f := newProfileFixture(t)
+	f.cats.byIDStatus = store.CategoryRejected
+
+	rr := doJSON(t, f.router(t, "u-olivia"), http.MethodGet, "/users/liam/collections/"+f.collIDs["liam"], nil)
+	require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	cat := decode[struct {
+		Category map[string]any
+	}](t, rr).Category
+	require.Equal(t, false, cat["public"])
+	require.NotContains(t, cat, "status")
+	require.NotContains(t, rr.Body.String(), "rejected")
+
+	rr = doJSON(t, f.router(t, "u-liam"), http.MethodGet, "/users/liam/collections/"+f.collIDs["liam"], nil)
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.Equal(t, "rejected", decode[struct {
+		Category map[string]any
+	}](t, rr).Category["status"], "the owner sees their own category's status")
+
+	blocked := doJSON(t, f.router(t, "u-liam"), http.MethodGet, "/users/noah/collections/"+f.collIDs["noah"], nil)
+	unknown := doJSON(t, f.router(t, "u-liam"), http.MethodGet, "/users/noah/collections/col-999", nil)
+	require.Equal(t, http.StatusNotFound, blocked.Code)
+	require.Equal(t, unknown.Body.String(), blocked.Body.String(), "same 404 as a collection that doesn't exist")
+	require.NotContains(t, blocked.Body.String(), "category")
+	require.NotContains(t, blocked.Body.String(), "Lego")
 }
 
 // After DELETE /me, a session cookie on another device still decodes, but

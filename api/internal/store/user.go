@@ -158,6 +158,18 @@ func (u *Users) Delete(ctx context.Context, id string) error {
 		`DELETE FROM catalog_entries WHERE submitted_by = $1 AND status <> 'approved'`, id); err != nil {
 		return fmt.Errorf("delete unpublished submissions: %w", err)
 	}
+	// The user's unapproved categories go with them (ADR 0013); only they
+	// could use them, so their collections are the user's own. Approved
+	// categories stay, unattributed (created_by is SET NULL).
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM collections c USING categories cat
+		WHERE c.category_id = cat.id AND cat.created_by = $1 AND cat.status <> 'approved'`, id); err != nil {
+		return fmt.Errorf("delete collections in unpublished categories: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM categories WHERE created_by = $1 AND status <> 'approved'`, id); err != nil {
+		return fmt.Errorf("delete unpublished categories: %w", err)
+	}
 	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete user: %w", err)

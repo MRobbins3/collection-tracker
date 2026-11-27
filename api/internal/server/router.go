@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/cors"
 
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
 )
 
@@ -44,11 +45,18 @@ type DBPinger interface {
 	Ping(ctx context.Context) error
 }
 
-// CategoryStore is the narrow view of category queries the HTTP layer needs.
+// CategoryStore is the narrow view of category queries the HTTP layer
+// needs. viewerID is the caller ("" when anonymous): reads return approved
+// categories plus the caller's own (ADR 0013).
 type CategoryStore interface {
-	List(ctx context.Context) ([]store.Category, error)
-	Search(ctx context.Context, q string) ([]store.Category, error)
-	GetBySlug(ctx context.Context, slug string) (store.Category, error)
+	List(ctx context.Context, viewerID string) ([]store.Category, error)
+	Search(ctx context.Context, viewerID, q string) ([]store.Category, error)
+	GetBySlug(ctx context.Context, viewerID, slug string) (store.Category, error)
+	GetByID(ctx context.Context, id string) (store.Category, error)
+	ListMine(ctx context.Context, userID string) ([]store.Category, error)
+	ApprovedSources(ctx context.Context) ([]category.Source, error)
+	Create(ctx context.Context, userID string, in store.CategoryInput) (store.Category, error)
+	Update(ctx context.Context, userID, slug string, in store.CategoryInput) (store.Category, error)
 }
 
 // UserStore is the narrow view of user and profile queries the HTTP layer
@@ -128,6 +136,7 @@ func NewRouter(deps Deps) http.Handler {
 	r.Get("/readyz", h.readyz)
 	r.Get("/categories", h.listCategories)
 	r.Get("/categories/{slug}", h.getCategory)
+	r.Get("/category-fields", h.listCategoryFields)
 	r.Get("/catalog/entries", h.listCatalog)
 	r.Get("/catalog/entries/{entryID}", h.getCatalogEntry)
 	// /me is intentionally public: it answers "who am I?" with 200 {user:null}
@@ -184,6 +193,12 @@ func NewRouter(deps Deps) http.Handler {
 		r.Post("/me/catalog-corrections", h.proposeCatalogCorrection)
 
 		r.Get("/me/items", h.searchMyItems)
+
+		// User-built categories (ADR 0013).
+		r.Get("/me/categories", h.listMyCategories)
+		r.Post("/me/categories", h.createMyCategory)
+		r.Patch("/me/categories/{slug}", h.updateMyCategory)
+		r.Post("/me/categories/{slug}/submit", h.submitMyCategory)
 
 		r.Get("/me/overview", h.getMyOverview)
 		r.Post("/me/pinned-categories", h.pinMyCategory)

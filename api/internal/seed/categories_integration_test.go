@@ -189,3 +189,28 @@ func TestReferenceSeedsRestoreHandEditedCategory(t *testing.T) {
 	require.Equal(t, want, categoriesBySlug(t, pool)["coins"],
 		"the SQL file is the source of truth; re-running refreshes drifted rows in place")
 }
+
+// A user-built category approved under a system category's name keeps it
+// (ADR 0013): the reference seed skips that system category instead of
+// failing on the one-approved-name index, so the API still boots.
+func TestReferenceSeedSkipsANameAnApprovedUserCategoryHolds(t *testing.T) {
+	pool := provisionMigratedDB(t)
+	ctx := context.Background()
+	var userID string
+	require.NoError(t, pool.QueryRow(ctx,
+		`INSERT INTO users (google_sub, email, display_name, handle) VALUES ('s1','a@example.com','A','alice') RETURNING id`,
+	).Scan(&userID))
+	_, err := pool.Exec(ctx, `
+		INSERT INTO categories (slug, name, status, created_by) VALUES ('lego-sets-abc123', ' lego  SETS', 'approved', $1)`, userID)
+	require.NoError(t, err)
+
+	for i := 0; i < 2; i++ {
+		_, err = seed.Apply(ctx, pool, seed.Options{Env: "development"})
+		require.NoError(t, err, "run %d", i+1)
+	}
+	got := categoriesBySlug(t, pool)
+	require.NotContains(t, got, "lego-sets")
+	require.Contains(t, got, "lego-sets-abc123")
+	require.Contains(t, got, "vinyl-records")
+	require.Len(t, got, 8)
+}

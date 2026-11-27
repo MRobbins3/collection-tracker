@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import type { Category, OverviewCategory } from "~/types/api";
 import PinCategoryButton from "./PinCategoryButton.vue";
+import { categoryStatusLabel } from "~/utils/categoryBuilder";
 
 /**
  * Inline panel on the overview listing every global category, so you can add
@@ -80,7 +81,15 @@ function stateOf(slug: string): "none" | "pinned" | "collecting" {
         data-testid="add-category-row"
       >
         <div class="min-w-0">
-          <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ c.name }}</p>
+          <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+            {{ c.name }}
+            <span
+              v-if="categoryStatusLabel(c.status)"
+              class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+            >
+              {{ categoryStatusLabel(c.status) }}
+            </span>
+          </p>
           <p v-if="c.description" class="truncate text-xs text-slate-500 dark:text-slate-400">
             {{ c.description }}
           </p>
@@ -95,5 +104,12 @@ function stateOf(slug: string): "none" | "pinned" | "collecting" {
         />
       </li>
     </ul>
+
+    <p class="border-t border-slate-100 pt-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
+      Don’t see what you collect?
+      <NuxtLink to="/categories/new" class="font-medium text-slate-900 underline dark:text-slate-100" data-testid="add-category-create">
+        Create a category
+      </NuxtLink>
+    </p>
   </section>
 </template>

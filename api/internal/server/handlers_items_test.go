@@ -126,9 +126,10 @@ type fakeCategoriesWithSchema struct {
 	schema json.RawMessage
 }
 
-func (f *fakeCategoriesWithSchema) GetBySlug(_ context.Context, slug string) (store.Category, error) {
+func (f *fakeCategoriesWithSchema) GetBySlug(_ context.Context, _, slug string) (store.Category, error) {
 	if slug == "lego-sets" {
-		return store.Category{ID: "cat-1", Slug: "lego-sets", Name: "Lego Sets", AttributeSchema: f.schema}, nil
+		return store.Category{ID: "cat-1", Slug: "lego-sets", Name: "Lego Sets", AttributeSchema: f.schema,
+			Status: store.CategoryApproved}, nil
 	}
 	return store.Category{}, store.ErrNotFound
 }
@@ -264,4 +265,20 @@ func TestUpdateAndDeleteItem(t *testing.T) {
 		rr := doJSON(t, r, http.MethodDelete, "/me/collections/col-1/items/item-7", nil)
 		require.Equal(t, http.StatusNoContent, rr.Code)
 	})
+}
+
+// A category the caller can't see is refused, never "accept without
+// validating" (ADR 0013).
+func TestItemWritesRefuseAnInvisibleCategory(t *testing.T) {
+	colls := newFakeCollections()
+	colls.items["col-1"] = store.Collection{
+		ID: "col-1", UserID: "user-1", CategorySlug: "someone-elses-abc123", Name: "Odd",
+	}
+	items := newFakeItems()
+	r := newItemsRouter(t, colls, items, &fakeCatalog{})
+	rr := doJSON(t, r, http.MethodPost, "/me/collections/col-1/items", map[string]any{
+		"name": "Anything", "attributes": map[string]any{"whatever": "goes"},
+	})
+	require.Equal(t, http.StatusNotFound, rr.Code, rr.Body.String())
+	require.Contains(t, rr.Body.String(), "category not found")
 }

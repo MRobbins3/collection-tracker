@@ -43,7 +43,8 @@ const collectionSelectCols = `
 var ErrCategoryNotFound = errors.New("store: category not found")
 
 // Create inserts a new collection owned by the given user, under the given
-// category slug. Returns ErrCategoryNotFound if the slug doesn't exist.
+// category slug. Returns ErrCategoryNotFound if the slug doesn't exist or
+// names another user's unapproved category.
 func (c *Collections) Create(ctx context.Context, userID, categorySlug, name string) (Collection, error) {
 	tx, err := c.pool.Begin(ctx)
 	if err != nil {
@@ -52,7 +53,9 @@ func (c *Collections) Create(ctx context.Context, userID, categorySlug, name str
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	var categoryID string
-	err = tx.QueryRow(ctx, `SELECT id FROM categories WHERE slug = $1`, categorySlug).Scan(&categoryID)
+	// Only a category the user can see (approved, or their own; ADR 0013).
+	err = tx.QueryRow(ctx,
+		`SELECT cat.id FROM categories cat WHERE cat.slug = $2 AND `+visibleTo, viewer(userID), categorySlug).Scan(&categoryID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Collection{}, ErrCategoryNotFound

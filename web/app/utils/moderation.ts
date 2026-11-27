@@ -8,8 +8,9 @@ import type {
   SubmitResult,
 } from "~/types/api";
 
-/** "New entry" / "Correction": never the raw kind. */
+/** "New entry" / "Correction" / "New category": never the raw kind. */
 export function kindLabel(kind: ModerationKind): string {
+  if (kind === "category") return "New category";
   return kind === "catalog_correction" ? "Correction" : "New entry";
 }
 
@@ -19,6 +20,7 @@ export function statusLabel(status: ModerationStatus, kind: ModerationKind): str
     case "pending":
       return "Waiting for review";
     case "approved":
+      if (kind === "category") return "On the public list";
       return kind === "catalog_correction" ? "Correction applied" : "Added to the catalog";
     case "merged":
       return "Already in the catalog";

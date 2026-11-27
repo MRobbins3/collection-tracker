@@ -16,7 +16,12 @@ useHead({ title: "Browse categories · Collection Tracker" });
   <section class="space-y-4">
     <div>
       <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Categories</h1>
-      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Find the kind of thing you collect.</p>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Find the kind of thing you collect, or
+        <NuxtLink to="/categories/new" class="font-medium text-slate-900 underline dark:text-slate-100" data-testid="create-category-link">
+          create your own
+        </NuxtLink>.
+      </p>
     </div>
 
     <label class="block">

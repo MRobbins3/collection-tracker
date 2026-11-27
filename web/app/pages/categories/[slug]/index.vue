@@ -1,7 +1,10 @@
 <script setup lang="ts">
 const route = useRoute();
 const slug = computed(() => route.params.slug as string);
-const { data: category, pending, error } = useCategory(slug.value);
+const { data: category, pending, error, refresh } = useCategory(slug.value);
+const { ready } = useAuth();
+// A category on the public list has a catalog; one someone built gets it once approved.
+const isPublic = computed(() => !category.value?.status || category.value.status === "approved");
 const pins = useCategoryPins();
 const pinState = computed(() => pins.stateOf(slug.value));
 
@@ -12,19 +15,21 @@ useHead(() => ({
 interface SchemaProperty {
   title?: string;
   description?: string;
+  enum?: string[];
 }
 
 interface SchemaWithProps {
   properties?: Record<string, SchemaProperty>;
 }
 
-const attributeLabels = computed<{ key: string; title: string; description?: string }[]>(() => {
+const attributeLabels = computed<{ key: string; title: string; description?: string; options?: string[] }[]>(() => {
   const props = (category.value?.attribute_schema as SchemaWithProps | undefined)?.properties;
   if (!props) return [];
   return Object.entries(props).map(([key, def]) => ({
     key,
     title: def.title ?? humanize(key),
     description: def.description,
+    options: def.enum,
   }));
 });
 
@@ -44,14 +49,14 @@ function humanize(key: string): string {
     </NuxtLink>
 
     <div
-      v-if="pending"
+      v-if="(pending && !category) || (!category && !error && !ready)"
       class="text-sm text-slate-500 dark:text-slate-400"
       data-testid="category-loading"
     >
       Loading…
     </div>
     <div
-      v-else-if="error"
+      v-else-if="error || !category"
       class="rounded-lg bg-rose-50 p-3 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-100"
       data-testid="category-error"
     >
@@ -70,7 +75,9 @@ function humanize(key: string): string {
         </p>
       </header>
 
-      <CatalogBrowser :category="category" />
+      <CategoryOwnerPanel v-if="category.mine" :category="category" @changed="refresh()" />
+
+      <CatalogBrowser v-if="isPublic" :category="category" />
 
       <section
         v-if="attributeLabels.length > 0"
@@ -84,6 +91,9 @@ function humanize(key: string): string {
             <dt class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ a.title }}</dt>
             <dd v-if="a.description" class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
               {{ a.description }}
+            </dd>
+            <dd v-if="a.options && a.options.length > 0" class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
+              Pick from: {{ a.options.join(", ") }}
             </dd>
           </div>
         </dl>

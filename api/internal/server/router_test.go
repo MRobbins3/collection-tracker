@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/server"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
 )
@@ -21,16 +22,30 @@ type fakeCategories struct {
 	listErr    error
 	searchErr  error
 	getErr     error
+	// viewers records the viewer id each read was made for.
+	viewers []string
+	// Builder state (handlers_categories_test.go).
+	sources   []category.Source
+	created   *store.CategoryInput
+	updated   *store.CategoryInput
+	createErr error
+	updateErr error
+	// byIDStatus is the status GetByID reports for unlisted ids ("" =
+	// approved), to stand in for a user-built category.
+	byIDStatus string
 }
 
-func (f *fakeCategories) List(_ context.Context) ([]store.Category, error) {
+func (f *fakeCategories) List(_ context.Context, viewerID string) ([]store.Category, error) {
+	f.viewers = append(f.viewers, viewerID)
 	return f.list, f.listErr
 }
-func (f *fakeCategories) Search(_ context.Context, q string) ([]store.Category, error) {
+func (f *fakeCategories) Search(_ context.Context, viewerID, q string) ([]store.Category, error) {
+	f.viewers = append(f.viewers, viewerID)
 	f.searchCall = q
 	return f.list, f.searchErr
 }
-func (f *fakeCategories) GetBySlug(_ context.Context, slug string) (store.Category, error) {
+func (f *fakeCategories) GetBySlug(_ context.Context, viewerID, slug string) (store.Category, error) {
+	f.viewers = append(f.viewers, viewerID)
 	if f.getErr != nil {
 		return store.Category{}, f.getErr
 	}
@@ -40,6 +55,46 @@ func (f *fakeCategories) GetBySlug(_ context.Context, slug string) (store.Catego
 		}
 	}
 	return store.Category{}, store.ErrNotFound
+}
+func (f *fakeCategories) GetByID(_ context.Context, id string) (store.Category, error) {
+	for _, c := range f.list {
+		if c.ID == id {
+			return c, nil
+		}
+	}
+	status := f.byIDStatus
+	if status == "" {
+		status = store.CategoryApproved
+	}
+	return store.Category{ID: id, Slug: "lego-sets", Name: "Lego Sets", Status: status}, nil
+}
+func (f *fakeCategories) ListMine(_ context.Context, _ string) ([]store.Category, error) {
+	out := []store.Category{}
+	for _, c := range f.list {
+		if c.Mine {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+func (f *fakeCategories) ApprovedSources(_ context.Context) ([]category.Source, error) {
+	return f.sources, nil
+}
+func (f *fakeCategories) Create(_ context.Context, _ string, in store.CategoryInput) (store.Category, error) {
+	if f.createErr != nil {
+		return store.Category{}, f.createErr
+	}
+	f.created = &in
+	return store.Category{ID: "new-cat", Slug: "new-abc123", Name: in.Name, AttributeSchema: in.Schema,
+		CatalogIdentifier: in.CatalogIdentifier, Status: store.CategoryPrivate, Mine: true}, nil
+}
+func (f *fakeCategories) Update(_ context.Context, _, slug string, in store.CategoryInput) (store.Category, error) {
+	if f.updateErr != nil {
+		return store.Category{}, f.updateErr
+	}
+	f.updated = &in
+	return store.Category{ID: "cat", Slug: slug, Name: in.Name, AttributeSchema: in.Schema,
+		Status: store.CategoryPrivate, Mine: true}, nil
 }
 
 type fakePinger struct {

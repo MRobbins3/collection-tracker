@@ -41,9 +41,12 @@ type CatalogEntry struct {
 // matched against the name and identifier; an empty Q lists everything.
 type CatalogQuery struct {
 	CategorySlug string
-	Q            string
-	Limit        int
-	Offset       int
+	// ViewerID decides which categories exist for the caller (ADR 0013):
+	// another user's unapproved category is ErrNotFound. "" = anonymous.
+	ViewerID string
+	Q        string
+	Limit    int
+	Offset   int
 }
 
 // CatalogPage is one page of entries plus the total matching count.
@@ -96,10 +99,11 @@ const catalogSelectCols = `
 
 // List returns one page of approved entries in the category, by name (then
 // identifier, then id, so ties page stably), or by match quality when Q is
-// set. An unknown category returns ErrNotFound.
+// set. An unknown category, or one the viewer can't see, returns ErrNotFound.
 func (c *Catalog) List(ctx context.Context, q CatalogQuery) (CatalogPage, error) {
 	var categoryID string
-	err := c.pool.QueryRow(ctx, `SELECT id FROM categories WHERE slug = $1`, q.CategorySlug).Scan(&categoryID)
+	err := c.pool.QueryRow(ctx,
+		`SELECT cat.id FROM categories cat WHERE cat.slug = $2 AND `+visibleTo, viewer(q.ViewerID), q.CategorySlug).Scan(&categoryID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CatalogPage{}, ErrNotFound
@@ -170,7 +174,7 @@ func (c *Catalog) Get(ctx context.Context, id string) (CatalogEntry, error) {
 		SELECT `+catalogSelectCols+`
 		FROM catalog_entries ce
 		JOIN categories cat ON cat.id = ce.category_id
-		WHERE ce.id = $1 AND ce.status = 'approved'
+		WHERE ce.id = $1 AND ce.status = 'approved' AND cat.status = 'approved'
 	`, id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

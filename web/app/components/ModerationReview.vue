@@ -34,12 +34,26 @@ const error = ref<string | null>(null);
 const conflict = ref(false);
 
 const isPending = computed(() => props.request.status === "pending");
+// Entry requests always carry their entry; category requests use CategoryReview.
+const entry = computed<CatalogEntry>(
+  () =>
+    props.request.entry ?? {
+      id: "",
+      category_id: "",
+      category_slug: props.request.category_slug,
+      category_name: props.request.category_name,
+      name: props.request.category_name,
+      attributes: {},
+      source: "user_submitted",
+      status: "pending",
+    },
+);
 const isCorrection = computed(() => props.request.kind === "catalog_correction");
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 /** The entry as it would be after approval: submitted values, plus a correction's changes. */
 const proposedEntry = computed<Pick<CatalogEntry, "name" | "description" | "attributes">>(() => {
-  const e = props.request.entry;
+  const e = entry.value;
   const p = props.request.proposed ?? {};
   return {
     name: p.name ?? e.name,
@@ -51,7 +65,7 @@ const proposedEntry = computed<Pick<CatalogEntry, "name" | "description" | "attr
 /** Labelled rows for a submitted entry's details, in schema order. */
 const submittedRows = computed(() => {
   const props_ = props.schema?.properties ?? {};
-  const attrs = props.request.entry.attributes ?? {};
+  const attrs = entry.value.attributes ?? {};
   const keys = [...Object.keys(props_), ...Object.keys(attrs).filter((k) => !(k in props_))];
   return keys
     .filter((k) => attrs[k] !== undefined && attrs[k] !== "")
@@ -60,7 +74,7 @@ const submittedRows = computed(() => {
 
 const correctionDiff = computed(() => {
   if (!isCorrection.value) return [];
-  if (isPending.value) return diffRows(props.schema, props.request.entry, props.request.proposed ?? {});
+  if (isPending.value) return diffRows(props.schema, entry.value, props.request.proposed ?? {});
   const prev = props.request.previous;
   const applied = props.request.applied;
   if (!prev || !applied) return [];
@@ -109,7 +123,7 @@ watch(mergeQuery, async (q) => {
 });
 
 function startMerge() {
-  mergeQuery.value = props.request.entry.name;
+  mergeQuery.value = entry.value.name;
   mergeTarget.value = null;
   setMode("merge");
 }
@@ -187,7 +201,7 @@ const secondaryBtn =
         {{ kindLabel(request.kind) }} · {{ request.category_name }}
       </p>
       <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50" data-testid="review-name">
-        {{ request.entry.name }}
+        {{ entry.name }}
       </h1>
       <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
         From {{ request.submitter.display_name }} (@{{ request.submitter.handle }}) ·
@@ -216,10 +230,10 @@ const secondaryBtn =
       <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Suggested entry</h2>
       <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm" data-testid="review-submitted">
         <dt class="text-slate-500 dark:text-slate-400">Name</dt>
-        <dd class="text-slate-900 dark:text-slate-100">{{ request.entry.name }}</dd>
-        <template v-if="request.entry.description">
+        <dd class="text-slate-900 dark:text-slate-100">{{ entry.name }}</dd>
+        <template v-if="entry.description">
           <dt class="text-slate-500 dark:text-slate-400">Description</dt>
-          <dd class="text-slate-900 dark:text-slate-100">{{ request.entry.description }}</dd>
+          <dd class="text-slate-900 dark:text-slate-100">{{ entry.description }}</dd>
         </template>
         <template v-for="row in submittedRows" :key="row.key">
           <dt class="text-slate-500 dark:text-slate-400">{{ row.label }}</dt>
@@ -263,7 +277,7 @@ const secondaryBtn =
         The entry already matches this correction.
       </p>
       <NuxtLink
-        :to="catalogEntryPath(request.category_slug, request.entry.id)"
+        :to="catalogEntryPath(request.category_slug, entry.id)"
         class="mt-3 inline-block text-xs text-slate-600 underline dark:text-slate-300"
       >
         Open the catalog entry
@@ -289,7 +303,7 @@ const secondaryBtn =
         </NuxtLink>
       </p>
       <p v-else-if="request.status === 'approved' && !isCorrection" class="mt-1">
-        <NuxtLink :to="catalogEntryPath(request.category_slug, request.entry.id)" class="underline">
+        <NuxtLink :to="catalogEntryPath(request.category_slug, entry.id)" class="underline">
           View it in the catalog
         </NuxtLink>
       </p>

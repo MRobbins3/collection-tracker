@@ -1,21 +1,16 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { AttributeSchema, Category } from "~/types/api";
+import type { AttributeSchema } from "~/types/api";
 
 const route = useRoute();
 const handle = String(route.params.handle);
 const id = String(route.params.id);
 const { ready } = useAuth();
-const api = useApi();
 const { data, pending, error, refresh } = usePublicCollection(handle, id);
 
-// The category's schema gives attribute fields their human labels.
-const { data: category } = useAsyncData<Category | null>(
-  `profile-collection-category:${handle}:${id}`,
-  async () => (data.value ? api.get<Category>(`/categories/${data.value.collection.category_slug}`) : null),
-  { server: false, watch: [data], default: () => null },
-);
-const schema = computed(() => category.value?.attribute_schema as AttributeSchema | undefined);
+// The collection's category comes with it (ADR 0013): its schema gives
+// attribute fields their human labels, even for a category its owner built.
+const schema = computed(() => data.value?.category?.attribute_schema as AttributeSchema | undefined);
 
 useHead(() => ({
   title: data.value

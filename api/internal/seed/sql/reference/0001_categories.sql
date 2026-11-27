@@ -15,7 +15,9 @@
 -- write a migration for that so the collections that reference it are
 -- handled deliberately.
 
-INSERT INTO categories (slug, name, description, attribute_schema, catalog_identifier) VALUES
+INSERT INTO categories (slug, name, description, attribute_schema, catalog_identifier)
+SELECT v.slug, v.name, v.description, v.attribute_schema, v.catalog_identifier
+FROM (VALUES
 (
     'lego-sets',
     'Lego Sets',
@@ -243,6 +245,15 @@ INSERT INTO categories (slug, name, description, attribute_schema, catalog_ident
       "additionalProperties": false
     }'::jsonb,
     'artist'
+)) AS v (slug, name, description, attribute_schema, catalog_identifier)
+-- A user-built category approved under the same name (ADR 0013) keeps it:
+-- the system category is skipped rather than failing the boot on the
+-- one-approved-category-per-name index. Seed names are plain ASCII, so
+-- this lower/trim/collapse matches categories.name_key.
+WHERE NOT EXISTS (
+    SELECT 1 FROM categories c
+    WHERE c.status = 'approved' AND c.slug <> v.slug
+      AND c.name_key = lower(regexp_replace(btrim(v.name), '\s+', ' ', 'g'))
 )
 ON CONFLICT (slug) DO UPDATE SET
     name               = EXCLUDED.name,

@@ -22,7 +22,10 @@ async function load() {
   notFound.value = false;
   try {
     request.value = await get(id);
-    if (category.value?.slug !== request.value.category_slug) {
+    if (request.value.category) {
+      // A category request carries its (still private) category.
+      category.value = request.value.category;
+    } else if (category.value?.slug !== request.value.category_slug) {
       category.value = await api.get<Category>(`/categories/${request.value.category_slug}`);
     }
   } catch (e) {
@@ -74,6 +77,12 @@ const idTitle = computed(() => identifierTitle(category.value));
         We couldn’t load this request.
         <button type="button" class="underline" @click="load()">Try again</button>
       </div>
+      <CategoryReview
+        v-else-if="request && request.kind === 'category'"
+        :request="request"
+        @decided="(r) => (request = r)"
+        @reload="load()"
+      />
       <ModerationReview
         v-else-if="request"
         :request="request"
