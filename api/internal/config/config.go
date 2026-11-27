@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -18,6 +19,11 @@ type Config struct {
 	// SeedDevData applies the dev seed set (fake users etc.) on startup.
 	// Local/CI only; the seed runner refuses it when Env is "production".
 	SeedDevData bool
+
+	// DevAuthEnabled turns on the dev-only sign-in provider (/auth/dev/*),
+	// which logs in as a seeded persona without Google. Local/CI only;
+	// Validate refuses it unless Env is allowlisted (see DevOnlyAllowed).
+	DevAuthEnabled bool
 
 	SessionSecret      string
 	GoogleClientID     string
@@ -38,6 +44,7 @@ func FromEnv() Config {
 		CORSOrigins:        splitCSV(getenv("CORS_ORIGINS", "http://localhost:3000")),
 		WebBaseURL:         getenv("WEB_BASE_URL", "http://localhost:3000"),
 		SeedDevData:        getbool("SEED_DEV_DATA", &warnings),
+		DevAuthEnabled:     getbool("DEV_AUTH_ENABLED", &warnings),
 		SessionSecret:      os.Getenv("SESSION_SECRET"),
 		GoogleClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
@@ -45,6 +52,26 @@ func FromEnv() Config {
 	}
 	cfg.Warnings = warnings
 	return cfg
+}
+
+// DevOnlyAllowed reports whether env permits dev-only features (dev seed
+// data, dev auth). It is an allowlist so a typo or an unexpected value
+// (prod, staging, "Production", empty) can never enable them. FromEnv
+// defaults an unset APP_ENV to development.
+func DevOnlyAllowed(env string) bool {
+	return env == "development" || env == "test"
+}
+
+// ErrDevAuthNotAllowed is returned by Validate when DEV_AUTH_ENABLED is set
+// outside the development/test allowlist.
+var ErrDevAuthNotAllowed = errors.New(`refusing to enable dev auth: APP_ENV must be "development" or "test"`)
+
+// Validate rejects configurations the API must refuse to start with.
+func (c Config) Validate() error {
+	if c.DevAuthEnabled && !DevOnlyAllowed(c.Env) {
+		return ErrDevAuthNotAllowed
+	}
+	return nil
 }
 
 func getenv(key, fallback string) string {
