@@ -26,10 +26,14 @@ type Source struct {
 	Schema json.RawMessage
 }
 
-// FieldSource names a category a library field comes from.
+// FieldSource names a category a library field comes from, with the
+// options that category offers for it (empty for free text). The builder
+// starts a picked field with its source's options, so a field shared by many
+// categories never arrives with everyone's options at once.
 type FieldSource struct {
-	Slug string `json:"slug"`
-	Name string `json:"name"`
+	Slug    string   `json:"slug"`
+	Name    string   `json:"name"`
+	Options []string `json:"options,omitempty"`
 }
 
 // LibraryField is a reusable attribute drawn from existing categories'
@@ -91,7 +95,11 @@ func Library(sources []Source) []LibraryField {
 	byID := map[string]*LibraryField{}
 	for _, src := range sorted {
 		for _, f := range fieldsOf(src.Schema) {
-			f.Sources = []FieldSource{{Slug: src.Slug, Name: src.Name}}
+			fs := FieldSource{Slug: src.Slug, Name: src.Name}
+			if len(f.Options) > 0 {
+				fs.Options = append([]string(nil), f.Options...)
+			}
+			f.Sources = []FieldSource{fs}
 			existing, ok := byID[f.ID]
 			if !ok {
 				f := f

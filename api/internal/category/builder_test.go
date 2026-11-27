@@ -74,6 +74,10 @@ func TestLibrary(t *testing.T) {
 	t.Run("merges enum options case-insensitively, keeping the first spelling", func(t *testing.T) {
 		theme := findField(t, lib, "string:theme")
 		require.Equal(t, []string{"Star Wars", "Presidents", "Technic"}, theme.Options)
+		require.Equal(t, []category.FieldSource{
+			{Slug: "coins", Name: "Coins", Options: []string{"Star Wars", "Presidents"}},
+			{Slug: "lego-sets", Name: "Lego Sets", Options: []string{"star wars", "Technic"}},
+		}, theme.Sources, "each source keeps its own options")
 	})
 
 	t.Run("keeps descriptions and minimums", func(t *testing.T) {
