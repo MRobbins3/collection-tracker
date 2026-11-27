@@ -116,7 +116,7 @@ func TestProductionAppliesReferenceButRefusesDev(t *testing.T) {
 	r := &seed.Runner{FS: markerFS()}
 
 	_, err := r.Apply(ctx, pool, seed.Options{Env: "production", Dev: true})
-	require.ErrorIs(t, err, seed.ErrDevSeedInProduction)
+	require.ErrorIs(t, err, seed.ErrDevSeedNotAllowed)
 	require.False(t, slugExists(t, pool, "ref-marker"), "refusal happens before any write")
 
 	_, err = r.Apply(ctx, pool, seed.Options{Env: "production"})

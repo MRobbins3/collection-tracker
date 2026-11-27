@@ -18,9 +18,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// ErrDevSeedInProduction is returned when dev seed data is requested while
-// APP_ENV=production. Fake users must never reach a real database.
-var ErrDevSeedInProduction = errors.New("refusing to apply dev seed data when APP_ENV=production")
+// ErrDevSeedNotAllowed is returned when dev seed data is requested while
+// APP_ENV is anything other than "development" or "test". It is an allowlist
+// so a typo or an unexpected value (prod, staging, ...) can never put fake
+// users in a real database. config defaults an unset APP_ENV to development.
+var ErrDevSeedNotAllowed = errors.New(`refusing to apply dev seed data: APP_ENV must be "development" or "test"`)
+
+// DevSeedsAllowed reports whether env permits the dev seed set.
+func DevSeedsAllowed(env string) bool {
+	return env == "development" || env == "test"
+}
 
 // The seed sets, applied in this order. Reference data is always applied;
 // dev data only when Options.Dev is set.
@@ -60,8 +67,8 @@ func New() *Runner {
 // Every file must be idempotent: Apply runs on every API start. It returns
 // the applied file paths in order.
 func (r *Runner) Apply(ctx context.Context, pool *pgxpool.Pool, opts Options) ([]string, error) {
-	if opts.Dev && opts.Env == "production" {
-		return nil, ErrDevSeedInProduction
+	if opts.Dev && !DevSeedsAllowed(opts.Env) {
+		return nil, ErrDevSeedNotAllowed
 	}
 
 	dirs := []string{referenceDir}
