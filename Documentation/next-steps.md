@@ -13,6 +13,8 @@ This is NOT the roadmap (that's `requirements.md`) and NOT a changelog.
 
 3. **Friends and followers.** Profiles, handles, and the privacy rule shipped (ADR 0009); the follower and friend visibility levels are inert until this lands. Implement it in `store.Relationships.Between` (accepted friendship → Friend, approved follow → Follower). Every privacy check then picks it up, with no handler changes. Honor `accept_friend_requests` / `accept_follow_requests` when requests are created. New tables referencing `users` must `ON DELETE CASCADE` so `DELETE /me` stays complete.
 
+4. **User-built categories must respect the overview.** When categories gain an owner/approval status, restrict `store.Overview.Pin` (and the overview's category list) to approved categories plus the user's own (ADR 0010 consequences).
+
 ## Held for external triggers
 
 - **AWS deploy pipeline.** Held until an AWS account is configured. Empty stub YAML rots; wire it only when there's real infra to deploy to. `SESSION_SECRET`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` are the env contract to design around. Behind a load balancer, add one of chi's `middleware.ClientIP*` middlewares that trusts only that proxy if anything needs the client IP (the old `RealIP` was removed because it trusted spoofable headers).
