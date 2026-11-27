@@ -94,11 +94,13 @@ func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
 // after its account is deleted (e.g. on another device), so check the user
 // still exists: if not, clear the cookie and answer 401 instead of letting
 // handlers fail on foreign keys. One primary-key lookup per signed-in
-// request.
+// request, which also puts the user's current role on the context for
+// auth.RequireRole.
 func (h *handlers) requireLiveUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s, _ := auth.FromContext(r.Context())
-		if _, err := h.users.GetByID(r.Context(), s.UserID); err != nil {
+		user, err := h.users.GetByID(r.Context(), s.UserID)
+		if err != nil {
 			if errors.Is(err, store.ErrNotFound) {
 				h.clearSession(w)
 				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -106,6 +108,9 @@ func (h *handlers) requireLiveUser(next http.Handler) http.Handler {
 			}
 			h.serverError(w, r, err, "requireLiveUser: user lookup failed")
 			return
+		}
+		if user.Role != nil {
+			r = r.WithContext(auth.WithRole(r.Context(), *user.Role))
 		}
 		next.ServeHTTP(w, r)
 	})
