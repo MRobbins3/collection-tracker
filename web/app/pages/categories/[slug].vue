@@ -2,6 +2,8 @@
 const route = useRoute();
 const slug = computed(() => route.params.slug as string);
 const { data: category, pending, error } = useCategory(slug.value);
+const pins = useCategoryPins();
+const pinState = computed(() => pins.stateOf(slug.value));
 
 useHead(() => ({
   title: category.value ? `${category.value.name} · Collection Tracker` : "Category · Collection Tracker",
@@ -86,10 +88,30 @@ function humanize(key: string): string {
       </section>
 
       <div
-        class="rounded-xl bg-slate-100 p-4 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+        v-if="pins.isSignedIn.value"
+        class="space-y-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"
+        data-testid="category-pin-panel"
       >
-        Sign in to start a collection in <strong>{{ category.name }}</strong>. (Sign-in coming soon.)
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm text-slate-700 dark:text-slate-300">
+            <template v-if="pinState === 'collecting'">You collect {{ category.name }}.</template>
+            <template v-else-if="pinState === 'pinned'">{{ category.name }} is in your collection.</template>
+            <template v-else>Show {{ category.name }} in your collection, even before you add anything.</template>
+          </p>
+          <PinCategoryButton
+            :slug="category.slug"
+            :name="category.name"
+            :state="pinState"
+            :busy="pins.busySlug.value === category.slug"
+            @add="pins.add(category.slug)"
+            @remove="pins.remove(category.slug)"
+          />
+        </div>
+        <p v-if="pins.error.value" role="alert" class="text-sm text-rose-700 dark:text-rose-300">
+          {{ pins.error.value }}
+        </p>
       </div>
+      <SignInPrompt v-else :message="`Sign in to add ${category.name} to your collection.`" />
     </article>
   </section>
 </template>

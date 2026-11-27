@@ -6,6 +6,8 @@ const searchTerm = useDebouncedRef(computed(() => normalizeSearchQuery(query.val
 const { data, pending, error } = useCategoriesList(searchTerm);
 // The list is server-rendered; the box only works once hydrated (see useHydrated).
 const hydrated = useHydrated();
+// Signed-in visitors can add a category to their collection from here.
+const pins = useCategoryPins();
 
 useHead({ title: "Browse categories · Collection Tracker" });
 </script>
@@ -30,6 +32,14 @@ useHead({ title: "Browse categories · Collection Tracker" });
       />
     </label>
 
+    <p
+      v-if="pins.error.value"
+      role="alert"
+      class="rounded-lg bg-rose-50 p-3 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-100"
+    >
+      {{ pins.error.value }}
+    </p>
+
     <div
       v-if="pending && !data"
       class="text-sm text-slate-500 dark:text-slate-400"
@@ -49,8 +59,17 @@ useHead({ title: "Browse categories · Collection Tracker" });
       class="space-y-2"
       data-testid="categories-list"
     >
-      <li v-for="cat in data.categories" :key="cat.id">
-        <CategoryCard :category="cat" />
+      <li v-for="cat in data.categories" :key="cat.id" class="flex items-center gap-2">
+        <CategoryCard :category="cat" class="min-w-0 flex-1" />
+        <PinCategoryButton
+          v-if="pins.isSignedIn.value"
+          :slug="cat.slug"
+          :name="cat.name"
+          :state="pins.stateOf(cat.slug)"
+          :busy="pins.busySlug.value === cat.slug"
+          @add="pins.add(cat.slug)"
+          @remove="pins.remove(cat.slug)"
+        />
       </li>
     </ul>
     <div

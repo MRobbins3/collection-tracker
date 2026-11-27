@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import type { CategoriesResponse } from "~/types/api";
+import type { CategoriesResponse, OverviewItem } from "~/types/api";
 import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import {
+  overviewQuery,
+  parseOverviewQuery,
+  visibleCategories,
+  type OverviewState,
+} from "~/utils/overview";
 
 const { isSignedIn, user } = useAuth();
-const { data, refresh: refreshCollections, pending } = useMyCollections();
-const { remove } = useMyCollectionsActions();
+const { data, refresh: refreshCollections } = useMyCollections();
+const { create, remove } = useMyCollectionsActions();
+const { pin, unpin, setShowEmpty, loadMore } = useOverviewActions();
 const api = useApi();
+const hydrated = useHydrated();
 
 const { data: categoriesData } = await useAsyncData("categories:all", () =>
   api.get<CategoriesResponse>("/categories"),
@@ -13,10 +21,141 @@ const { data: categoriesData } = await useAsyncData("categories:all", () =>
 
 useHead({ title: "My collections · Collection Tracker" });
 
-// Item search lives inline on this page. The query is kept in ?q= so Back
-// from a result returns to the same results (and a reload keeps them).
 const route = useRoute();
 const router = useRouter();
+
+// ---- Overview state ---------------------------------------------------------
+// The URL is the source of truth for view / sort / category filter, so the
+// page is shareable and Back undoes a filter change (each change pushes a
+// history entry). See utils/overview.ts.
+const state = computed(() => parseOverviewQuery(route.query));
+function setState(patch: Partial<OverviewState>) {
+  void router.push({ query: overviewQuery({ ...state.value, ...patch }, route.query) });
+}
+const params = computed(() => ({ sort: state.value.sort, categories: state.value.categories }));
+
+const {
+  data: overview,
+  status: overviewStatus,
+  error: overviewError,
+  refresh: refreshOverview,
+} = useMyOverview(params);
+const overviewPending = computed(() => overviewStatus.value === "pending");
+const loadedOnce = ref(false);
+watch(overviewStatus, (s) => {
+  if (s === "success") loadedOnce.value = true;
+});
+
+const showEmpty = computed(() => overview.value.show_empty_categories);
+const visible = computed(() => visibleCategories(overview.value.categories, showEmpty.value));
+const hiddenCount = computed(() => overview.value.categories.length - visible.value.length);
+// Chips: the visible categories, plus any selected one hidden by the
+// show-empty setting so it can still be cleared.
+const chipCategories = computed(() =>
+  overview.value.categories.filter((c) => visible.value.includes(c) || state.value.categories.includes(c.slug)),
+);
+const groups = computed(() =>
+  state.value.categories.length === 0
+    ? visible.value
+    : visible.value.filter((c) => state.value.categories.includes(c.slug)),
+);
+
+// "Show more" pages are appended locally and reset whenever the first page
+// is refetched (sort/filter change, or a refresh after an edit).
+const extraItems = ref<OverviewItem[]>([]);
+const extraHasMore = ref<boolean | null>(null);
+const loadingMore = ref(false);
+watch(overview, () => {
+  extraItems.value = [];
+  extraHasMore.value = null;
+});
+const items = computed(() => [...overview.value.items, ...extraItems.value]);
+const hasMore = computed(() => extraHasMore.value ?? overview.value.has_more);
+
+const actionError = ref<string | null>(null);
+
+async function onLoadMore() {
+  loadingMore.value = true;
+  actionError.value = null;
+  try {
+    const res = await loadMore(params.value, items.value.length);
+    extraItems.value.push(...res.items);
+    extraHasMore.value = res.has_more;
+  } catch (e) {
+    console.error(e);
+    actionError.value = "Couldn’t load more items. Please try again.";
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
+async function onShowEmpty(show: boolean) {
+  actionError.value = null;
+  const prev = overview.value.show_empty_categories;
+  overview.value = { ...overview.value, show_empty_categories: show };
+  try {
+    await setShowEmpty(show);
+  } catch (e) {
+    console.error(e);
+    overview.value = { ...overview.value, show_empty_categories: prev };
+    actionError.value = "Couldn’t save that setting. Please try again.";
+  }
+}
+
+// ---- Add a category ---------------------------------------------------------
+const adding = ref(false);
+const busySlug = ref<string | null>(null);
+const panelError = ref<string | null>(null);
+
+async function onPin(slug: string) {
+  busySlug.value = slug;
+  panelError.value = null;
+  try {
+    await pin(slug);
+    await refreshOverview();
+  } catch (e) {
+    console.error(e);
+    panelError.value = "Couldn’t add that category. Please try again.";
+  } finally {
+    busySlug.value = null;
+  }
+}
+
+async function onUnpin(slug: string) {
+  busySlug.value = slug;
+  panelError.value = null;
+  actionError.value = null;
+  try {
+    await unpin(slug);
+    await refreshOverview();
+  } catch (e) {
+    console.error(e);
+    const msg = "Couldn’t remove that category. Please try again.";
+    if (adding.value) panelError.value = msg;
+    else actionError.value = msg;
+  } finally {
+    busySlug.value = null;
+  }
+}
+
+async function onStartCollection(slug: string, name: string) {
+  busySlug.value = slug;
+  actionError.value = null;
+  try {
+    // Named after the category; rename it on the collection page.
+    const created = await create({ categorySlug: slug, name });
+    await navigateTo(`/my/${created.id}`);
+  } catch (e) {
+    console.error(e);
+    actionError.value = "Couldn’t start that collection. Please try again.";
+  } finally {
+    busySlug.value = null;
+  }
+}
+
+// ---- Item search ------------------------------------------------------------
+// Item search lives inline on this page. The query is kept in ?q= so Back
+// from a result returns to the same results (and a reload keeps them).
 const initialQuery = route.query.q;
 const searchText = ref(typeof initialQuery === "string" ? initialQuery : "");
 const searchTerm = computed(() => normalizeSearchQuery(searchText.value));
@@ -38,14 +177,15 @@ watch(
   },
 );
 
+// ---- Collections ------------------------------------------------------------
 async function onCreated() {
-  await refreshCollections();
+  await Promise.all([refreshCollections(), refreshOverview()]);
 }
 
 async function onDelete(id: string, name: string) {
   if (!confirm(`Delete “${name}”? This removes all items inside it.`)) return;
   await remove(id);
-  await refreshCollections();
+  await Promise.all([refreshCollections(), refreshOverview()]);
 }
 </script>
 
@@ -72,59 +212,125 @@ async function onDelete(id: string, name: string) {
       <ItemSearch v-if="hasCollections || searching" v-model="searchText" />
 
       <template v-if="!searching">
-        <NewCollectionForm
-          v-if="categoriesData && categoriesData.categories.length > 0"
-          :categories="categoriesData.categories"
-          @created="onCreated"
+        <OverviewControls
+          v-if="loadedOnce"
+          :view="state.view"
+          :categories="chipCategories"
+          :selected="state.categories"
+          :show-empty="showEmpty"
+          :disabled="!hydrated"
+          @update:view="(view) => setState({ view })"
+          @update:selected="(categories) => setState({ categories })"
+          @update:show-empty="onShowEmpty"
+          @add-category="adding = !adding"
         />
 
-        <div v-if="pending && !data" class="text-sm text-slate-500 dark:text-slate-400">
-          Loading your collections…
-        </div>
+        <AddCategoryPanel
+          v-if="adding && categoriesData"
+          :categories="categoriesData.categories"
+          :overview="overview.categories"
+          :busy-slug="busySlug"
+          :error="panelError"
+          @pin="onPin"
+          @unpin="onUnpin"
+          @close="adding = false"
+        />
 
-        <ul
-          v-else-if="data && data.collections.length > 0"
-          class="space-y-2"
-          data-testid="my-collections-list"
+        <p
+          v-if="actionError"
+          role="alert"
+          class="rounded-lg bg-rose-50 p-3 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-100"
+          data-testid="overview-action-error"
         >
-          <li
-            v-for="c in data.collections"
-            :key="c.id"
-            class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"
-            :data-testid="`my-collection-${c.id}`"
+          {{ actionError }}
+        </p>
+
+        <template v-if="state.view === 'items'">
+          <OverviewItemList
+            :items="items"
+            :total="overview.total"
+            :has-more="hasMore"
+            :sort="state.sort"
+            :pending="overviewPending || !loadedOnce"
+            :loading-more="loadingMore"
+            :error="!!overviewError"
+            :filtered="state.categories.length > 0"
+            :disabled="!hydrated"
+            @update:sort="(sort) => setState({ sort })"
+            @load-more="onLoadMore"
+            @retry="refreshOverview()"
+          />
+        </template>
+
+        <template v-else>
+          <div v-if="!loadedOnce && !overviewError" class="text-sm text-slate-500 dark:text-slate-400">
+            Loading your collections…
+          </div>
+
+          <div
+            v-else-if="overviewError"
+            role="alert"
+            class="flex items-center justify-between gap-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-100"
+            data-testid="overview-error"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0 flex-1">
-                <NuxtLink :to="`/my/${c.id}`" class="block">
-                  <h3
-                    class="truncate text-base font-semibold text-slate-900 dark:text-slate-50"
-                  >
-                    {{ c.name }}
-                  </h3>
-                  <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                    {{ c.category_name }} · {{ c.item_count }} item{{ c.item_count === 1 ? "" : "s" }}
-                  </p>
-                </NuxtLink>
-              </div>
+            <span>Couldn’t load your collections. Please try again.</span>
+            <button
+              type="button"
+              class="shrink-0 rounded-md border border-rose-200 px-2 py-1 text-xs font-medium hover:bg-rose-100 dark:border-rose-800 dark:hover:bg-rose-900"
+              @click="refreshOverview()"
+            >
+              Try again
+            </button>
+          </div>
+
+          <template v-else-if="overview.categories.length > 0">
+            <CategoryGroups
+              v-if="groups.length > 0"
+              :categories="groups"
+              :collections="data?.collections ?? []"
+              :busy-slug="busySlug"
+              @delete-collection="onDelete"
+              @start-collection="onStartCollection"
+              @unpin="onUnpin"
+            />
+            <p
+              v-else
+              class="rounded-xl bg-slate-100 p-6 text-center text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              data-testid="overview-groups-empty"
+            >
+              Nothing to show for the selected categories.
+            </p>
+
+            <p
+              v-if="hiddenCount > 0"
+              class="text-center text-sm text-slate-500 dark:text-slate-400"
+              data-testid="hidden-empty-note"
+            >
+              {{ hiddenCount }} empty {{ hiddenCount === 1 ? "category" : "categories" }} hidden.
               <button
                 type="button"
-                class="shrink-0 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                :data-testid="`delete-collection-${c.id}`"
-                @click="onDelete(c.id, c.name)"
+                class="font-medium text-slate-700 underline hover:text-slate-900 dark:text-slate-200 dark:hover:text-white"
+                @click="onShowEmpty(true)"
               >
-                Delete
+                Show {{ hiddenCount === 1 ? "it" : "them" }}
               </button>
-            </div>
-          </li>
-        </ul>
+            </p>
+          </template>
 
-        <div
-          v-else
-          class="rounded-xl bg-slate-100 p-6 text-center text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-          data-testid="my-collections-empty"
-        >
-          You don’t have any collections yet. Pick a category above and start your first one.
-        </div>
+          <div
+            v-else
+            class="rounded-xl bg-slate-100 p-6 text-center text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            data-testid="my-collections-empty"
+          >
+            You don’t have any collections yet. Start one below, or add a category to see it here.
+          </div>
+
+          <NewCollectionForm
+            v-if="categoriesData && categoriesData.categories.length > 0"
+            :categories="categoriesData.categories"
+            @created="onCreated"
+          />
+        </template>
       </template>
     </template>
   </section>
