@@ -81,7 +81,7 @@ const chipOff =
     </div>
 
     <div
-      v-if="categories.length > 0"
+      v-if="categories.length > 0 || selected.length > 0"
       role="group"
       aria-label="Filter by category"
       class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1"

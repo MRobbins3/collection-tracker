@@ -110,5 +110,8 @@ describe("OverviewItemList", () => {
     expect(
       mountList({ items: [], total: 0, filtered: true }).get('[data-testid="overview-items-empty"]').text(),
     ).toContain("No items in the selected categories");
+    const filtered = mountList({ items: [], total: 0, filtered: true });
+    await filtered.get('[data-testid="overview-clear-filter"]').trigger("click");
+    expect(filtered.emitted("clearFilter")).toHaveLength(1);
   });
 });

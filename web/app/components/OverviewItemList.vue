@@ -21,7 +21,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   (e: "update:sort", value: OverviewSort): void;
-  (e: "loadMore" | "retry"): void;
+  (e: "loadMore" | "retry" | "clearFilter"): void;
 }>();
 
 const sortId = useId();
@@ -132,7 +132,17 @@ function onSort(e: Event) {
       class="rounded-xl bg-slate-100 p-6 text-center text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
       data-testid="overview-items-empty"
     >
-      <template v-if="filtered">No items in the selected categories yet.</template>
+      <template v-if="filtered">
+        No items in the selected categories yet.
+        <button
+          type="button"
+          class="mt-2 block w-full font-medium text-slate-700 underline hover:text-slate-900 dark:text-slate-200 dark:hover:text-white"
+          data-testid="overview-clear-filter"
+          @click="emit('clearFilter')"
+        >
+          Clear filter
+        </button>
+      </template>
       <template v-else>You haven’t added any items yet. Open a collection to add your first one.</template>
     </div>
   </div>

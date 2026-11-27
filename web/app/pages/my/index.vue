@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CategoriesResponse, OverviewItem } from "~/types/api";
+import type { CategoriesResponse } from "~/types/api";
 import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
 import {
   overviewQuery,
@@ -60,34 +60,20 @@ const groups = computed(() =>
     : visible.value.filter((c) => state.value.categories.includes(c.slug)),
 );
 
-// "Show more" pages are appended locally and reset whenever the first page
-// is refetched (sort/filter change, or a refresh after an edit).
-const extraItems = ref<OverviewItem[]>([]);
-const extraHasMore = ref<boolean | null>(null);
-const loadingMore = ref(false);
-watch(overview, () => {
-  extraItems.value = [];
-  extraHasMore.value = null;
-});
-const items = computed(() => [...overview.value.items, ...extraItems.value]);
-const hasMore = computed(() => extraHasMore.value ?? overview.value.has_more);
+// "Show more" pages are appended locally and reset when the first page's
+// items change; a page still loading when that happens is dropped.
+const {
+  items,
+  hasMore,
+  loadingMore,
+  error: loadMoreError,
+  loadMore: onLoadMore,
+} = useShowMore(overview, (offset) => loadMore(params.value, offset));
 
 const actionError = ref<string | null>(null);
-
-async function onLoadMore() {
-  loadingMore.value = true;
-  actionError.value = null;
-  try {
-    const res = await loadMore(params.value, items.value.length);
-    extraItems.value.push(...res.items);
-    extraHasMore.value = res.has_more;
-  } catch (e) {
-    console.error(e);
-    actionError.value = "Couldn’t load more items. Please try again.";
-  } finally {
-    loadingMore.value = false;
-  }
-}
+const shownError = computed(
+  () => actionError.value ?? (loadMoreError.value ? "Couldn’t load more items. Please try again." : null),
+);
 
 async function onShowEmpty(show: boolean) {
   actionError.value = null;
@@ -237,12 +223,12 @@ async function onDelete(id: string, name: string) {
         />
 
         <p
-          v-if="actionError"
+          v-if="shownError"
           role="alert"
           class="rounded-lg bg-rose-50 p-3 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-100"
           data-testid="overview-action-error"
         >
-          {{ actionError }}
+          {{ shownError }}
         </p>
 
         <template v-if="state.view === 'items'">
@@ -258,6 +244,7 @@ async function onDelete(id: string, name: string) {
             :disabled="!hydrated"
             @update:sort="(sort) => setState({ sort })"
             @load-more="onLoadMore"
+            @clear-filter="setState({ categories: [] })"
             @retry="refreshOverview()"
           />
         </template>
@@ -299,6 +286,14 @@ async function onDelete(id: string, name: string) {
               data-testid="overview-groups-empty"
             >
               Nothing to show for the selected categories.
+              <button
+                type="button"
+                class="mt-2 block w-full font-medium text-slate-700 underline hover:text-slate-900 dark:text-slate-200 dark:hover:text-white"
+                data-testid="overview-groups-clear-filter"
+                @click="setState({ categories: [] })"
+              >
+                Clear filter
+              </button>
             </p>
 
             <p

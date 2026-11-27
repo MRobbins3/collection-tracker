@@ -80,6 +80,14 @@ describe("OverviewControls", () => {
     expect(wrapper.emitted("addCategory")).toHaveLength(1);
   });
 
+  it("keeps the All chip to clear a filter even with no categories to offer", async () => {
+    const wrapper = mountControls({ categories: [], selected: ["coins"] });
+    const all = wrapper.get('[data-testid="category-chip-all"]');
+    expect(all.attributes("aria-pressed")).toBe("false");
+    await all.trigger("click");
+    expect(wrapper.emitted("update:selected")).toEqual([[[]]]);
+  });
+
   it("hides the chip row when there are no categories", () => {
     const wrapper = mountControls({ categories: [] });
     expect(wrapper.find('[aria-label="Filter by category"]').exists()).toBe(false);
