@@ -236,6 +236,14 @@ func TestSubmitCatalogEntry(t *testing.T) {
 	require.JSONEq(t, `"submitted"`, string(mustField(t, rr.Body.Bytes(), "outcome")))
 }
 
+func TestSubmitCatalogEntryOmittedAttributesAreValidatedAsEmpty(t *testing.T) {
+	mod := &fakeModeration{submitResult: store.SubmitResult{Outcome: store.OutcomeSubmitted}}
+	r := newModerationRouter(t, mod, "")
+	rr := doJSON(t, r, http.MethodPost, "/me/catalog-submissions", map[string]any{"category_slug": "lego-sets", "name": "X"})
+	require.Equal(t, http.StatusCreated, rr.Code, rr.Body.String())
+	require.JSONEq(t, `{}`, string(mod.submits[0].in.Attributes))
+}
+
 func TestSubmitCatalogEntryExistingMatchIs200(t *testing.T) {
 	e := falconEntry()
 	mod := &fakeModeration{submitResult: store.SubmitResult{Outcome: store.OutcomeAlreadyInCatalog, Entry: &e}}
@@ -411,6 +419,7 @@ func TestModerationDecisionErrors(t *testing.T) {
 		{store.ErrDuplicateEntry, http.StatusConflict},
 		{store.ErrMergeTarget, http.StatusBadRequest},
 		{store.ErrWrongKind, http.StatusBadRequest},
+		{store.ErrEntryNotPending, http.StatusConflict},
 		{store.ErrNotFound, http.StatusNotFound},
 	} {
 		r := newModerationRouter(t, &fakeModeration{request: pendingEntryRequest(), err: tc.err}, auth.RoleAdmin)

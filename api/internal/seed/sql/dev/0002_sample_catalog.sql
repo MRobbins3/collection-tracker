@@ -97,7 +97,10 @@ ON CONFLICT (category_id, name_key, identifier_key) WHERE status IN ('pending', 
     status      = EXCLUDED.status,
     approved_at = EXCLUDED.approved_at,
     updated_at  = now()
-WHERE (catalog_entries.description, catalog_entries.attributes, catalog_entries.source,
+-- Only refresh entries that are already approved: a user's pending
+-- suggestion with the same key stays pending (its moderation request owns it).
+WHERE catalog_entries.status = 'approved'
+  AND (catalog_entries.description, catalog_entries.attributes, catalog_entries.source,
        catalog_entries.status, catalog_entries.approved_at)
       IS DISTINCT FROM (EXCLUDED.description, EXCLUDED.attributes, EXCLUDED.source,
                         EXCLUDED.status, EXCLUDED.approved_at);

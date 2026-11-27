@@ -143,6 +143,17 @@ func (u *Users) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	// Lock the user first: Submit holds the same lock while it inserts, so a
+	// suggestion can't land between deleting unpublished entries and the
+	// user (which would leave a pending entry with no submitter).
+	var one int
+	err = tx.QueryRow(ctx, `SELECT 1 FROM users WHERE id = $1 FOR UPDATE`, id).Scan(&one)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock user: %w", err)
+	}
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM catalog_entries WHERE submitted_by = $1 AND status <> 'approved'`, id); err != nil {
 		return fmt.Errorf("delete unpublished submissions: %w", err)

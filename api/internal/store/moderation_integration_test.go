@@ -243,6 +243,65 @@ func TestModerationPendingCap(t *testing.T) {
 	f.submit(t, ctx, f.bob.ID, "Now Fits", "1000", nil)
 }
 
+// Parallel submissions from a user one short of the cap: the per-user lock
+// lets exactly one through.
+func TestModerationPendingCapUnderConcurrency(t *testing.T) {
+	f, ctx := newModerationFixture(t)
+	for i := 0; i < store.MaxPendingPerUser-1; i++ {
+		f.submit(t, ctx, f.bob.ID, "Set", itoa(i), nil)
+	}
+	const n = 5
+	errs := make([]error, n)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, errs[i] = f.mod.Submit(ctx, f.bob.ID, store.SubmissionInput{
+				CategorySlug: "lego-sets", Name: "Parallel", Attributes: json.RawMessage(`{"set_number":"p` + itoa(i) + `"}`),
+			})
+		}(i)
+	}
+	wg.Wait()
+	ok := 0
+	for _, err := range errs {
+		if err == nil {
+			ok++
+		} else {
+			require.ErrorIs(t, err, store.ErrSubmissionLimit)
+		}
+	}
+	require.Equal(t, 1, ok)
+	var pending int
+	require.NoError(t, f.pool.QueryRow(ctx,
+		`SELECT count(*) FROM moderation_requests WHERE submitted_by = $1 AND status = 'pending'`, f.bob.ID).Scan(&pending))
+	require.Equal(t, store.MaxPendingPerUser, pending)
+}
+
+// If a submission's entry stops being pending outside the queue (e.g. a
+// seed approved it), deciding the request is refused and nothing changes,
+// instead of the request and entry disagreeing.
+func TestModerationRefusesWhenEntryChangedOutsideQueue(t *testing.T) {
+	f, ctx := newModerationFixture(t)
+	res := f.submit(t, ctx, f.alice.ID, "Changed Elsewhere", "77", nil)
+	detail, err := f.mod.Get(ctx, res.Submission.ID)
+	require.NoError(t, err)
+	_, err = f.pool.Exec(ctx, `UPDATE catalog_entries SET status = 'approved' WHERE id = $1`, detail.Entry.ID)
+	require.NoError(t, err)
+
+	_, err = f.mod.Reject(ctx, f.admin.ID, res.Submission.ID, "No")
+	require.ErrorIs(t, err, store.ErrEntryNotPending)
+	_, err = f.mod.Merge(ctx, f.admin.ID, res.Submission.ID, f.falconID, nil)
+	require.ErrorIs(t, err, store.ErrEntryNotPending)
+	_, err = f.mod.Approve(ctx, f.admin.ID, res.Submission.ID, nil)
+	require.ErrorIs(t, err, store.ErrEntryNotPending)
+
+	got, err := f.mod.Get(ctx, res.Submission.ID)
+	require.NoError(t, err)
+	require.Equal(t, store.StatusPending, got.Status)
+	require.Equal(t, "approved", got.Entry.Status, "the entry is left as it was")
+}
+
 func TestModerationDecisions(t *testing.T) {
 	f, ctx := newModerationFixture(t)
 

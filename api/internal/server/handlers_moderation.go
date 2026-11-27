@@ -44,11 +44,12 @@ var (
 	msgSubmissionLimit = fmt.Sprintf(
 		"You have %d suggestions waiting for review. You can send more once some of them are reviewed.",
 		store.MaxPendingPerUser)
-	msgNoChanges      = "That doesn't change anything in the catalog entry."
-	msgAlreadyDecided = "Someone already decided this one. Reload to see the outcome."
-	msgDuplicateEntry = "Another catalog entry in this category already has that name and identifier."
-	msgMergeTarget    = "Pick an approved catalog entry in the same category to merge into."
-	msgWrongKind      = "Only new entry suggestions can be merged."
+	msgNoChanges       = "That doesn't change anything in the catalog entry."
+	msgAlreadyDecided  = "Someone already decided this one. Reload to see the outcome."
+	msgDuplicateEntry  = "Another catalog entry in this category already has that name and identifier."
+	msgMergeTarget     = "Pick an approved catalog entry in the same category to merge into."
+	msgWrongKind       = "Only new entry suggestions can be merged."
+	msgEntryNotPending = "This suggestion's catalog entry was changed outside the queue. Reload to see it."
 )
 
 // entryFieldsReq is the editable part of a catalog entry in a request
@@ -135,8 +136,14 @@ func (h *handlers) submitCatalogEntry(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err, "submitCatalogEntry: category lookup")
 		return
 	}
+	// Omitted attributes are validated as {} (like item create), so a
+	// category with required attributes can't be bypassed.
+	attrs := body.Attributes
+	if len(attrs) == 0 || string(attrs) == "null" {
+		attrs = json.RawMessage(`{}`)
+	}
 	fields, errResp, ok := h.cleanEntryFields(r.Context(), slug, entryFieldsReq{
-		Name: &body.Name, Description: body.Description, Attributes: body.Attributes,
+		Name: &body.Name, Description: body.Description, Attributes: attrs,
 	})
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, errResp)
@@ -147,7 +154,7 @@ func (h *handlers) submitCatalogEntry(w http.ResponseWriter, r *http.Request) {
 		Name:         *fields.Name,
 		Description:  fields.Description,
 		Attributes:   fields.Attributes,
-		SourceItemID: normalizeCondition(body.ItemID),
+		SourceItemID: trimmedOrNil(body.ItemID),
 	})
 	if err != nil {
 		switch {
@@ -406,6 +413,8 @@ func (h *handlers) writeDecision(w http.ResponseWriter, r *http.Request, out sto
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": msgMergeTarget})
 	case errors.Is(err, store.ErrWrongKind):
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": msgWrongKind})
+	case errors.Is(err, store.ErrEntryNotPending):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": msgEntryNotPending})
 	default:
 		h.serverError(w, r, err, "moderation decision failed")
 	}

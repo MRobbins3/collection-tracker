@@ -33,6 +33,10 @@ var (
 	ErrSubmissionLimit = errors.New("store: too many pending submissions")
 	// ErrNoChanges: a correction that changes nothing.
 	ErrNoChanges = errors.New("store: no changes proposed")
+	// ErrEntryNotPending: a submission's entry is no longer pending although
+	// its request is (changed outside the queue), so the decision is refused
+	// rather than leaving the request and the entry disagreeing.
+	ErrEntryNotPending = errors.New("store: submitted entry is no longer pending")
 )
 
 // MaxPendingPerUser caps how many requests (submissions plus corrections)
@@ -519,10 +523,8 @@ func (m *Moderation) Reject(ctx context.Context, adminID, id, reason string) (Mo
 	}
 	err := m.decide(ctx, id, func(tx pgx.Tx, req lockedRequest) (decision, error) {
 		if req.Kind == KindCatalogEntry {
-			if _, err := tx.Exec(ctx, `
-				UPDATE catalog_entries SET status = 'rejected', updated_at = now()
-				WHERE id = $1 AND status = 'pending'`, req.EntryID); err != nil {
-				return decision{}, fmt.Errorf("reject entry: %w", err)
+			if err := retirePendingEntry(ctx, tx, req.EntryID); err != nil {
+				return decision{}, err
 			}
 		}
 		return decision{reason: &reason}, nil
@@ -559,10 +561,8 @@ func (m *Moderation) Merge(ctx context.Context, adminID, id, targetID string, re
 		if !ok {
 			return decision{}, ErrMergeTarget
 		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE catalog_entries SET status = 'rejected', updated_at = now()
-			WHERE id = $1 AND status = 'pending'`, req.EntryID); err != nil {
-			return decision{}, fmt.Errorf("retire duplicate: %w", err)
+		if err := retirePendingEntry(ctx, tx, req.EntryID); err != nil {
+			return decision{}, err
 		}
 		if _, err := linkSourceItem(ctx, tx, req, targetID); err != nil {
 			return decision{}, err
@@ -690,7 +690,7 @@ func approveEntry(ctx context.Context, tx pgx.Tx, adminID string, req lockedRequ
 		return decision{}, err
 	}
 	if tag.RowsAffected() == 0 {
-		return decision{}, ErrAlreadyDecided
+		return decision{}, ErrEntryNotPending
 	}
 	if _, err := linkSourceItem(ctx, tx, req, req.EntryID); err != nil {
 		return decision{}, err
@@ -737,6 +737,21 @@ func applyCorrection(ctx context.Context, tx pgx.Tx, req lockedRequest, edits *E
 	}
 	prev := cur.fieldsFor(changes)
 	return decision{previous: &prev, applied: &changes}, nil
+}
+
+// retirePendingEntry marks a submission's pending entry rejected (reject,
+// or merge into another entry). ErrEntryNotPending if it wasn't pending.
+func retirePendingEntry(ctx context.Context, tx pgx.Tx, entryID string) error {
+	tag, err := tx.Exec(ctx, `
+		UPDATE catalog_entries SET status = 'rejected', updated_at = now()
+		WHERE id = $1 AND status = 'pending'`, entryID)
+	if err != nil {
+		return fmt.Errorf("retire entry: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrEntryNotPending
+	}
+	return nil
 }
 
 // linkSourceItem links the request's source item to entryID if it is
@@ -1031,10 +1046,12 @@ func cleanOptional(s *string) *string {
 }
 
 // lockUser serializes one user's submissions so the pending cap can't be
-// overrun by parallel requests. ErrNotFound if the user is gone.
+// overrun by parallel requests. ErrNotFound if the user is gone. FOR NO KEY
+// UPDATE doesn't block inserts elsewhere that reference the user (their
+// FK checks take FOR KEY SHARE), only other submissions and deletion.
 func lockUser(ctx context.Context, tx pgx.Tx, userID string) error {
 	var one int
-	err := tx.QueryRow(ctx, `SELECT 1 FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&one)
+	err := tx.QueryRow(ctx, `SELECT 1 FROM users WHERE id = $1 FOR NO KEY UPDATE`, userID).Scan(&one)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}

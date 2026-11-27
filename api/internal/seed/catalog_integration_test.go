@@ -62,3 +62,25 @@ func TestSampleCatalogEntriesAreApprovedAndValid(t *testing.T) {
 	require.NoError(t, rows.Err())
 	require.Equal(t, map[string]int{"lego-sets": 8, "vinyl-records": 6, "coins": 6}, perCategory)
 }
+
+// A user's pending suggestion that shares a sample entry's key must stay
+// pending (its moderation request decides it); the seed must not approve it.
+func TestSampleCatalogLeavesPendingSuggestionsAlone(t *testing.T) {
+	pool := provisionMigratedDB(t)
+	ctx := context.Background()
+	_, err := seed.Apply(ctx, pool, seed.Options{Env: "test"})
+	require.NoError(t, err)
+	var id string
+	require.NoError(t, pool.QueryRow(ctx, `
+		INSERT INTO catalog_entries (category_id, name, identifier, attributes, source, status)
+		SELECT id, 'millennium falcon', '75192', '{"set_number":"75192"}', 'user_submitted', 'pending'
+		FROM categories WHERE slug = 'lego-sets' RETURNING id`).Scan(&id))
+
+	_, err = seed.Apply(ctx, pool, seed.Options{Env: "test", Dev: true})
+	require.NoError(t, err)
+
+	var source, status string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT source, status FROM catalog_entries WHERE id = $1`, id).Scan(&source, &status))
+	require.Equal(t, "user_submitted", source)
+	require.Equal(t, "pending", status)
+}

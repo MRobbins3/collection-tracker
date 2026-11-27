@@ -93,9 +93,9 @@ func (h *handlers) createItem(w http.ResponseWriter, r *http.Request) {
 	item, err := h.items.Create(r.Context(), collectionID, s.UserID, store.ItemInput{
 		Name:           body.Name,
 		Quantity:       body.Quantity,
-		Condition:      normalizeCondition(body.Condition),
+		Condition:      trimmedOrNil(body.Condition),
 		Attributes:     body.Attributes,
-		CatalogEntryID: normalizeCondition(body.CatalogEntryID),
+		CatalogEntryID: trimmedOrNil(body.CatalogEntryID),
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -148,7 +148,7 @@ func (h *handlers) updateItem(w http.ResponseWriter, r *http.Request) {
 	item, err := h.items.Update(r.Context(), itemID, collectionID, s.UserID, store.ItemInput{
 		Name:       body.Name,
 		Quantity:   body.Quantity,
-		Condition:  normalizeCondition(body.Condition),
+		Condition:  trimmedOrNil(body.Condition),
 		Attributes: body.Attributes,
 	})
 	if err != nil {
@@ -188,9 +188,9 @@ func validateItemInput(in itemInputReq) (map[string]string, bool) {
 	return nil, true
 }
 
-// normalizeCondition trims an optional string, mapping blank to nil. Used
-// for the item condition and the optional catalog entry id.
-func normalizeCondition(c *string) *string {
+// trimmedOrNil trims an optional string, mapping blank to nil. Used
+// for the item condition and optional ids (catalog entry, source item).
+func trimmedOrNil(c *string) *string {
 	if c == nil {
 		return nil
 	}
