@@ -172,3 +172,40 @@ export interface ItemSearchResponse {
   /** True when more items matched than the API returns in one response. */
   has_more: boolean;
 }
+
+/** How the collection overview orders items. Shown via utils/overview.ts labels, never raw. */
+export type OverviewSort = "newest" | "oldest" | "name_asc" | "name_desc" | "category";
+
+/** A category in your overview: one you have collections in, or one you added (pinned). */
+export interface OverviewCategory {
+  slug: string;
+  name: string;
+  /** Item rows across your collections in this category (not the sum of quantities). */
+  item_count: number;
+  collection_count: number;
+  /** You added it to your overview yourself. */
+  pinned: boolean;
+}
+
+/** One of your items, with where it lives. */
+export interface OverviewItem {
+  id: string;
+  name: string;
+  quantity: number;
+  condition?: string;
+  collection_id: string;
+  collection_name: string;
+  category_slug: string;
+  category_name: string;
+  created_at: string;
+}
+
+/** GET /me/overview */
+export interface OverviewResponse {
+  categories: OverviewCategory[];
+  show_empty_categories: boolean;
+  items: OverviewItem[];
+  /** Items matching the filter across every page. */
+  total: number;
+  has_more: boolean;
+}
