@@ -75,7 +75,7 @@ On the host directly: `.nvmrc` pins Node 24 for `nvm use`; then `cd web && bun i
 
 A `concurrency` group cancels superseded runs for the same ref. Node is installed via `actions/setup-node` with `node-version-file: .nvmrc` so ESLint's Node-shebang-dispatch gets a modern runtime.
 
-**Version pins.** Every tool version is pinned exactly so nothing changes underneath us between commits: the runner OS (`runs-on: ubuntu-26.04`), golangci-lint, Bun, Go, and the Postgres image. The local `docker-compose.yml` images use the same versions as CI, so bump them together: Go (`golang:` image and `go-version`), Bun (`oven/bun:` image and `bun-version`), and Postgres (both `postgres:` images).
+Tool versions (runner OS, golangci-lint, Go, Bun, Postgres) are pinned exactly; see `dependencies.md` for how to bump them.
 
 **Passes locally, fails in CI?** It's usually one of these:
 - A hardcoded `db:5432`. Docker Compose reaches Postgres at host `db`; CI's service container is at `localhost`. Derive the host from the configured URL instead (see `testDBURL()`).
