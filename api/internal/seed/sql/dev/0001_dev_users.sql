@@ -136,7 +136,7 @@ VALUES
      '{"species": "Epipremnum aureum", "pot_size": "6 inch", "acquired_from": "Cutting from a friend"}',
      '2026-07-04 12:00:00+00')
 -- created_at is spread over past dates so "newest / oldest first" in the
--- collection overview has a meaningful order. Only created_at is refreshed on
--- a re-run; other edits made through the app are left alone.
-ON CONFLICT (id) DO UPDATE SET created_at = EXCLUDED.created_at
-WHERE items.created_at IS DISTINCT FROM EXCLUDED.created_at;
+-- collection overview has a meaningful order. Like every sample row, an
+-- existing item is left exactly as it is on a re-run (created_at included);
+-- drop the database to get the seeded dates back.
+ON CONFLICT (id) DO NOTHING;

@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
 )
 
 // Collection is the denormalized row the API returns. Category slug/name are
@@ -68,7 +70,7 @@ func (c *Collections) Create(ctx context.Context, userID, categorySlug, name str
 		INSERT INTO collections (user_id, category_id, name)
 		VALUES ($1, $2, $3)
 		RETURNING id
-	`, userID, categoryID, name).Scan(&id)
+	`, userID, categoryID, textnorm.Clean(name)).Scan(&id)
 	if err != nil {
 		return Collection{}, fmt.Errorf("insert collection: %w", err)
 	}
@@ -125,7 +127,7 @@ func (c *Collections) Rename(ctx context.Context, id, userID, newName string) (C
 	tag, err := c.pool.Exec(ctx, `
 		UPDATE collections SET name = $1, updated_at = now()
 		WHERE id = $2 AND user_id = $3
-	`, newName, id, userID)
+	`, textnorm.Clean(newName), id, userID)
 	if err != nil {
 		return Collection{}, fmt.Errorf("rename collection: %w", err)
 	}

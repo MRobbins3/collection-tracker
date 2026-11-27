@@ -657,13 +657,31 @@ func TestUserCategoriesMigration(t *testing.T) {
 		require.Error(t, err, "a category request never points at a catalog entry")
 	})
 
-	t.Run("rolls back, deleting unapproved user categories and their collections", func(t *testing.T) {
+	t.Run("rolls back, deleting unapproved user categories and their collections and catalog entries", func(t *testing.T) {
 		var catID string
 		require.NoError(t, db.QueryRowContext(ctx, `SELECT id FROM categories WHERE slug = 'sneakers-a'`).Scan(&catID))
-		_, err := db.ExecContext(ctx,
-			`INSERT INTO collections (user_id, category_id, name) VALUES ($1, $2, 'Shoes')`, alice, catID)
-		require.NoError(t, err)
+		var collID string
+		require.NoError(t, db.QueryRowContext(ctx,
+			`INSERT INTO collections (user_id, category_id, name) VALUES ($1, $2, 'Shoes') RETURNING id`, alice, catID).Scan(&collID))
 		require.NoError(t, insert("mugs", "Mugs", "approved", alice))
+
+		// catalog_entries.category_id is ON DELETE RESTRICT, so entries in an
+		// unapproved category (and what references them: a linked item, a
+		// suggestion in the queue) must not block the rollback.
+		var shoeEntry string
+		require.NoError(t, db.QueryRowContext(ctx, `
+			INSERT INTO catalog_entries (category_id, name, status, source, submitted_by)
+			VALUES ($1, 'Air Max 90', 'pending', 'user_submitted', $2) RETURNING id`, catID, alice).Scan(&shoeEntry))
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO catalog_entries (category_id, name, status) VALUES ($1, 'Stan Smith', 'approved')`, catID)
+		require.NoError(t, err)
+		_, err = db.ExecContext(ctx,
+			`INSERT INTO items (collection_id, name, quantity, catalog_entry_id) VALUES ($1, 'Air Max', 1, $2)`, collID, shoeEntry)
+		require.NoError(t, err)
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO moderation_requests (kind, category_id, catalog_entry_id, submitted_by)
+			VALUES ('catalog_entry', $1, $2, $3)`, catID, shoeEntry, alice)
+		require.NoError(t, err)
 
 		require.NoError(t, migrations.DownTo(ctx, dbURL, 7))
 		var slugs []string
@@ -679,6 +697,16 @@ func TestUserCategoriesMigration(t *testing.T) {
 		var n int
 		require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM collections`).Scan(&n))
 		require.Zero(t, n)
+		var entries []string
+		rows, err = db.QueryContext(ctx, `SELECT name FROM catalog_entries ORDER BY name`)
+		require.NoError(t, err)
+		for rows.Next() {
+			var s string
+			require.NoError(t, rows.Scan(&s))
+			entries = append(entries, s)
+		}
+		require.NoError(t, rows.Err())
+		require.Equal(t, []string{"Set"}, entries, "entries in approved categories stay")
 		require.NoError(t, migrations.Up(ctx, dbURL), "and migrates up again")
 	})
 }

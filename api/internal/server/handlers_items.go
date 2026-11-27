@@ -12,6 +12,7 @@ import (
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/category"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
 )
 
 // ItemStore is the narrow view the HTTP layer needs over store.Items.
@@ -76,9 +77,9 @@ func (h *handlers) createItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	body.Name = strings.TrimSpace(body.Name)
-	if body.Quantity == 0 {
-		body.Quantity = 1
+	if err := cleanItemInput(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
 	}
 
 	if errResp, ok := validateItemInput(body); !ok {
@@ -93,7 +94,7 @@ func (h *handlers) createItem(w http.ResponseWriter, r *http.Request) {
 	item, err := h.items.Create(r.Context(), collectionID, s.UserID, store.ItemInput{
 		Name:           body.Name,
 		Quantity:       body.Quantity,
-		Condition:      trimmedOrNil(body.Condition),
+		Condition:      body.Condition,
 		Attributes:     body.Attributes,
 		CatalogEntryID: trimmedOrNil(body.CatalogEntryID),
 	})
@@ -132,9 +133,9 @@ func (h *handlers) updateItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	body.Name = strings.TrimSpace(body.Name)
-	if body.Quantity == 0 {
-		body.Quantity = 1
+	if err := cleanItemInput(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
 	}
 	if errResp, ok := validateItemInput(body); !ok {
 		writeJSON(w, http.StatusBadRequest, errResp)
@@ -148,7 +149,7 @@ func (h *handlers) updateItem(w http.ResponseWriter, r *http.Request) {
 	item, err := h.items.Update(r.Context(), itemID, collectionID, s.UserID, store.ItemInput{
 		Name:       body.Name,
 		Quantity:   body.Quantity,
-		Condition:  trimmedOrNil(body.Condition),
+		Condition:  body.Condition,
 		Attributes: body.Attributes,
 	})
 	if err != nil {
@@ -176,6 +177,35 @@ func (h *handlers) deleteItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// cleanItemInput applies the write-time text rules before anything is
+// validated, so a padded enum value still matches its option and the length
+// checks see what will be stored: the name, condition, and string attributes
+// go through textnorm.Clean (case kept). A zero quantity means 1.
+func cleanItemInput(in *itemInputReq) error {
+	in.Name = textnorm.Clean(in.Name)
+	in.Condition = cleanedOrNil(in.Condition)
+	if in.Quantity == 0 {
+		in.Quantity = 1
+	}
+	attrs, err := store.CleanAttributes(in.Attributes)
+	if err != nil {
+		return errors.New("attributes must be a JSON object")
+	}
+	in.Attributes = attrs
+	return nil
+}
+
+// cleanedOrNil is textnorm.Clean for an optional field, mapping blank to nil.
+func cleanedOrNil(c *string) *string {
+	if c == nil {
+		return nil
+	}
+	if cleaned := textnorm.Clean(*c); cleaned != "" {
+		return &cleaned
+	}
+	return nil
 }
 
 func validateItemInput(in itemInputReq) (map[string]string, bool) {

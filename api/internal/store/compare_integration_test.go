@@ -4,6 +4,7 @@ package store_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -54,8 +55,8 @@ func TestCompare(t *testing.T) {
 	treeHouse := insertCatalogEntry(t, pool, "lego-sets", "Tree House", "approved", map[string]any{"set_number": "21318"})
 	insertCatalogEntry(t, pool, "lego-sets", "Galaxy Explorer", "approved", map[string]any{"set_number": "10497"})
 	insertCatalogEntry(t, pool, "lego-sets", "Colosseum", "approved", map[string]any{"set_number": "10276"})
-	// Two approved entries share a name: a free-form "Batmobile" can't say
-	// which one it is, so it's matched by name only.
+	// Two approved entries share a name: a free-form "Batmobile" with no set
+	// number can't say which one it is, so it's matched by name only.
 	batmobileA := insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "76139"})
 	batmobileB := insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "7784"})
 	insertCatalogEntry(t, pool, "lego-sets", "Pending Set", "pending", map[string]any{"set_number": "1"})
@@ -232,6 +233,128 @@ func TestCompare(t *testing.T) {
 			ViewerID: alice.ID, OtherID: alice.ID, CategorySlug: "lego-sets", Bucket: store.BucketBoth, Limit: 50,
 		})
 		require.ErrorIs(t, err, store.ErrCompareSelf)
+	})
+}
+
+// When a free-form name matches more than one approved entry, the item's
+// value for the category's catalog identifier (set number for Lego) picks
+// the entry; without a matching identifier it falls back to name-only.
+func TestCompareDisambiguatesSharedNamesByIdentifier(t *testing.T) {
+	pool, cleanup := provisionSeededDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	users := store.NewUsers(pool)
+	alice, err := users.UpsertByGoogleSub(ctx, "alice-sub", "alice@example.com", "Alice")
+	require.NoError(t, err)
+	bob, err := users.UpsertByGoogleSub(ctx, "bob-sub", "bob@example.com", "Bob")
+	require.NoError(t, err)
+
+	batmobileA := insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "76139"})
+	batmobileB := insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "7784"})
+	insertCatalogEntry(t, pool, "lego-sets", "Tree House", "approved", map[string]any{"set_number": "21318"})
+
+	colls := store.NewCollections(pool)
+	items := store.NewItems(pool)
+	aliceLego, err := colls.Create(ctx, alice.ID, "lego-sets", "Alice's Lego")
+	require.NoError(t, err)
+	bobLego, err := colls.Create(ctx, bob.ID, "lego-sets", "Bob's Lego")
+	require.NoError(t, err)
+	add := func(collID, userID, name, attrs, entry string) {
+		t.Helper()
+		in := store.ItemInput{Name: name, Quantity: 1, Attributes: json.RawMessage(attrs)}
+		if entry != "" {
+			in.CatalogEntryID = &entry
+		}
+		_, err := items.Create(ctx, collID, userID, in)
+		require.NoError(t, err)
+	}
+	// Free-form with a known set number matches that entry, whichever side
+	// linked theirs; a set number given as a JSON number still counts.
+	add(aliceLego.ID, alice.ID, "Batmobile", `{"set_number":"76139"}`, "")
+	add(bobLego.ID, bob.ID, "Batmobile", `{}`, batmobileA)
+	add(aliceLego.ID, alice.ID, "Batmobile", `{}`, batmobileB)
+	add(bobLego.ID, bob.ID, "batmobile", `{"set_number":7784}`, "")
+	// An unknown set number, or none, falls back to the name.
+	add(aliceLego.ID, alice.ID, "BATMOBILE", `{"set_number":"1"}`, "")
+	add(bobLego.ID, bob.ID, "Batmobile", `{}`, "")
+
+	res, err := store.NewCompare(pool).Compare(ctx, store.CompareQuery{
+		ViewerID: alice.ID, OtherID: bob.ID, CategorySlug: "lego-sets", Bucket: store.BucketBoth, Limit: 50,
+	})
+	require.NoError(t, err)
+	require.Equal(t, store.CompareCounts{Both: 3, Neither: 1}, res.Counts)
+	require.Equal(t, []string{"BATMOBILE", "Batmobile 76139", "Batmobile 7784"}, compareNames(res.Items))
+	require.Equal(t, batmobileA, *res.Items[1].CatalogEntryID)
+	require.Equal(t, batmobileB, *res.Items[2].CatalogEntryID)
+	require.Nil(t, res.Items[0].CatalogEntryID)
+}
+
+// A free-form item with a shared name and no set number still matches the
+// other person's only item of that name, even when theirs was resolved to an
+// entry by its set number. If they have several, it can't say which and
+// stays by name.
+func TestCompareMatchesANumberlessNameToTheOtherSidesOnlyMatch(t *testing.T) {
+	pool, cleanup := provisionSeededDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	users := store.NewUsers(pool)
+	alice, err := users.UpsertByGoogleSub(ctx, "alice-sub", "alice@example.com", "Alice")
+	require.NoError(t, err)
+	bob, err := users.UpsertByGoogleSub(ctx, "bob-sub", "bob@example.com", "Bob")
+	require.NoError(t, err)
+	carol, err := users.UpsertByGoogleSub(ctx, "carol-sub", "carol@example.com", "Carol")
+	require.NoError(t, err)
+
+	batmobileA := insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "76139"})
+	insertCatalogEntry(t, pool, "lego-sets", "Batmobile", "approved", map[string]any{"set_number": "7784"})
+
+	colls := store.NewCollections(pool)
+	items := store.NewItems(pool)
+	add := func(userID, name, attrs string) {
+		t.Helper()
+		coll, err := colls.Create(ctx, userID, "lego-sets", "Lego")
+		require.NoError(t, err)
+		_, err = items.Create(ctx, coll.ID, userID, store.ItemInput{Name: name, Quantity: 1, Attributes: json.RawMessage(attrs)})
+		require.NoError(t, err)
+	}
+	add(alice.ID, "Batmobile", `{"set_number":"76139"}`)
+	add(bob.ID, "batmobile", `{}`)
+	add(carol.ID, "Batmobile", `{"set_number":"76139"}`)
+	add(carol.ID, "Batmobile", `{"set_number":"7784"}`)
+
+	cmp := store.NewCompare(pool)
+	run := func(viewer, other string, b store.CompareBucket) store.CompareResult {
+		t.Helper()
+		res, err := cmp.Compare(ctx, store.CompareQuery{
+			ViewerID: viewer, OtherID: other, CategorySlug: "lego-sets", Bucket: b, Limit: 50,
+		})
+		require.NoError(t, err)
+		return res
+	}
+
+	t.Run("one numbered match on the other side: both own it", func(t *testing.T) {
+		for _, viewer := range []string{alice.ID, bob.ID} {
+			other := bob.ID
+			if viewer == bob.ID {
+				other = alice.ID
+			}
+			res := run(viewer, other, store.BucketBoth)
+			require.Equal(t, store.CompareCounts{Both: 1, Neither: 1}, res.Counts)
+			require.Equal(t, []string{"Batmobile 76139"}, compareNames(res.Items))
+			require.Equal(t, batmobileA, *res.Items[0].CatalogEntryID)
+			require.NotNil(t, res.Items[0].Mine)
+			require.NotNil(t, res.Items[0].Theirs)
+		}
+	})
+
+	t.Run("several on the other side: it stays by name", func(t *testing.T) {
+		res := run(bob.ID, carol.ID, store.BucketMineOnly)
+		require.Equal(t, store.CompareCounts{MineOnly: 1, TheirsOnly: 2}, res.Counts)
+		require.Equal(t, []string{"batmobile"}, compareNames(res.Items))
 	})
 }
 

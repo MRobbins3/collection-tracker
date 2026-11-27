@@ -150,9 +150,12 @@ func (c *Compare) Categories(ctx context.Context, viewerID, otherID string) ([]C
 
 // ownedCopy is one item, from either side, in the compared category.
 type ownedCopy struct {
-	mine           bool
-	entryID        *string
-	name           string
+	mine    bool
+	entryID *string
+	name    string
+	// identifier is the item's value for the category's catalog identifier
+	// attribute (e.g. set number), or "" when it has none.
+	identifier     string
 	quantity       int
 	condition      *string
 	collectionID   string
@@ -164,8 +167,12 @@ type ownedCopy struct {
 //
 // Matching: an item linked to a catalog entry matches by that entry. A
 // free-form item whose normalized name (textnorm.Key) names exactly one
-// approved entry in the category counts as that entry; any other free-form
-// item matches by normalized name. Owning one copy is enough; quantities
+// approved entry in the category counts as that entry. When the name is
+// shared by several entries (two "Batmobile" sets), the item's catalog
+// identifier value (set number) picks among them. Any other free-form item
+// matches by normalized name, and if only one person has it, it also matches
+// the other person's only catalog-matched row of that name (see
+// mergeNameRows). Owning one copy is enough; quantities
 // and copies are summed per side for display.
 //
 // Errors: ErrCompareSelf, ErrNotFound (unknown or hidden category).
@@ -202,14 +209,15 @@ func (c *Compare) Compare(ctx context.Context, q CompareQuery) (CompareResult, e
 	if err != nil {
 		return CompareResult{}, err
 	}
-	byName, err := c.uniqueEntriesByName(ctx, categoryID, copies)
+	entries, err := c.entriesByName(ctx, categoryID, copies)
 	if err != nil {
 		return CompareResult{}, err
 	}
-	rows, ownedEntries := groupCopies(copies, byName)
+	rows, ownedEntries := groupCopies(copies, entries)
 	if err := c.labelEntryRows(ctx, rows); err != nil {
 		return CompareResult{}, err
 	}
+	rows = mergeNameRows(rows)
 
 	buckets := map[CompareBucket][]*CompareRow{}
 	for _, r := range rows {
@@ -252,9 +260,12 @@ func (c *Compare) Compare(ctx context.Context, q CompareQuery) (CompareResult, e
 // copies loads both people's items in the category, earliest first.
 func (c *Compare) copies(ctx context.Context, categoryID, viewerID, otherID string) ([]ownedCopy, error) {
 	rows, err := c.pool.Query(ctx, `
-		SELECT col.user_id = $2, i.catalog_entry_id, i.name, i.quantity, i.condition, col.id, col.name
+		SELECT col.user_id = $2, i.catalog_entry_id, i.name,
+		       coalesce(i.attributes ->> cat.catalog_identifier, ''),
+		       i.quantity, i.condition, col.id, col.name
 		FROM items i
 		JOIN collections col ON col.id = i.collection_id
+		JOIN categories cat ON cat.id = col.category_id
 		WHERE col.category_id = $1 AND col.user_id IN ($2, $3)
 		ORDER BY i.created_at, i.id`, categoryID, viewerID, otherID)
 	if err != nil {
@@ -264,7 +275,7 @@ func (c *Compare) copies(ctx context.Context, categoryID, viewerID, otherID stri
 	out := []ownedCopy{}
 	for rows.Next() {
 		var o ownedCopy
-		if err := rows.Scan(&o.mine, &o.entryID, &o.name, &o.quantity, &o.condition,
+		if err := rows.Scan(&o.mine, &o.entryID, &o.name, &o.identifier, &o.quantity, &o.condition,
 			&o.collectionID, &o.collectionName); err != nil {
 			return nil, fmt.Errorf("scan compare item: %w", err)
 		}
@@ -273,10 +284,33 @@ func (c *Compare) copies(ctx context.Context, categoryID, viewerID, otherID stri
 	return out, rows.Err()
 }
 
-// uniqueEntriesByName maps each free-form item's normalized name to the
-// approved entry it names, when exactly one entry in the category has that
-// name. Ambiguous names (two "Batmobile" sets) map to nothing.
-func (c *Compare) uniqueEntriesByName(ctx context.Context, categoryID string, copies []ownedCopy) (map[string]string, error) {
+// entryMatcher resolves a free-form item to the approved entry it names.
+type entryMatcher struct {
+	// byName holds names exactly one approved entry has.
+	byName map[string]string
+	// byNameIdentifier holds names several entries share, keyed by name and
+	// identifier key; the natural key makes each pair unique.
+	byNameIdentifier map[[2]string]string
+}
+
+// match returns the entry for a free-form item, or nil to match by name.
+func (m entryMatcher) match(o ownedCopy) *string {
+	nameKey := textnorm.Key(o.name)
+	if id, ok := m.byName[nameKey]; ok {
+		return &id
+	}
+	if ik := textnorm.Key(o.identifier); ik != "" {
+		if id, ok := m.byNameIdentifier[[2]string{nameKey, ik}]; ok {
+			return &id
+		}
+	}
+	return nil
+}
+
+// entriesByName loads the approved entries whose normalized name matches a
+// free-form item's, for entryMatcher.
+func (c *Compare) entriesByName(ctx context.Context, categoryID string, copies []ownedCopy) (entryMatcher, error) {
+	m := entryMatcher{byName: map[string]string{}, byNameIdentifier: map[[2]string]string{}}
 	keys := []string{}
 	seen := map[string]bool{}
 	for _, o := range copies {
@@ -286,33 +320,47 @@ func (c *Compare) uniqueEntriesByName(ctx context.Context, categoryID string, co
 			keys = append(keys, k)
 		}
 	}
-	out := map[string]string{}
 	if len(keys) == 0 {
-		return out, nil
+		return m, nil
 	}
 	rows, err := c.pool.Query(ctx, `
-		SELECT name_key, min(id::text)
+		SELECT name_key, identifier_key, id::text
 		FROM catalog_entries
-		WHERE category_id = $1 AND status = 'approved' AND name_key = ANY($2)
-		GROUP BY name_key
-		HAVING count(*) = 1`, categoryID, keys)
+		WHERE category_id = $1 AND status = 'approved' AND name_key = ANY($2)`, categoryID, keys)
 	if err != nil {
-		return nil, fmt.Errorf("compare entry names: %w", err)
+		return m, fmt.Errorf("compare entry names: %w", err)
 	}
 	defer rows.Close()
+	type entry struct{ identifierKey, id string }
+	shared := map[string][]entry{}
 	for rows.Next() {
-		var k, id string
-		if err := rows.Scan(&k, &id); err != nil {
-			return nil, fmt.Errorf("scan compare entry name: %w", err)
+		var k string
+		var e entry
+		if err := rows.Scan(&k, &e.identifierKey, &e.id); err != nil {
+			return m, fmt.Errorf("scan compare entry name: %w", err)
 		}
-		out[k] = id
+		shared[k] = append(shared[k], e)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return m, err
+	}
+	for k, es := range shared {
+		if len(es) == 1 {
+			m.byName[k] = es[0].id
+			continue
+		}
+		for _, e := range es {
+			if e.identifierKey != "" {
+				m.byNameIdentifier[[2]string{k, e.identifierKey}] = e.id
+			}
+		}
+	}
+	return m, nil
 }
 
 // groupCopies folds copies into one row per match key, and returns the set
 // of catalog entries either person owns.
-func groupCopies(copies []ownedCopy, byName map[string]string) ([]*CompareRow, map[string]bool) {
+func groupCopies(copies []ownedCopy, entries entryMatcher) ([]*CompareRow, map[string]bool) {
 	rows := []*CompareRow{}
 	byKey := map[string]*CompareRow{}
 	owned := map[string]bool{}
@@ -321,9 +369,7 @@ func groupCopies(copies []ownedCopy, byName map[string]string) ([]*CompareRow, m
 		nameKey := textnorm.Key(o.name)
 		entryID := o.entryID
 		if entryID == nil {
-			if id, ok := byName[nameKey]; ok {
-				entryID = &id
-			}
+			entryID = entries.match(o)
 		}
 		key := "name:" + nameKey
 		if entryID != nil {
@@ -362,6 +408,47 @@ func groupCopies(copies []ownedCopy, byName map[string]string) ([]*CompareRow, m
 		sort.Strings(s.Conditions)
 	}
 	return rows, owned
+}
+
+// mergeNameRows keeps a missing set number from splitting a match. A
+// name-only row held by one person (a free-form "Batmobile" with no usable
+// identifier) joins the other person's catalog row of the same normalized
+// name when that's the only such row they have and the first person isn't
+// already on it. With several (both Batmobiles) it can't say which, so it
+// stays by name. Runs after labelEntryRows, so entry rows carry the entry's
+// name.
+func mergeNameRows(rows []*CompareRow) []*CompareRow {
+	byName := map[string][]*CompareRow{}
+	for _, r := range rows {
+		if r.CatalogEntryID != nil {
+			k := textnorm.Key(r.Name)
+			byName[k] = append(byName[k], r)
+		}
+	}
+	out := rows[:0:0]
+	for _, r := range rows {
+		if r.CatalogEntryID == nil && (r.Mine == nil) != (r.Theirs == nil) {
+			mine := r.Mine != nil
+			var target *CompareRow
+			n := 0
+			for _, e := range byName[textnorm.Key(r.Name)] {
+				if (mine && e.Theirs != nil) || (!mine && e.Mine != nil) {
+					target = e
+					n++
+				}
+			}
+			if n == 1 && mine && target.Mine == nil {
+				target.Mine = r.Mine
+				continue
+			}
+			if n == 1 && !mine && target.Theirs == nil {
+				target.Theirs = r.Theirs
+				continue
+			}
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 // labelEntryRows names catalog-matched rows after their entry (name and

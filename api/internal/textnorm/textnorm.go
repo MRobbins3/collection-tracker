@@ -1,5 +1,5 @@
 // Package textnorm is the shared write-time normalizer for user-entered text
-// (see "Normalize user-entered values at write time" in CLAUDE.md). Anything
+// (see "Shared text normalizers" in CLAUDE.md). Anything
 // users type that others may see, pick, or match on goes through Clean before
 // it's stored; uniqueness and matching compare Key values.
 package textnorm

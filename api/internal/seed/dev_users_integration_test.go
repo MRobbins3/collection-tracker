@@ -63,6 +63,36 @@ func TestDevSeedsMakeOliviaTheOnlyAdmin(t *testing.T) {
 	require.Equal(t, []string{"dev:olivia"}, admins)
 }
 
+// Sample collections and items are DO NOTHING on conflict in every dev seed
+// file: once a row exists, a re-run leaves it exactly as the app left it,
+// created_at included.
+func TestDevSeedRerunLeavesSampleItemsAlone(t *testing.T) {
+	pool := provisionMigratedDB(t)
+	ctx := context.Background()
+	opts := seed.Options{Env: "test", Dev: true}
+	_, err := seed.Apply(ctx, pool, opts)
+	require.NoError(t, err)
+
+	// One item from 0001 and one from 0004.
+	const fromFirst, fromCompare = "d0000000-0000-4000-8000-000000000201", "d0000000-0000-4000-8000-000000000241"
+	for _, id := range []string{fromFirst, fromCompare} {
+		_, err = pool.Exec(ctx,
+			`UPDATE items SET name = 'Edited', created_at = '2020-01-01 00:00:00+00' WHERE id = $1`, id)
+		require.NoError(t, err)
+	}
+
+	_, err = seed.Apply(ctx, pool, opts)
+	require.NoError(t, err)
+	for _, id := range []string{fromFirst, fromCompare} {
+		var name string
+		var year int
+		require.NoError(t, pool.QueryRow(ctx,
+			`SELECT name, extract(year FROM created_at)::int FROM items WHERE id = $1`, id).Scan(&name, &year))
+		require.Equal(t, "Edited", name, id)
+		require.Equal(t, 2020, year, "created_at is left alone on a re-run (%s)", id)
+	}
+}
+
 // Seeds bypass the API's attribute validation, so check every seeded item
 // against its category schema here; otherwise a typo would only surface
 // when someone edits the item in the app.

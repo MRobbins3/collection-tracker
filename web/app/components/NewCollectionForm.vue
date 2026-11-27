@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import type { Category, Collection } from "~/types/api";
+import { collapseWhitespace, suggestTitleCase } from "~/utils/text";
 
 const props = defineProps<{ categories: Category[] }>();
 const emit = defineEmits<{ (e: "created", collection: Collection): void }>();
@@ -12,9 +13,11 @@ const name = ref("");
 const submitting = ref(false);
 const error = ref<string | null>(null);
 
+const nameSuggestion = computed(() => suggestTitleCase(name.value));
+
 async function onSubmit() {
   error.value = null;
-  const trimmed = name.value.trim();
+  const trimmed = collapseWhitespace(name.value);
   if (trimmed.length < 1 || trimmed.length > 100) {
     error.value = "Give your collection a name (1–100 characters).";
     return;
@@ -57,17 +60,30 @@ async function onSubmit() {
       </select>
     </label>
 
-    <label class="block">
-      <span class="block text-xs font-medium text-slate-600 dark:text-slate-400">Name</span>
-      <input
-        v-model="name"
-        type="text"
-        maxlength="100"
-        placeholder="e.g. My Star Wars Lego"
-        class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
-        data-testid="new-collection-name"
-      />
-    </label>
+    <div>
+      <label class="block">
+        <span class="block text-xs font-medium text-slate-600 dark:text-slate-400">Name</span>
+        <input
+          v-model="name"
+          type="text"
+          maxlength="100"
+          placeholder="e.g. My Star Wars Lego"
+          class="mt-1 block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
+          data-testid="new-collection-name"
+        />
+      </label>
+      <p v-if="nameSuggestion" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        Tip: names usually look best in Title Case.
+        <button
+          type="button"
+          class="font-medium text-slate-900 underline underline-offset-2 dark:text-slate-100"
+          data-testid="new-collection-title-case"
+          @click="name = nameSuggestion ?? name"
+        >
+          Use “{{ nameSuggestion }}”
+        </button>
+      </p>
+    </div>
 
     <p
       v-if="error"

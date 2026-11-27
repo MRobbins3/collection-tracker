@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { identifierTitle } from "~/utils/catalog";
 import { apiErrorMessage, outcomeMessage } from "~/utils/moderation";
+import { collapseWhitespace } from "~/utils/text";
 import type { AttributeSchema, Category } from "~/types/api";
 
 const route = useRoute();
@@ -53,7 +54,7 @@ useHead(() => ({
 
 async function onRename() {
   renameError.value = null;
-  const trimmed = draftName.value.trim();
+  const trimmed = collapseWhitespace(draftName.value);
   if (trimmed.length < 1 || trimmed.length > 100) {
     renameError.value = "Name must be 1–100 characters.";
     return;

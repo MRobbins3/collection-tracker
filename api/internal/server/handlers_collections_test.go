@@ -246,12 +246,12 @@ func TestCreateMyCollectionHappyPath(t *testing.T) {
 	r := newAuthenticatedRouter(t, colls, "user-1")
 
 	rr := doJSON(t, r, http.MethodPost, "/me/collections",
-		map[string]string{"category_slug": "lego-sets", "name": "  My Lego  "})
+		map[string]string{"category_slug": "lego-sets", "name": "  My \u00a0 Lego  "})
 
 	require.Equal(t, http.StatusCreated, rr.Code)
 	var got store.Collection
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &got))
-	require.Equal(t, "My Lego", got.Name, "server should trim whitespace")
+	require.Equal(t, "My Lego", got.Name, "server should trim and collapse whitespace")
 	require.Equal(t, "lego-sets", got.CategorySlug)
 	// UserID is not serialized (json:"-"); ownership is verified by list/cross-user tests.
 }
@@ -333,6 +333,14 @@ func TestRenameAndDeleteHappyAndNotFound(t *testing.T) {
 		var got store.Collection
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &got))
 		require.Equal(t, "new", got.Name)
+	})
+
+	t.Run("rename collapses inner whitespace", func(t *testing.T) {
+		rr := doJSON(t, r, http.MethodPatch, "/me/collections/col-1", map[string]string{"name": "  my \t UCS   sets "})
+		require.Equal(t, http.StatusOK, rr.Code)
+		var got store.Collection
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &got))
+		require.Equal(t, "my UCS sets", got.Name)
 	})
 
 	t.Run("rename someone else's is 404", func(t *testing.T) {

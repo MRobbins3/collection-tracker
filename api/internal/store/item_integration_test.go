@@ -98,3 +98,39 @@ func TestItemsEndToEnd(t *testing.T) {
 		require.ErrorIs(t, err, store.ErrNotFound)
 	})
 }
+
+// Item names, conditions, and string attributes are cleaned at write time
+// (textnorm.Clean), so spacing differences never split matches like compare.
+// Case is kept: Title Case is only a UI suggestion.
+func TestItemsCleanTextOnWrite(t *testing.T) {
+	pool, cleanup := provisionSeededDB(t, t.Name())
+	t.Cleanup(cleanup)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	alice, err := store.NewUsers(pool).UpsertByGoogleSub(ctx, "alice-sub", "alice@example.com", "Alice")
+	require.NoError(t, err)
+	coll, err := store.NewCollections(pool).Create(ctx, alice.ID, "lego-sets", "Alice's Lego")
+	require.NoError(t, err)
+	items := store.NewItems(pool)
+
+	cond := "  New,  sealed "
+	created, err := items.Create(ctx, coll.ID, alice.ID, store.ItemInput{
+		Name: "  Millennium \t Falcon  UCS ", Quantity: 1, Condition: &cond,
+		Attributes: json.RawMessage(`{"set_number":"  75192 ","theme":" Star   Wars ","piece_count":7541,"notes":"   "}`),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Millennium Falcon UCS", created.Name)
+	require.NotNil(t, created.Condition)
+	require.Equal(t, "New, sealed", *created.Condition)
+	require.JSONEq(t, `{"set_number":"75192","theme":"Star Wars","piece_count":7541}`, string(created.Attributes))
+
+	updated, err := items.Update(ctx, created.ID, coll.ID, alice.ID, store.ItemInput{
+		Name: " LEGO   ucs  Falcon ", Quantity: 2,
+		Attributes: json.RawMessage(`{"set_number":" 10179  "}`),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "LEGO ucs Falcon", updated.Name, "case is the owner's choice")
+	require.JSONEq(t, `{"set_number":"10179"}`, string(updated.Attributes))
+}

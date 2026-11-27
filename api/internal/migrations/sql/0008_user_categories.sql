@@ -66,8 +66,11 @@ CREATE UNIQUE INDEX moderation_requests_one_pending_per_category
 -- +goose Down
 -- +goose StatementBegin
 -- Without ownership every category would be public, so unapproved user
--- categories are deleted (with their collections, items, and pins) rather
--- than leaked. Approved user categories stay as ordinary categories.
+-- categories are deleted (with their collections, items, pins, and catalog
+-- entries) rather than leaked. Approved user categories stay as ordinary
+-- categories. Collections and catalog entries are deleted first because
+-- their category_id is ON DELETE RESTRICT; deleting an entry cascades to
+-- its moderation requests and unlinks any item (SET NULL).
 DELETE FROM moderation_requests WHERE kind = 'category';
 DROP INDEX IF EXISTS moderation_requests_one_pending_per_category;
 ALTER TABLE moderation_requests
@@ -78,6 +81,9 @@ ALTER TABLE moderation_requests
 DELETE FROM collections c
 USING categories cat
 WHERE c.category_id = cat.id AND cat.status <> 'approved';
+DELETE FROM catalog_entries ce
+USING categories cat
+WHERE ce.category_id = cat.id AND cat.status <> 'approved';
 DELETE FROM categories WHERE status <> 'approved';
 DROP INDEX IF EXISTS categories_created_by_idx;
 DROP INDEX IF EXISTS categories_owner_name_key;

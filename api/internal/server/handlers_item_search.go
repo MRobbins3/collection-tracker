@@ -2,11 +2,11 @@ package server
 
 import (
 	"net/http"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
 	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
 )
 
 const (
@@ -24,7 +24,8 @@ const (
 // returns 200 with no results rather than an error.
 func (h *handlers) searchMyItems(w http.ResponseWriter, r *http.Request) {
 	s, _ := auth.FromContext(r.Context())
-	q := normalizeSearchQuery(r.URL.Query().Get("q"))
+	// Trim and collapse whitespace, so "  star   wars " searches for "star wars".
+	q := textnorm.Clean(r.URL.Query().Get("q"))
 	if utf8.RuneCountInString(q) > itemSearchQueryMax {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "search must be 200 characters or fewer"})
 		return
@@ -39,10 +40,4 @@ func (h *handlers) searchMyItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": results, "has_more": more})
-}
-
-// normalizeSearchQuery trims the query and collapses internal whitespace, so
-// "  star   wars " searches for "star wars".
-func normalizeSearchQuery(q string) string {
-	return strings.Join(strings.Fields(q), " ")
 }

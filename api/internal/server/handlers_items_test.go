@@ -142,6 +142,7 @@ func newItemsRouter(t *testing.T, colls server.CollectionStore, items server.Ite
 		"type": "object",
 		"properties": {
 			"set_number": {"type": "string"},
+			"theme": {"type": "string", "enum": ["Star Wars", "City"]},
 			"piece_count": {"type": "integer", "minimum": 0}
 		},
 		"additionalProperties": false
@@ -281,4 +282,41 @@ func TestItemWritesRefuseAnInvisibleCategory(t *testing.T) {
 	})
 	require.Equal(t, http.StatusNotFound, rr.Code, rr.Body.String())
 	require.Contains(t, rr.Body.String(), "category not found")
+}
+
+// The handler cleans the name, condition, and string attributes before it
+// validates them, so a padded enum value still matches its option and the
+// store never sees stray whitespace (textnorm.Clean). Case is kept.
+func TestItemWritesCleanTextBeforeValidating(t *testing.T) {
+	colls := newFakeCollections()
+	colls.items["col-1"] = store.Collection{
+		ID: "col-1", UserID: "user-1", CategorySlug: "lego-sets",
+		CategoryName: "Lego Sets", Name: "mine",
+	}
+	items := newFakeItems()
+	r := newItemsRouter(t, colls, items, &fakeCatalog{})
+
+	rr := doJSON(t, r, http.MethodPost, "/me/collections/col-1/items", map[string]any{
+		"name":       "  Millennium \t Falcon   UCS ",
+		"condition":  " New,   sealed ",
+		"attributes": map[string]any{"set_number": " 75192  ", "theme": "  Star   Wars ", "piece_count": 7541},
+	})
+	require.Equal(t, http.StatusCreated, rr.Code, rr.Body.String())
+	var got store.Item
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &got))
+	require.Equal(t, "Millennium Falcon UCS", got.Name)
+	require.Equal(t, "New, sealed", *got.Condition)
+	require.JSONEq(t, `{"set_number":"75192","theme":"Star Wars","piece_count":7541}`, string(got.Attributes))
+
+	rr = doJSON(t, r, http.MethodPatch, "/me/collections/col-1/items/"+got.ID, map[string]any{
+		"name":       " lego   city  ",
+		"attributes": map[string]any{"theme": " City "},
+	})
+	require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &got))
+	require.Equal(t, "lego city", got.Name, "Title Case is only a UI suggestion")
+	require.JSONEq(t, `{"theme":"City"}`, string(got.Attributes))
+
+	rr = doJSON(t, r, http.MethodPost, "/me/collections/col-1/items", map[string]any{"name": " \u00a0\t "})
+	require.Equal(t, http.StatusBadRequest, rr.Code, "a name of only whitespace is blank")
 }

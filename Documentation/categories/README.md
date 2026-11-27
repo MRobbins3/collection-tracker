@@ -8,13 +8,19 @@ The per-category JSON Schemas are the source of truth for:
 
 ## Where the schemas actually live
 
-All eight category schemas ship in a single reference seed file:
+All eight system category schemas ship in a single reference seed file:
 
 - **`api/internal/seed/sql/reference/0001_categories.sql`**, embedded into the Go binary with `go:embed` and applied after the migrations on every start.
 
 It is plain SQL (one `INSERT ... ON CONFLICT (slug) DO UPDATE`), so it can also be run by hand with `psql`. `Documentation/seed-data.md` covers the seed sets, the rules every seed file follows, and how to rebuild the database from scratch; ADR 0007 records why seeds are SQL.
 
-Catalog entries (actual Lego sets, Funko Pops, etc.) will be further numbered files in the same `reference/` directory when the catalog-seeding work starts. The schemas stay in `0001_categories.sql`.
+The same file sets each category's `catalog_identifier`: the attribute that, with the name, tells two catalog entries apart (`set_number` for Lego Sets, `artist` for Vinyl Records). Catalog entries copy that attribute's value into `catalog_entries.identifier` and are unique per category on normalized name + identifier (ADR 0011); compare uses it to pick between entries that share a name. A category without one keys its entries on name alone.
+
+Catalog entries are not reference data yet. A small cited sample (Lego sets, vinyl records, US coins) lives in the dev seed set, **`api/internal/seed/sql/dev/0002_sample_catalog.sql`**, so it never reaches production; the real dataset is pending and will replace it. The schemas stay in `0001_categories.sql`.
+
+## User-built categories
+
+Users can also build their own categories in the app (ADR 0013). Those rows are created by the API, not the seed: their schema is assembled from fields approved categories already use (the creator may pick one as the `catalog_identifier`, "the detail that tells items apart"), they start `private` to the creator, and they join the public list only when an admin approves them. The reference seed never touches them, and skips a seeded name an approved user category already holds.
 
 ## Property shape (non-engineer-friendly copy)
 

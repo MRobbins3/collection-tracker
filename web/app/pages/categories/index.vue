@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { SEARCH_DEBOUNCE_MS } from "~/utils/search";
+import { collapseWhitespace } from "~/utils/text";
 
 const query = ref("");
-const searchTerm = useDebouncedRef(computed(() => normalizeSearchQuery(query.value)), SEARCH_DEBOUNCE_MS);
+const searchTerm = useDebouncedRef(computed(() => collapseWhitespace(query.value)), SEARCH_DEBOUNCE_MS);
 const { data, pending, error } = useCategoriesList(searchTerm);
 // The list is server-rendered; the box only works once hydrated (see useHydrated).
 const hydrated = useHydrated();
