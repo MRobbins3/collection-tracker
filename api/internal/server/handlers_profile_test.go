@@ -507,9 +507,14 @@ func TestPublicCollection(t *testing.T) {
 		Owner      map[string]any
 		IsSelf     bool `json:"is_self"`
 		Collection store.Collection
+		Category   map[string]any
 		Items      []store.Item
 	}](t, rr)
 	require.Equal(t, "liam", got.Owner["handle"])
+	// The category comes with it (ADR 0013): a viewer allowed to see the
+	// collection sees its category's labels even if it isn't public.
+	require.NotEmpty(t, got.Category["name"])
+	require.Contains(t, got.Category, "attribute_schema")
 	require.Equal(t, "liam's coins", got.Collection.Name)
 	require.Len(t, got.Items, 1)
 	require.False(t, got.IsSelf)

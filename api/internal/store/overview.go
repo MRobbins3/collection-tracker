@@ -115,7 +115,8 @@ func (o *Overview) Categories(ctx context.Context, userID string) ([]OverviewCat
 		FROM categories cat
 		LEFT JOIN mine m ON m.category_id = cat.id
 		LEFT JOIN user_pinned_categories p ON p.category_id = cat.id AND p.user_id = $1
-		WHERE m.category_id IS NOT NULL OR p.category_id IS NOT NULL
+		WHERE (m.category_id IS NOT NULL OR p.category_id IS NOT NULL)
+		  AND `+visibleTo+`
 		ORDER BY lower(cat.name), cat.slug
 	`, userID)
 	if err != nil {
@@ -185,18 +186,15 @@ func (o *Overview) Items(ctx context.Context, userID string, q OverviewQuery) (O
 }
 
 // Pin adds the category to the user's overview. Pinning an already-pinned
-// category is a no-op. ErrCategoryNotFound if the slug is unknown.
-//
-// Every category is global and approved today. When user-built categories
-// land, this must only accept categories the user may use (approved, or
-// their own).
+// category is a no-op. ErrCategoryNotFound if the slug is unknown or names
+// a category the user can't see (another user's unapproved one; ADR 0013).
 func (o *Overview) Pin(ctx context.Context, userID, categorySlug string) error {
 	if !validIDs(userID) {
 		return ErrNotFound
 	}
 	tag, err := o.pool.Exec(ctx, `
 		INSERT INTO user_pinned_categories (user_id, category_id)
-		SELECT $1, id FROM categories WHERE slug = $2
+		SELECT $1, cat.id FROM categories cat WHERE cat.slug = $2 AND `+visibleTo+`
 		ON CONFLICT (user_id, category_id) DO NOTHING
 	`, userID, categorySlug)
 	if err != nil {
@@ -205,7 +203,8 @@ func (o *Overview) Pin(ctx context.Context, userID, categorySlug string) error {
 	if tag.RowsAffected() == 0 {
 		var exists bool
 		if err := o.pool.QueryRow(ctx,
-			`SELECT EXISTS (SELECT 1 FROM categories WHERE slug = $1)`, categorySlug).Scan(&exists); err != nil {
+			`SELECT EXISTS (SELECT 1 FROM categories cat WHERE cat.slug = $2 AND `+visibleTo+`)`,
+			userID, categorySlug).Scan(&exists); err != nil {
 			return fmt.Errorf("lookup category: %w", err)
 		}
 		if !exists {

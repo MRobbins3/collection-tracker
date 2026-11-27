@@ -37,8 +37,9 @@ type decisionCall struct {
 }
 
 type fakeModeration struct {
-	submitResult store.SubmitResult
-	err          error
+	submittedCategory string
+	submitResult      store.SubmitResult
+	err               error
 
 	submits     []submitCall
 	corrections []correctionCall
@@ -97,6 +98,14 @@ func (f *fakeModeration) Reject(_ context.Context, adminID, id, reason string) (
 	return f.request, nil
 }
 
+func (f *fakeModeration) SubmitCategory(_ context.Context, userID, slug string, note *string) (store.Submission, error) {
+	f.submittedCategory = slug
+	if f.err != nil {
+		return store.Submission{}, f.err
+	}
+	return store.Submission{ID: "req-cat", Kind: store.KindCategory, Status: store.StatusPending, CategorySlug: slug}, nil
+}
+
 func (f *fakeModeration) Merge(_ context.Context, adminID, id, target string, reason *string) (store.ModerationRequest, error) {
 	f.decisions = append(f.decisions, decisionCall{action: "merge", adminID: adminID, id: id, target: target, reason: reason})
 	if f.err != nil {
@@ -141,7 +150,7 @@ func pendingEntryRequest() store.ModerationRequest {
 	e.Status = "pending"
 	return store.ModerationRequest{
 		ID: testRequestID, Kind: store.KindCatalogEntry, Status: store.StatusPending,
-		CategorySlug: "lego-sets", CategoryName: "Lego Sets", Entry: e,
+		CategorySlug: "lego-sets", CategoryName: "Lego Sets", Entry: &e,
 	}
 }
 

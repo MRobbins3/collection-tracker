@@ -47,6 +47,7 @@ func (h *handlers) listCatalog(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	q.ViewerID = sessionUserID(r.Context())
 	page, err := h.catalog.List(r.Context(), q)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {

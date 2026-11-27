@@ -126,9 +126,10 @@ type fakeCategoriesWithSchema struct {
 	schema json.RawMessage
 }
 
-func (f *fakeCategoriesWithSchema) GetBySlug(_ context.Context, slug string) (store.Category, error) {
+func (f *fakeCategoriesWithSchema) GetBySlug(_ context.Context, _, slug string) (store.Category, error) {
 	if slug == "lego-sets" {
-		return store.Category{ID: "cat-1", Slug: "lego-sets", Name: "Lego Sets", AttributeSchema: f.schema}, nil
+		return store.Category{ID: "cat-1", Slug: "lego-sets", Name: "Lego Sets", AttributeSchema: f.schema,
+			Status: store.CategoryApproved}, nil
 	}
 	return store.Category{}, store.ErrNotFound
 }

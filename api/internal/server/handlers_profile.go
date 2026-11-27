@@ -335,10 +335,24 @@ func (h *handlers) getPublicCollection(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err, "getPublicCollection: items failed")
 		return
 	}
+	// The privacy rule let this viewer see the collection, so they may see
+	// its category too, even an unapproved one the owner built (ADR 0013).
+	// Its schema gives the items' attributes their labels.
+	cat, err := h.categories.GetByID(r.Context(), coll.CategoryID)
+	if err != nil {
+		h.serverError(w, r, err, "getPublicCollection: category failed")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"owner":      toPublic(v.owner),
 		"is_self":    v.rel == privacy.Self,
 		"collection": coll,
-		"items":      items,
+		"category": map[string]any{
+			"slug":             cat.Slug,
+			"name":             cat.Name,
+			"attribute_schema": cat.AttributeSchema,
+			"status":           cat.Status,
+		},
+		"items": items,
 	})
 }

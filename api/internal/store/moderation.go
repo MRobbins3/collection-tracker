@@ -37,6 +37,9 @@ var (
 	// its request is (changed outside the queue), so the decision is refused
 	// rather than leaving the request and the entry disagreeing.
 	ErrEntryNotPending = errors.New("store: submitted entry is no longer pending")
+	// ErrDuplicateCategory: approving would put a second category with the
+	// same name on the public list.
+	ErrDuplicateCategory = errors.New("store: a public category already has that name")
 )
 
 // MaxPendingPerUser caps how many requests (submissions plus corrections)
@@ -55,6 +58,10 @@ type ModerationKind string
 const (
 	KindCatalogEntry      ModerationKind = "catalog_entry"
 	KindCatalogCorrection ModerationKind = "catalog_correction"
+	// KindCategory: a user asks for their category to join the public list
+	// (ADR 0013). The request's category is the category itself; there is
+	// no catalog entry.
+	KindCategory ModerationKind = "category"
 )
 
 // ModerationStatus is a request's outcome so far.
@@ -188,8 +195,11 @@ type ModerationRequest struct {
 	CategorySlug string           `json:"category_slug"`
 	CategoryName string           `json:"category_name"`
 	// Entry is the submitted entry (any status) or, for a correction, the
-	// entry being corrected as it is now.
-	Entry     CatalogEntry `json:"entry"`
+	// entry being corrected as it is now. Nil for a category request.
+	Entry *CatalogEntry `json:"entry,omitempty"`
+	// Category is the category asking to be listed publicly, as it is now
+	// (kind category only), so the admin can preview its item form.
+	Category  *Category    `json:"category,omitempty"`
 	Proposed  *EntryFields `json:"proposed,omitempty"`
 	Previous  *EntryFields `json:"previous,omitempty"`
 	Applied   *EntryFields `json:"applied,omitempty"`
@@ -261,7 +271,7 @@ func (m *Moderation) submitOnce(ctx context.Context, userID string, in Submissio
 	var categoryID string
 	var identifier *string
 	err = tx.QueryRow(ctx,
-		`SELECT id, $2::jsonb ->> catalog_identifier FROM categories WHERE slug = $1`,
+		`SELECT id, $2::jsonb ->> catalog_identifier FROM categories WHERE slug = $1 AND status = 'approved'`,
 		in.CategorySlug, string(in.Attributes)).Scan(&categoryID, &identifier)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SubmitResult{}, ErrNotFound
@@ -446,7 +456,7 @@ func (m *Moderation) Queue(ctx context.Context, q QueueQuery) (QueuePage, error)
 	const from = `
 		FROM moderation_requests r
 		JOIN categories cat ON cat.id = r.category_id
-		JOIN catalog_entries ce ON ce.id = r.catalog_entry_id
+		LEFT JOIN catalog_entries ce ON ce.id = r.catalog_entry_id
 		JOIN users su ON su.id = r.submitted_by
 	`
 	page := QueuePage{Requests: make([]QueueItem, 0)}
@@ -454,7 +464,7 @@ func (m *Moderation) Queue(ctx context.Context, q QueueQuery) (QueuePage, error)
 		return QueuePage{}, fmt.Errorf("count queue: %w", err)
 	}
 	rows, err := m.pool.Query(ctx, `
-		SELECT r.id, r.kind, cat.slug, cat.name, ce.name, ce.identifier, r.note,
+		SELECT r.id, r.kind, cat.slug, cat.name, COALESCE(ce.name, cat.name), ce.identifier, r.note,
 		       su.display_name, su.handle, r.created_at
 		`+from+where+`
 		ORDER BY r.created_at, r.id
@@ -505,6 +515,11 @@ func (m *Moderation) Approve(ctx context.Context, adminID, id string, edits *Ent
 			return approveEntry(ctx, tx, adminID, req, edits)
 		case KindCatalogCorrection:
 			return applyCorrection(ctx, tx, req, edits)
+		case KindCategory:
+			if edits != nil && !edits.empty() {
+				return decision{}, ErrWrongKind
+			}
+			return decision{}, setCategoryDecision(ctx, tx, adminID, req.CategoryID, CategoryApproved)
 		}
 		return decision{}, ErrWrongKind
 	}, StatusApproved, adminID)
@@ -522,8 +537,13 @@ func (m *Moderation) Reject(ctx context.Context, adminID, id, reason string) (Mo
 		return ModerationRequest{}, ErrNotFound
 	}
 	err := m.decide(ctx, id, func(tx pgx.Tx, req lockedRequest) (decision, error) {
-		if req.Kind == KindCatalogEntry {
+		switch req.Kind {
+		case KindCatalogEntry:
 			if err := retirePendingEntry(ctx, tx, req.EntryID); err != nil {
+				return decision{}, err
+			}
+		case KindCategory:
+			if err := setCategoryDecision(ctx, tx, adminID, req.CategoryID, CategoryRejected); err != nil {
 				return decision{}, err
 			}
 		}
@@ -610,10 +630,11 @@ func (m *Moderation) decide(ctx context.Context, id string, act func(pgx.Tx, loc
 	var req lockedRequest
 	var status ModerationStatus
 	var proposed []byte
+	var entryID *string
 	err = tx.QueryRow(ctx, `
 		SELECT kind, status, category_id, catalog_entry_id, submitted_by, source_item_id, proposed
 		FROM moderation_requests WHERE id = $1 FOR UPDATE`, id).
-		Scan(&req.Kind, &status, &req.CategoryID, &req.EntryID, &req.SubmittedBy, &req.SourceItemID, &proposed)
+		Scan(&req.Kind, &status, &req.CategoryID, &entryID, &req.SubmittedBy, &req.SourceItemID, &proposed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -622,6 +643,9 @@ func (m *Moderation) decide(ctx context.Context, id string, act func(pgx.Tx, loc
 	}
 	if status != StatusPending {
 		return ErrAlreadyDecided
+	}
+	if entryID != nil {
+		req.EntryID = *entryID
 	}
 	if proposed != nil {
 		req.Proposed = &EntryFields{}
@@ -634,6 +658,9 @@ func (m *Moderation) decide(ctx context.Context, id string, act func(pgx.Tx, loc
 	if err != nil {
 		if isUniqueViolation(err, "catalog_entries_natural_key") {
 			return ErrDuplicateEntry
+		}
+		if isUniqueViolation(err, "categories_approved_name_key") {
+			return ErrDuplicateCategory
 		}
 		return err
 	}
@@ -739,6 +766,77 @@ func applyCorrection(ctx context.Context, tx pgx.Tx, req lockedRequest, edits *E
 	return decision{previous: &prev, applied: &changes}, nil
 }
 
+// setCategoryDecision moves a pending user category to approved (on the
+// public list, approved_by/approved_at set) or rejected (private to its
+// creator again). ErrEntryNotPending if it wasn't pending.
+func setCategoryDecision(ctx context.Context, tx pgx.Tx, adminID, categoryID, status string) error {
+	tag, err := tx.Exec(ctx, `
+		UPDATE categories
+		SET status = $2,
+		    approved_by = CASE WHEN $2 = 'approved' THEN $3::uuid END,
+		    approved_at = CASE WHEN $2 = 'approved' THEN now() END,
+		    updated_at = now()
+		WHERE id = $1 AND status = 'pending'`, categoryID, status, adminID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrEntryNotPending
+	}
+	return nil
+}
+
+// SubmitCategory asks for the user's category to join the public list
+// (ADR 0013): it becomes pending and a 'category' request joins the
+// queue. Only the creator may ask (ErrNotFound otherwise), only while it
+// is private or rejected (ErrCategoryLocked otherwise), and the request
+// counts toward the pending cap.
+func (m *Moderation) SubmitCategory(ctx context.Context, userID, slug string, note *string) (Submission, error) {
+	if !validIDs(userID) {
+		return Submission{}, ErrNotFound
+	}
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		return Submission{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockUser(ctx, tx, userID); err != nil {
+		return Submission{}, err
+	}
+	var categoryID, status string
+	err = tx.QueryRow(ctx, `
+		SELECT id, status FROM categories WHERE slug = $1 AND created_by = $2 FOR UPDATE`,
+		slug, userID).Scan(&categoryID, &status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Submission{}, ErrNotFound
+	}
+	if err != nil {
+		return Submission{}, fmt.Errorf("lock category: %w", err)
+	}
+	if status != CategoryPrivate && status != CategoryRejected {
+		return Submission{}, ErrCategoryLocked
+	}
+	if err := checkPendingCap(ctx, tx, userID); err != nil {
+		return Submission{}, err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE categories SET status = 'pending', updated_at = now() WHERE id = $1`, categoryID); err != nil {
+		return Submission{}, fmt.Errorf("mark category pending: %w", err)
+	}
+	var requestID string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO moderation_requests (kind, category_id, submitted_by, note)
+		VALUES ('category', $1, $2, $3)
+		RETURNING id`, categoryID, userID, cleanOptional(note)).Scan(&requestID); err != nil {
+		return Submission{}, fmt.Errorf("insert category request: %w", err)
+	}
+	sub, err := getSubmission(ctx, tx, userID, requestID)
+	if err != nil {
+		return Submission{}, err
+	}
+	return sub, tx.Commit(ctx)
+}
+
 // retirePendingEntry marks a submission's pending entry rejected (reject,
 // or merge into another entry). ErrEntryNotPending if it wasn't pending.
 func retirePendingEntry(ctx context.Context, tx pgx.Tx, entryID string) error {
@@ -800,14 +898,15 @@ const entryByIDSQL = `
 // public entry id is the approved entry itself (or, for a correction, its
 // target), or for a merge the approved entry it was merged into.
 const submissionSQL = `
-	SELECT r.id, r.kind, r.status, cat.slug, cat.name, ce.name, ce.identifier, ce.attributes,
+	SELECT r.id, r.kind, r.status, cat.slug, cat.name, COALESCE(ce.name, cat.name), ce.identifier,
+	       COALESCE(ce.attributes, '{}'::jsonb),
 	       r.proposed, r.note, r.decision_reason, r.decided_at, r.created_at,
 	       CASE WHEN r.status = 'merged' THEN mi.id
 	            WHEN ce.status = 'approved' THEN ce.id END,
 	       mi.name
 	FROM moderation_requests r
 	JOIN categories cat ON cat.id = r.category_id
-	JOIN catalog_entries ce ON ce.id = r.catalog_entry_id
+	LEFT JOIN catalog_entries ce ON ce.id = r.catalog_entry_id
 	LEFT JOIN catalog_entries mi ON mi.id = r.merged_into_id AND mi.status = 'approved'
 `
 
@@ -838,12 +937,12 @@ func scanSubmission(r rowScanner) (Submission, error) {
 
 func getRequest(ctx context.Context, q querier, id string) (ModerationRequest, error) {
 	var r ModerationRequest
-	var entryID string
+	var entryID, categoryID *string
 	var mergedInto *string
 	var proposed, previous, applied []byte
 	var deciderName, deciderHandle *string
 	err := q.QueryRow(ctx, `
-		SELECT r.id, r.kind, r.status, cat.slug, cat.name, r.catalog_entry_id, r.merged_into_id,
+		SELECT r.id, r.kind, r.status, cat.slug, cat.name, r.category_id, r.catalog_entry_id, r.merged_into_id,
 		       r.proposed, r.previous, r.applied, r.note, r.decision_reason, r.decided_at, r.created_at,
 		       su.display_name, su.handle, du.display_name, du.handle
 		FROM moderation_requests r
@@ -851,7 +950,7 @@ func getRequest(ctx context.Context, q querier, id string) (ModerationRequest, e
 		JOIN users su ON su.id = r.submitted_by
 		LEFT JOIN users du ON du.id = r.decided_by
 		WHERE r.id = $1`, id).Scan(
-		&r.ID, &r.Kind, &r.Status, &r.CategorySlug, &r.CategoryName, &entryID, &mergedInto,
+		&r.ID, &r.Kind, &r.Status, &r.CategorySlug, &r.CategoryName, &categoryID, &entryID, &mergedInto,
 		&proposed, &previous, &applied, &r.Note, &r.Reason, &r.DecidedAt, &r.CreatedAt,
 		&r.Submitter.DisplayName, &r.Submitter.Handle, &deciderName, &deciderHandle)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -875,8 +974,19 @@ func getRequest(ctx context.Context, q querier, id string) (ModerationRequest, e
 			return ModerationRequest{}, fmt.Errorf("decode request fields: %w", err)
 		}
 	}
-	if r.Entry, err = scanCatalogEntry(q.QueryRow(ctx, entryByIDSQL, entryID)); err != nil {
-		return ModerationRequest{}, fmt.Errorf("load request entry: %w", err)
+	if entryID != nil {
+		e, err := scanCatalogEntry(q.QueryRow(ctx, entryByIDSQL, *entryID))
+		if err != nil {
+			return ModerationRequest{}, fmt.Errorf("load request entry: %w", err)
+		}
+		r.Entry = &e
+	}
+	if r.Kind == KindCategory && categoryID != nil {
+		c, err := scanCategory(q.QueryRow(ctx, categorySelect+" WHERE cat.id = $2", nil, *categoryID))
+		if err != nil {
+			return ModerationRequest{}, fmt.Errorf("load request category: %w", err)
+		}
+		r.Category = &c
 	}
 	if mergedInto != nil {
 		e, err := scanCatalogEntry(q.QueryRow(ctx, entryByIDSQL, *mergedInto))

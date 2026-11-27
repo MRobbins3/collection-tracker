@@ -34,14 +34,15 @@ func (h *handlers) readyz(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) listCategories(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
+	viewerID := sessionUserID(r.Context())
 	var (
 		cats []store.Category
 		err  error
 	)
 	if q != "" {
-		cats, err = h.categories.Search(r.Context(), q)
+		cats, err = h.categories.Search(r.Context(), viewerID, q)
 	} else {
-		cats, err = h.categories.List(r.Context())
+		cats, err = h.categories.List(r.Context(), viewerID)
 	}
 	if err != nil {
 		h.serverError(w, r, err, "listCategories failed")
@@ -52,7 +53,7 @@ func (h *handlers) listCategories(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) getCategory(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
-	cat, err := h.categories.GetBySlug(r.Context(), slug)
+	cat, err := h.categories.GetBySlug(r.Context(), sessionUserID(r.Context()), slug)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "category not found"})
@@ -124,6 +125,15 @@ func (h *handlers) authProviders(w http.ResponseWriter, _ *http.Request) {
 		"google": h.googleAuth != nil && h.googleAuth.Configured(),
 		"dev":    h.devAuth != nil,
 	})
+}
+
+// sessionUserID is the signed-in caller's id on routes where signing in is
+// optional, or "" when anonymous.
+func sessionUserID(ctx context.Context) string {
+	if s, ok := auth.FromContext(ctx); ok {
+		return s.UserID
+	}
+	return ""
 }
 
 func (h *handlers) serverError(w http.ResponseWriter, _ *http.Request, err error, msg string) {

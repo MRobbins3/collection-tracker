@@ -85,7 +85,7 @@ func (h *handlers) createItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errResp)
 		return
 	}
-	if errResp, ok := validateAttributesAgainstCategory(h.categories, r.Context(), coll.CategorySlug, body.Attributes); !ok {
+	if errResp, ok := validateAttributesAgainstCategory(h.categories, r.Context(), s.UserID, coll.CategorySlug, body.Attributes); !ok {
 		writeJSON(w, http.StatusBadRequest, errResp)
 		return
 	}
@@ -140,7 +140,7 @@ func (h *handlers) updateItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errResp)
 		return
 	}
-	if errResp, ok := validateAttributesAgainstCategory(h.categories, r.Context(), coll.CategorySlug, body.Attributes); !ok {
+	if errResp, ok := validateAttributesAgainstCategory(h.categories, r.Context(), s.UserID, coll.CategorySlug, body.Attributes); !ok {
 		writeJSON(w, http.StatusBadRequest, errResp)
 		return
 	}
@@ -201,8 +201,8 @@ func trimmedOrNil(c *string) *string {
 	return &trimmed
 }
 
-func validateAttributesAgainstCategory(cats CategoryStore, ctx context.Context, slug string, attrs json.RawMessage) (map[string]any, bool) {
-	cat, err := cats.GetBySlug(ctx, slug)
+func validateAttributesAgainstCategory(cats CategoryStore, ctx context.Context, viewerID, slug string, attrs json.RawMessage) (map[string]any, bool) {
+	cat, err := cats.GetBySlug(ctx, viewerID, slug)
 	if err != nil {
 		// If the category lookup fails the collection-level lookup above
 		// would have failed too; treat as "no validation possible, accept."
