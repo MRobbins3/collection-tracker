@@ -758,3 +758,47 @@ func TestFriendsFollowersMigration(t *testing.T) {
 		require.NoError(t, migrations.Up(ctx, dbURL), "and migrates up again")
 	})
 }
+
+// People search matches display names anywhere and handles by prefix; both
+// must use trigram indexes rather than scanning every user.
+func TestPeopleSearchUsesTrigramIndexes(t *testing.T) {
+	dbURL, cleanup := provisionDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, migrations.Up(ctx, dbURL))
+
+	db, err := sql.Open("pgx", dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	conn, err := db.Conn(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	_, err = conn.ExecContext(ctx, `
+		INSERT INTO users (google_sub, email, display_name, handle)
+		SELECT 's' || g, g || '@example.com', 'Collector Number ' || g, 'collector_' || g
+		FROM generate_series(1, 3000) g`)
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, `ANALYZE users`)
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, `SET enable_seqscan = off`)
+	require.NoError(t, err)
+	explain := func(query string) string {
+		rows, err := conn.QueryContext(ctx, "EXPLAIN "+query)
+		require.NoError(t, err)
+		defer rows.Close()
+		var plan strings.Builder
+		for rows.Next() {
+			var line string
+			require.NoError(t, rows.Scan(&line))
+			plan.WriteString(line + "\n")
+		}
+		require.NoError(t, rows.Err())
+		return plan.String()
+	}
+	require.Contains(t, explain(`SELECT id FROM users WHERE lower(display_name) LIKE '%number 12%'`),
+		"users_display_name_lower_trgm")
+	require.Contains(t, explain(`SELECT id FROM users WHERE handle LIKE 'collector_12%'`),
+		"users_handle_trgm")
+}
