@@ -42,6 +42,8 @@ The API applies the database migrations and seed data on every start. To rebuild
 
 You don't need Google to sign in locally. Compose starts the API with `DEV_AUTH_ENABLED=true`, so the header shows **Test sign-in**: pick one of the seeded test users (for example Liam Johnson, who already has collections, or Emma Garcia, who has none) to see the signed-in app, and **Sign out** to go back to anonymous. The test users come from `api/internal/seed/sql/dev/0001_dev_users.sql`. This option exists only when `APP_ENV` is `development` or `test`, and the API refuses to start with it anywhere else (ADR 0008).
 
+Olivia Martinez is the seeded admin: sign in as her to see **Moderation** in the account menu and review catalog suggestions. Real admins are appointed with one SQL statement (there's no way to become one in the app); see ADR 0012.
+
 ### Enabling Google sign-in locally
 
 By default, `/auth/google/*` returns 503 until you provide OAuth credentials.
