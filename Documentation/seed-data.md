@@ -5,7 +5,7 @@ All seed data lives in plain SQL files under `api/internal/seed/sql/`. The API e
 | Set | Directory | Applied when | Contents |
 |---|---|---|---|
 | Reference | `api/internal/seed/sql/reference/` | Always, in every environment | The curated categories and their attribute schemas; later, the sample catalog |
-| Dev | `api/internal/seed/sql/dev/` | Only with `SEED_DEV_DATA=true`, and only when `APP_ENV` is `development` (the default) or `test`. With any other `APP_ENV` the API refuses to start | Fake users and sample data for local development and CI (none yet) |
+| Dev | `api/internal/seed/sql/dev/` | Only with `SEED_DEV_DATA=true`, and only when `APP_ENV` is `development` (the default) or `test`. With any other `APP_ENV` the API refuses to start | Five persona users (`dev:<handle>` google_subs) with a few sample collections and items, for local development, the test-user sign-in picker (ADR 0008), and CI |
 
 `docker-compose.yml` and the CI e2e job set `SEED_DEV_DATA=true`. Production never does. If `SEED_DEV_DATA` holds something that isn't a boolean, the API logs a warning and treats it as false.
 

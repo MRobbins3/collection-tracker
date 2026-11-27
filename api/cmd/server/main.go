@@ -28,6 +28,10 @@ func main() {
 	for _, w := range cfg.Warnings {
 		logger.Warn("config", "warning", w)
 	}
+	if err := cfg.Validate(); err != nil {
+		logger.Error("invalid config", "err", err)
+		os.Exit(1)
+	}
 
 	startupCtx, startupCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer startupCancel()
@@ -77,6 +81,17 @@ func main() {
 	}
 	googleAuth := auth.NewGoogle(googleCfg, users, sessions, cfg.WebBaseURL, logger)
 
+	// Dev sign-in (ADR 0008). cfg.Validate already refused it outside
+	// development/test; leaving devAuth nil means its routes don't exist.
+	var devAuth *auth.Dev
+	if cfg.DevAuthEnabled {
+		devAuth = auth.NewDev(users, sessions, cfg.CORSOrigins, logger)
+		logger.Warn("dev auth enabled: anyone who can reach this API can sign in as a seeded test user (local/CI only)")
+		if !cfg.SeedDevData {
+			logger.Warn("dev auth is enabled but SEED_DEV_DATA is not; the test-user picker will be empty")
+		}
+	}
+
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: server.NewRouter(server.Deps{
@@ -89,6 +104,7 @@ func main() {
 			Users:       users,
 			Sessions:    sessions,
 			GoogleAuth:  googleAuth,
+			DevAuth:     devAuth,
 			CORSOrigins: cfg.CORSOrigins,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,

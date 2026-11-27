@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/MRobbinsSAI/collection-tracker/api/internal/config"
 )
 
 // ErrDevSeedNotAllowed is returned when dev seed data is requested while
@@ -24,9 +26,10 @@ import (
 // users in a real database. config defaults an unset APP_ENV to development.
 var ErrDevSeedNotAllowed = errors.New(`refusing to apply dev seed data: APP_ENV must be "development" or "test"`)
 
-// DevSeedsAllowed reports whether env permits the dev seed set.
+// DevSeedsAllowed reports whether env permits the dev seed set. It shares
+// the allowlist with dev auth (config.DevOnlyAllowed).
 func DevSeedsAllowed(env string) bool {
-	return env == "development" || env == "test"
+	return config.DevOnlyAllowed(env)
 }
 
 // The seed sets, applied in this order. Reference data is always applied;

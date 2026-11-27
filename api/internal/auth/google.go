@@ -159,12 +159,9 @@ func (g *Google) Callback(w http.ResponseWriter, r *http.Request) {
 	g.redirectToWeb(w, r, "/?auth=ok")
 }
 
-// Logout clears the session cookie. Idempotent — no error if no session was
-// present to begin with.
-func (g *Google) Logout(w http.ResponseWriter, _ *http.Request) {
-	g.sessions.Clear(w)
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
+// Configured reports whether Google sign-in can start (credentials set).
+func (g *Google) Configured() bool {
+	return g.cfg.Configured()
 }
 
 func (g *Google) redirectToWeb(w http.ResponseWriter, r *http.Request, path string) {

@@ -37,7 +37,7 @@ docker compose exec api go vet ./...
 | Composable mocking | Hand-rolled stubs that assign to `globalThis.useXxx` in `beforeEach` | Lets tests drive behavior through real component render paths without pulling in Nuxt's runtime |
 | Typecheck | `nuxt typecheck` (vue-tsc) + ambient `shims-vue.d.ts` for SFC resolution in tests | Every PR gated |
 | Lint | `@nuxt/eslint` flat config with two local overrides | Every PR gated |
-| E2E | **Playwright** against a live stack (API + Nuxt dev server running on the GHA runner) | Anonymous browse + navigate home → categories → detail → back; unknown-slug renders the not-found state. The search-narrow spec is currently `test.skip` — see requirements.md UX Backlog |
+| E2E | **Playwright** against a live stack (API + Nuxt dev server running on the GHA runner) | Anonymous browse + navigate home → categories → detail → back; unknown-slug renders the not-found state. Signed in via the test-user picker: sign in, see the persona's collections, reload, sign out; create a collection, add an item, delete the collection. The search-narrow spec is currently `test.skip` — see requirements.md UX Backlog |
 | Mobile viewports | Playwright with iPhone 14 (webkit) + Pixel 7 (chromium) profiles | Mobile-first — the two mobile profiles are the default; desktop is additive |
 | **Aspirational** | `@axe-core/playwright` for WCAG AA checks; MSW for network mocking; visual regression | Not wired up yet; hand-rolled stubs cover test needs for now |
 
@@ -60,6 +60,8 @@ docker compose exec web bun run lint         # ESLint
 docker compose exec web bunx playwright install chromium webkit
 docker compose exec web bun run test:e2e
 ```
+
+Signed-in specs sign in through the local-only test-user picker (ADR 0008; `signInAsTestUser` in `web/tests/e2e/helpers.ts`), so the API must run with `DEV_AUTH_ENABLED=true` and `SEED_DEV_DATA=true`, as compose and the CI e2e job do. Inside the web container the browser's `http://localhost:8080` isn't the API, so `playwright.config.ts` starts `tests/e2e/api-proxy.mjs` (a TCP forwarder to `api:8080`) whenever `E2E_API_PROXY_TARGET` is set; compose sets it. The specs run in parallel against one shared database, so a spec that writes data uses unique names and cleans up after itself instead of asserting a persona's exact contents.
 
 On the host directly: `.nvmrc` pins Node 26 for `nvm use`; then `cd web && bun install && bun run <script>`.
 

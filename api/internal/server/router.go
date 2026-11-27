@@ -27,6 +27,9 @@ type Deps struct {
 	Users       UserStore
 	Sessions    *auth.Manager
 	GoogleAuth  *auth.Google
+	// DevAuth is the local/CI-only sign-in provider. nil (the default, and
+	// always in production) means its /auth/dev/* routes don't exist.
+	DevAuth     *auth.Dev
 	CORSOrigins []string
 }
 
@@ -58,6 +61,7 @@ type handlers struct {
 	users       UserStore
 	sessions    *auth.Manager
 	googleAuth  *auth.Google
+	devAuth     *auth.Dev
 }
 
 // NewRouter returns the fully-wired chi router. Constructing it in one place
@@ -74,6 +78,7 @@ func NewRouter(deps Deps) http.Handler {
 		users:       deps.Users,
 		sessions:    deps.Sessions,
 		googleAuth:  deps.GoogleAuth,
+		devAuth:     deps.DevAuth,
 	}
 
 	r := chi.NewRouter()
@@ -106,11 +111,22 @@ func NewRouter(deps Deps) http.Handler {
 	// *require* a session still return 401 via the auth.Require group below.
 	r.Get("/me", h.me)
 
-	// Auth
+	// Auth. /auth/providers tells the web which sign-in buttons to show; it
+	// is separate from /me so /me's anonymous 200 {"user":null} contract
+	// stays exactly as it was.
+	r.Get("/auth/providers", h.authProviders)
 	if deps.GoogleAuth != nil {
 		r.Get("/auth/google/start", deps.GoogleAuth.Start)
 		r.Get("/auth/google/callback", deps.GoogleAuth.Callback)
-		r.Post("/auth/logout", deps.GoogleAuth.Logout)
+	}
+	if deps.DevAuth != nil {
+		r.Get("/auth/dev/personas", deps.DevAuth.Personas)
+		r.Post("/auth/dev/login", deps.DevAuth.Login)
+	}
+	if deps.Sessions != nil {
+		// Logout only clears the session cookie, so it serves every provider.
+		// It requires JSON + an allowed Origin, like dev login (logout CSRF).
+		r.Post("/auth/logout", deps.Sessions.LogoutHandler(deps.CORSOrigins))
 	}
 
 	// Authenticated

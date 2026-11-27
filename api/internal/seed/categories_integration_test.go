@@ -134,6 +134,8 @@ func TestSeedsAreIdempotentAcrossAllTables(t *testing.T) {
 	require.NoError(t, err)
 	first := snapshotTables(t, pool)
 	require.EqualValues(t, 8, first["categories"].Count)
+	require.EqualValues(t, 5, first["users"].Count, "dev personas")
+	require.Positive(t, first["items"].Count, "dev sample items")
 	firstCats := categoriesBySlug(t, pool)
 
 	_, err = seed.Apply(ctx, pool, opts)

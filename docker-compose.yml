@@ -5,8 +5,9 @@ services:
       POSTGRES_USER: collection
       POSTGRES_PASSWORD: collection
       POSTGRES_DB: collection
+    # Loopback only: the dev database has a well-known password.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql
     healthcheck:
@@ -28,12 +29,16 @@ services:
       SESSION_SECRET: "dev-dev-dev-dev-dev-dev-dev-dev-"
       # Apply the dev seed set (fake users etc.). Allowed only when APP_ENV is development (the default) or test.
       SEED_DEV_DATA: "true"
+      # Offer "Sign in as a test user" (the seeded personas) without Google. Local/CI only:
+      # the API refuses to start with this unless APP_ENV is development (the default) or test. See ADR 0008.
+      DEV_AUTH_ENABLED: "true"
       # Set these to enable Google sign-in locally. Until then, /auth/google/* returns 503.
       GOOGLE_OAUTH_CLIENT_ID: "${GOOGLE_OAUTH_CLIENT_ID:-}"
       GOOGLE_OAUTH_CLIENT_SECRET: "${GOOGLE_OAUTH_CLIENT_SECRET:-}"
       GOOGLE_OAUTH_REDIRECT_URL: "${GOOGLE_OAUTH_REDIRECT_URL:-http://localhost:8080/auth/google/callback}"
+    # Loopback only: with DEV_AUTH_ENABLED anyone who can reach the API can sign in as a test user.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./api:/app
       - go-mod-cache:/go/pkg/mod
@@ -48,6 +53,8 @@ services:
     environment:
       NUXT_API_BASE: http://api:8080
       NUXT_PUBLIC_API_BASE: http://localhost:8080
+      # Lets `docker compose exec web bun run test:e2e` reach the API at localhost:8080 (see playwright.config.ts).
+      E2E_API_PROXY_TARGET: http://api:8080
     ports:
       - "3000:3000"
     volumes:

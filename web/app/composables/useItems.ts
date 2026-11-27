@@ -2,10 +2,12 @@ import type { Item, ItemsResponse, CatalogSearchResponse } from "~/types/api";
 
 export function useCollectionItems(collectionId: string) {
   const api = useApi();
+  const { isSignedIn, server, watch } = signedInFetchOptions(); // see useCollections.ts
   return useAsyncData<ItemsResponse>(
     `collection:${collectionId}:items`,
-    () => api.get<ItemsResponse>(`/me/collections/${collectionId}/items`),
-    { default: () => ({ items: [] }) },
+    async () =>
+      isSignedIn.value ? api.get<ItemsResponse>(`/me/collections/${collectionId}/items`) : { items: [] },
+    { server, watch, default: () => ({ items: [] }) },
   );
 }
 

@@ -1,19 +1,35 @@
 import type { Collection, CollectionsResponse } from "~/types/api";
 
+/**
+ * Options shared by every signed-in-only (/me/*) data fetch:
+ * - server: false — the session cookie never reaches SSR fetches, so a
+ *   server-side /me/* call is always a 401 that hydrates as "no data".
+ * - watch isSignedIn, and the handlers skip the request while anonymous, so
+ *   anonymous visitors never put a 401 in the console (CLAUDE.md), and the
+ *   data loads as soon as /me says who you are.
+ */
+export function signedInFetchOptions() {
+  const { isSignedIn } = useAuth();
+  return { isSignedIn, server: false, watch: [isSignedIn] };
+}
+
 export function useMyCollections() {
   const api = useApi();
+  const { isSignedIn, server, watch } = signedInFetchOptions();
   return useAsyncData<CollectionsResponse>(
     "me:collections",
-    () => api.get<CollectionsResponse>("/me/collections"),
-    { default: () => ({ collections: [] }) },
+    async () => (isSignedIn.value ? api.get<CollectionsResponse>("/me/collections") : { collections: [] }),
+    { server, watch, default: () => ({ collections: [] }) },
   );
 }
 
 export function useMyCollection(id: string) {
   const api = useApi();
-  return useAsyncData<Collection>(
+  const { isSignedIn, server, watch } = signedInFetchOptions();
+  return useAsyncData<Collection | null>(
     `me:collection:${id}`,
-    () => api.get<Collection>(`/me/collections/${id}`),
+    async () => (isSignedIn.value ? api.get<Collection>(`/me/collections/${id}`) : null),
+    { server, watch },
   );
 }
 

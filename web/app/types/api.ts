@@ -17,6 +17,22 @@ export interface User {
   created_at: string;
 }
 
+/** Which sign-in providers the API offers (GET /auth/providers). */
+export interface AuthProviders {
+  google: boolean;
+  dev: boolean;
+}
+
+/** A seeded test user offered by the local-only dev sign-in picker. */
+export interface DevPersona {
+  /** Sent to the API to sign in; never shown in the UI. */
+  handle: string;
+  display_name: string;
+  email: string;
+  collection_count: number;
+  item_count: number;
+}
+
 export interface Collection {
   id: string;
   category_id: string;
