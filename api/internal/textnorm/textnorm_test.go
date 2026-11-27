@@ -10,12 +10,12 @@ import (
 
 func TestClean(t *testing.T) {
 	cases := map[string]string{
-		"":                   "",
-		"   ":                "",
-		"Star Wars":          "Star Wars",
-		"  star   wars  ":    "star wars",
-		"tab\tand\nnewline":  "tab and newline",
-		" nbsp   ": "nbsp",
+		"":                  "",
+		"   ":               "",
+		"Star Wars":         "Star Wars",
+		"  star   wars  ":   "star wars",
+		"tab\tand\nnewline": "tab and newline",
+		" nbsp   ":          "nbsp",
 	}
 	for in, want := range cases {
 		require.Equal(t, want, textnorm.Clean(in), "%q", in)

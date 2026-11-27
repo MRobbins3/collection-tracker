@@ -28,26 +28,26 @@ func TestValidateHandle(t *testing.T) {
 		require.Empty(t, profile.ValidateHandle(h), h)
 	}
 	bad := map[string]string{
-		"":                       profile.MsgHandleLength,
-		"ab":                     profile.MsgHandleLength,
-		strings.Repeat("a", 31):  profile.MsgHandleLength,
-		"liam johnson":           profile.MsgHandleChars,
-		"liam-johnson":           profile.MsgHandleChars,
-		"liam.johnson":           profile.MsgHandleChars,
-		"Liam":                   profile.MsgHandleChars, // callers normalize first
-		"josé":              profile.MsgHandleChars,
-		"1liam":                  profile.MsgHandleStart,
-		"_liam":                  profile.MsgHandleStart,
-		"admin":                  profile.MsgHandleReserved,
-		"me":                     profile.MsgHandleLength, // length wins over reserved
-		"settings":               profile.MsgHandleReserved,
-		"support":                profile.MsgHandleReserved,
-		strings.Repeat("é", 10):  profile.MsgHandleChars,
-		"abc" + "\u0000":         profile.MsgHandleChars,
-		"null":                   profile.MsgHandleReserved,
-		"collection_tracker":     profile.MsgHandleReserved,
-		"administrator":          profile.MsgHandleReserved,
-		"moderator":              profile.MsgHandleReserved,
+		"":                      profile.MsgHandleLength,
+		"ab":                    profile.MsgHandleLength,
+		strings.Repeat("a", 31): profile.MsgHandleLength,
+		"liam johnson":          profile.MsgHandleChars,
+		"liam-johnson":          profile.MsgHandleChars,
+		"liam.johnson":          profile.MsgHandleChars,
+		"Liam":                  profile.MsgHandleChars, // callers normalize first
+		"josé":                  profile.MsgHandleChars,
+		"1liam":                 profile.MsgHandleStart,
+		"_liam":                 profile.MsgHandleStart,
+		"admin":                 profile.MsgHandleReserved,
+		"me":                    profile.MsgHandleLength, // length wins over reserved
+		"settings":              profile.MsgHandleReserved,
+		"support":               profile.MsgHandleReserved,
+		strings.Repeat("é", 10): profile.MsgHandleChars,
+		"abc" + "\u0000":        profile.MsgHandleChars,
+		"null":                  profile.MsgHandleReserved,
+		"collection_tracker":    profile.MsgHandleReserved,
+		"administrator":         profile.MsgHandleReserved,
+		"moderator":             profile.MsgHandleReserved,
 	}
 	for h, want := range bad {
 		require.Equal(t, want, profile.ValidateHandle(h), "%q", h)
@@ -68,10 +68,10 @@ func TestDeriveHandleBase(t *testing.T) {
 		{"Liam Johnson", "liam.johnson@example.com", "liam_johnson"},
 		{"José García", "jg@example.com", "jose_garcia"},
 		{"  O'Brien,   Pat  ", "x@example.com", "o_brien_pat"},
-		{"42", "fan.club@example.com", "fan_club"},       // display name too short → email
-		{"R2", "r2@example.com", "collector"},            // both too short → fallback
-		{"3PO Fan", "x@example.com", "u_3po_fan"},        // must start with a letter
-		{"渡辺", "watanabe.k@example.com", "watanabe_k"},   // nothing ASCII left → email
+		{"42", "fan.club@example.com", "fan_club"},     // display name too short → email
+		{"R2", "r2@example.com", "collector"},          // both too short → fallback
+		{"3PO Fan", "x@example.com", "u_3po_fan"},      // must start with a letter
+		{"渡辺", "watanabe.k@example.com", "watanabe_k"}, // nothing ASCII left → email
 		{"An Extremely Long Display Name Indeed", "e@x.com", "an_extremely_long_displa"},
 		{"Admin", "admin@example.com", "admin"}, // reserved is handled by the suffix step
 	}

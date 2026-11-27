@@ -129,7 +129,7 @@ func TestCatalogEntrySetNullOnDeletePreservesItems(t *testing.T) {
 	// Seed the bare minimum: user, category, collection, catalog entry, item.
 	var userID, categoryID, collectionID, catalogID, itemID string
 	require.NoError(t, db.QueryRowContext(ctx,
-		`INSERT INTO users (google_sub, email, display_name) VALUES ('s','e@x','T') RETURNING id`,
+		`INSERT INTO users (google_sub, email, display_name, handle) VALUES ('s','e@x','T','tester') RETURNING id`,
 	).Scan(&userID))
 	require.NoError(t, db.QueryRowContext(ctx,
 		`INSERT INTO categories (slug, name) VALUES ('c','C') RETURNING id`,
@@ -180,8 +180,8 @@ func TestSchemaRoundtripsJSONBAttributes(t *testing.T) {
 
 	var userID string
 	require.NoError(t, db.QueryRowContext(ctx,
-		`INSERT INTO users (google_sub, email, display_name) VALUES ($1, $2, $3) RETURNING id`,
-		"google-sub-1", "user@example.com", "Test User",
+		`INSERT INTO users (google_sub, email, display_name, handle) VALUES ($1, $2, $3, $4) RETURNING id`,
+		"google-sub-1", "user@example.com", "Test User", "test_user",
 	).Scan(&userID))
 
 	var categoryID string
@@ -239,7 +239,7 @@ func TestQuantityCheckConstraint(t *testing.T) {
 
 	var userID, categoryID, collectionID string
 	require.NoError(t, db.QueryRowContext(ctx,
-		`INSERT INTO users (google_sub, email, display_name) VALUES ('g','e@x','T') RETURNING id`,
+		`INSERT INTO users (google_sub, email, display_name, handle) VALUES ('g','e@x','T','tester') RETURNING id`,
 	).Scan(&userID))
 	require.NoError(t, db.QueryRowContext(ctx,
 		`INSERT INTO categories (slug, name) VALUES ('c','C') RETURNING id`,

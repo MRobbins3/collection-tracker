@@ -185,10 +185,12 @@ var AvatarPalette = []string{
 	"rose", "orange", "amber", "emerald", "teal", "sky", "indigo", "violet", "fuchsia", "slate",
 }
 
+var avatarPaletteLen = uint32(len(AvatarPalette)) //nolint:gosec // G115: a ten-entry slice can't overflow uint32.
+
 // AvatarColor picks a stable palette color from the user's id, so a user's
 // initials avatar keeps its color when they rename themselves.
 func AvatarColor(userID string) string {
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(userID))
-	return AvatarPalette[h.Sum32()%uint32(len(AvatarPalette))]
+	return AvatarPalette[int(h.Sum32()%avatarPaletteLen)]
 }

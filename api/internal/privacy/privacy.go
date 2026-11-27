@@ -51,14 +51,13 @@ const (
 // stored lookup: the owner viewing themselves is Self and an anonymous
 // viewer (empty id) is None, whatever the lookup returned.
 func RelationshipFor(viewerID, ownerID string, looked Relationship) Relationship {
-	switch {
-	case viewerID == "":
+	if viewerID == "" {
 		return None
-	case viewerID == ownerID:
-		return Self
-	default:
-		return looked
 	}
+	if viewerID == ownerID {
+		return Self
+	}
+	return looked
 }
 
 // CanViewCollections reports whether the viewer may see the owner's
