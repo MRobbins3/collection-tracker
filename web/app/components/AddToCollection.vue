@@ -8,6 +8,8 @@ import type { CatalogEntry, Collection } from "~/types/api";
  * the entry with its details filled in. Also says where you already have it.
  */
 const props = defineProps<{ entry: CatalogEntry }>();
+// "added" fires after the item is saved, with the collection it went into.
+const emit = defineEmits<{ (e: "added", collection: { id: string; name: string }): void }>();
 
 const { isSignedIn } = useAuth();
 const { data: collectionsData, pending: collectionsPending, refresh: refreshCollections } = useMyCollections();
@@ -63,6 +65,7 @@ async function onSubmit() {
     await addEntry(collection.id, props.entry);
     added.value = { id: collection.id, name: collection.name };
     await Promise.all([refreshOwnership(), refreshCollections()]);
+    emit("added", { id: collection.id, name: collection.name });
   } catch (e) {
     console.error(e);
     error.value = "Couldn’t add it to your collection. Please try again.";

@@ -5,7 +5,7 @@ import type { AttributeSchema } from "~/types/api";
 const route = useRoute();
 const handle = String(route.params.handle);
 const id = String(route.params.id);
-const { ready } = useAuth();
+const { ready, isSignedIn } = useAuth();
 const { data, pending, error, refresh } = usePublicCollection(handle, id);
 
 // The collection's category comes with it (ADR 0013): its schema gives
@@ -50,6 +50,15 @@ useHead(() => ({
           class="mt-2 inline-block text-sm text-slate-700 underline underline-offset-2 dark:text-slate-300"
         >
           Edit in My collections
+        </NuxtLink>
+        <NuxtLink
+          v-else-if="isSignedIn"
+          :to="{ path: `/u/${data.owner.handle}/compare`, query: { category: data.category.slug } }"
+          class="mt-2 inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 px-3 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          data-testid="collection-compare-link"
+        >
+          <Icon name="lucide:git-compare" class="h-4 w-4" aria-hidden="true" />
+          Compare with my {{ data.category.name }}
         </NuxtLink>
       </div>
       <ul v-if="data.items.length > 0" class="space-y-2" data-testid="public-items-list">

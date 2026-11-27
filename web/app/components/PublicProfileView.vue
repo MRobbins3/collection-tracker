@@ -51,7 +51,19 @@ const emit = defineEmits<{ (e: "changed"): void }>();
       </div>
     </div>
 
-    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-50">Collections</h2>
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-base font-semibold text-slate-900 dark:text-slate-50">Collections</h2>
+      <!-- relationship is set only for a signed-in visitor who isn't the owner. -->
+      <NuxtLink
+        v-if="data.relationship && data.collections_visible && data.collections.length > 0"
+        :to="`/u/${data.profile.handle}/compare`"
+        class="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 px-3 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        data-testid="profile-compare-link"
+      >
+        <Icon name="lucide:git-compare" class="h-4 w-4" aria-hidden="true" />
+        Compare collections
+      </NuxtLink>
+    </div>
 
     <p
       v-if="!data.collections_visible"

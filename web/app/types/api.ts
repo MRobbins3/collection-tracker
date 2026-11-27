@@ -435,3 +435,58 @@ export interface ModerationRequest {
   merged_into?: CatalogEntry;
   created_at: string;
 }
+
+/** The four views of a comparison (GET /users/{handle}/compare). */
+export type CompareBucket = "both" | "mine_only" | "theirs_only" | "neither";
+
+/** A category in the comparison's picker: either of you has items in it. */
+export interface CompareCategory {
+  slug: string;
+  name: string;
+  /** On the public list (false for a category its owner built). */
+  public: boolean;
+  mine_items: number;
+  their_items: number;
+}
+
+/** What one person has of a matched thing, across all their collections. */
+export interface CompareSide {
+  /** Sum of the copies' quantities. */
+  quantity: number;
+  /** How many separate items (copies) it is. */
+  items: number;
+  conditions: string[];
+  /** Where the earliest copy lives. */
+  collection_id: string;
+  collection_name: string;
+}
+
+/** One matched thing. `key` is for list keys only, never shown. */
+export interface CompareRow {
+  key: string;
+  name: string;
+  identifier?: string;
+  catalog_entry_id?: string;
+  mine: CompareSide | null;
+  theirs: CompareSide | null;
+  /** On "neither" rows: the catalog entry, ready to add. */
+  entry?: CatalogEntry;
+}
+
+export interface CompareCounts {
+  both: number;
+  mine_only: number;
+  theirs_only: number;
+  neither: number;
+}
+
+/** GET /users/{handle}/compare. Without a category, only the picker is filled. */
+export interface CompareResponse {
+  other: PublicProfile;
+  categories: CompareCategory[];
+  category: { slug: string; name: string; public: boolean; catalog_entries: number } | null;
+  counts: CompareCounts | null;
+  bucket: CompareBucket;
+  items: CompareRow[];
+  has_more: boolean;
+}
