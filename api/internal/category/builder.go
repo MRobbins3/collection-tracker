@@ -230,8 +230,10 @@ func Compose(lib []LibraryField, current json.RawMessage, choices []Choice, iden
 		return Composed{}, composeErr("A category can have at most %d fields.", MaxFields)
 	}
 	available := map[string]LibraryField{}
+	currentOptions := map[string][]string{}
 	for _, f := range fieldsOf(current) {
 		available[f.ID] = f
+		currentOptions[f.ID] = f.Options
 	}
 	for _, f := range lib {
 		available[f.ID] = f
@@ -257,14 +259,17 @@ func Compose(lib []LibraryField, current json.RawMessage, choices []Choice, iden
 					return Composed{}, composeErr("Options must be at most %d characters.", MaxOptionLen)
 				}
 			}
-			// Reuse the library's spelling for options typed in another
-			// case, but keep only the options the user listed.
+			// Reuse a known spelling for options typed in another case (the
+			// category's own current options first, so its items still
+			// match, then the library's), but keep only the options listed.
+			known := map[string]string{}
+			for _, k := range NormalizeOptions(currentOptions[c.ID], f.Options) {
+				known[textnorm.Key(k)] = k
+			}
 			opts := NormalizeOptions(nil, c.Options)
 			for i, o := range opts {
-				for _, known := range f.Options {
-					if textnorm.Key(known) == textnorm.Key(o) {
-						opts[i] = known
-					}
+				if k, ok := known[textnorm.Key(o)]; ok {
+					opts[i] = k
 				}
 			}
 			if len(opts) > MaxOptions {

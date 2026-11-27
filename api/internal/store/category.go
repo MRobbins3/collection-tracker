@@ -285,11 +285,11 @@ func (c *Categories) Update(ctx context.Context, userID, slug string, in Categor
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var id, status string
+	var id, status, nameKey string
 	var current []byte
 	err = tx.QueryRow(ctx, `
-		SELECT id, status, attribute_schema FROM categories
-		WHERE slug = $1 AND created_by = $2 FOR UPDATE`, slug, userID).Scan(&id, &status, &current)
+		SELECT id, status, name_key, attribute_schema FROM categories
+		WHERE slug = $1 AND created_by = $2 FOR UPDATE`, slug, userID).Scan(&id, &status, &nameKey, &current)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Category{}, ErrNotFound
 	}
@@ -299,10 +299,15 @@ func (c *Categories) Update(ctx context.Context, userID, slug string, in Categor
 	if status != CategoryPrivate && status != CategoryRejected {
 		return Category{}, ErrCategoryLocked
 	}
-	if existing, ok, err := c.visibleByName(ctx, tx, userID, in.Name, id); err != nil {
-		return Category{}, err
-	} else if ok {
-		return Category{}, &CategoryExistsError{Existing: existing}
+	// Only a rename is checked against the names you can see: a category
+	// whose name a later-approved one took must still be editable. The
+	// unique indexes catch any real clash.
+	if textnorm.Key(in.Name) != nameKey {
+		if existing, ok, err := c.visibleByName(ctx, tx, userID, in.Name, id); err != nil {
+			return Category{}, err
+		} else if ok {
+			return Category{}, &CategoryExistsError{Existing: existing}
+		}
 	}
 	if err := checkSchemaInUse(ctx, tx, id, current, in.Schema); err != nil {
 		return Category{}, err

@@ -211,6 +211,26 @@ func TestUserCategoryNamesAndEdits(t *testing.T) {
 		require.Equal(t, sneakers.Slug, got.Slug, "the slug never changes")
 	})
 
+	t.Run("a category whose name was later approved for someone else stays editable", func(t *testing.T) {
+		alicesMugs, err := f.cats.Create(ctx, f.alice.ID, f.sneakerInput(t, ctx, "Mugs"))
+		require.NoError(t, err)
+		bobsMugs, err := f.cats.Create(ctx, f.bob.ID, f.sneakerInput(t, ctx, "mugs"))
+		require.NoError(t, err)
+		sub, err := f.mod.SubmitCategory(ctx, f.bob.ID, bobsMugs.Slug, nil)
+		require.NoError(t, err)
+		_, err = f.mod.Approve(ctx, f.admin.ID, sub.ID, nil)
+		require.NoError(t, err)
+
+		got, err := f.cats.Update(ctx, f.alice.ID, alicesMugs.Slug, f.sneakerInput(t, ctx, "Mugs", "Ceramic"))
+		require.NoError(t, err, "keeping its own name, the fields can still change")
+		require.Contains(t, string(got.AttributeSchema), "Ceramic")
+
+		_, err = f.cats.Update(ctx, f.alice.ID, sneakers.Slug, f.sneakerInput(t, ctx, "MUGS", "Nike", "Adidas"))
+		var exists *store.CategoryExistsError
+		require.True(t, errors.As(err, &exists), "renaming onto a public name is refused")
+		require.Equal(t, bobsMugs.Slug, exists.Existing.Slug)
+	})
+
 	t.Run("only the creator can edit", func(t *testing.T) {
 		_, err := f.cats.Update(ctx, f.bob.ID, sneakers.Slug, f.sneakerInput(t, ctx, "Mine Now"))
 		require.ErrorIs(t, err, store.ErrNotFound)

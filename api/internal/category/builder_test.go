@@ -174,6 +174,16 @@ func TestCompose(t *testing.T) {
 		require.Contains(t, string(got.Schema), `"enum":["Red","Blue"]`)
 	})
 
+	t.Run("an edit reuses the category's own option spellings before the library's", func(t *testing.T) {
+		current := json.RawMessage(`{"type":"object","properties":{"theme":{"type":"string","title":"Theme","enum":["Clone Wars","STAR WARS"]}}}`)
+		got, err := category.Compose(lib, current, []category.Choice{
+			{ID: "string:theme", Options: []string{"clone wars", "Clone Wars", "star wars"}},
+		}, "")
+		require.NoError(t, err)
+		require.Contains(t, string(got.Schema), `"enum":["Clone Wars","STAR WARS"]`,
+			"no duplicate, and the spelling the items already use wins over the library's \"Star Wars\"")
+	})
+
 	refusals := []struct {
 		name       string
 		choices    []category.Choice
