@@ -23,7 +23,13 @@ Decisions made without the owner, for review. ADR 0014 (Proposed) has the full m
 - **Removing a follower doesn't notify them** (copy says so). They can ask again unless follow requests are off.
 - **People search requires sign-in, needs 2+ characters, returns 20, and is rate limited** (60, then one per second). It matches handle prefix or display-name substring. It shows any profile whose card you may see (so Friends-only and Followers & friends cards appear). Alternative: only Public profiles in search. Rejected because the card is meant to be findable so requests can reach people (ADR 0009).
 
+- **Deny only denies a pending follow request**; an approved follower is removed with "Remove" (Followers tab).
+- **"Sent by you" hides people you can no longer see** (they went Private after you asked). The request still exists; it shows again if they open their profile back up, and accepting still works on their side.
+- **People search returns only handle, name, and avatar color** (no timestamps).
+
 ## UI
+
+- **Declining, unfriending, or unfollowing someone with a Private profile from their profile page** shows "Done. … keeps their profile private" with a link back to People, instead of "Profile not found".
 
 - **People lives at `/people`**, reached from a header icon with a red badge counting incoming requests. The badge refreshes on sign-in, on every navigation, and after each action (no polling or push; real-time sync is deferred).
 - **On phones, My collections and People in the header are icons** (with screen-reader labels) so the header fits; text on wider screens.
