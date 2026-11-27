@@ -38,6 +38,10 @@ On each start the web container runs `bun install` and then warms up the Nuxt de
 
 The API applies the database migrations and seed data on every start. To rebuild the local database from scratch, run `./scripts/reset-db.sh`; `Documentation/seed-data.md` explains the seed files.
 
+### Signing in locally
+
+You don't need Google to sign in locally. Compose starts the API with `DEV_AUTH_ENABLED=true`, so the header shows **Test sign-in**: pick one of the seeded test users (for example Liam Johnson, who already has collections, or Emma Garcia, who has none) to see the signed-in app, and **Sign out** to go back to anonymous. The test users come from `api/internal/seed/sql/dev/0001_dev_users.sql`. This option exists only when `APP_ENV` is `development` or `test`, and the API refuses to start with it anywhere else (ADR 0008).
+
 ### Enabling Google sign-in locally
 
 By default, `/auth/google/*` returns 503 until you provide OAuth credentials.
