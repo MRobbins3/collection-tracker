@@ -10,8 +10,8 @@ on:
       - ".gitignore"
       - ".nvmrc"
       - ".idea/**"
+  # No branch filter: PRs stacked on other feature branches need CI too.
   pull_request:
-    branches: [main]
     paths-ignore:
       - "Documentation/**"
       - "**/*.md"
