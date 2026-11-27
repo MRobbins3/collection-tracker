@@ -142,6 +142,8 @@ func NewRouter(deps Deps) http.Handler {
 		r.Post("/me/collections/{id}/items", h.createItem)
 		r.Patch("/me/collections/{id}/items/{itemID}", h.updateItem)
 		r.Delete("/me/collections/{id}/items/{itemID}", h.deleteItem)
+
+		r.Get("/me/items", h.searchMyItems)
 	})
 
 	return r

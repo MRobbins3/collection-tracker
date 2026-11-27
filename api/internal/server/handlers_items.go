@@ -21,6 +21,7 @@ type ItemStore interface {
 	GetInCollectionForUser(ctx context.Context, id, collectionID, userID string) (store.Item, error)
 	Update(ctx context.Context, id, collectionID, userID string, in store.ItemInput) (store.Item, error)
 	Delete(ctx context.Context, id, collectionID, userID string) error
+	SearchForUser(ctx context.Context, userID, q string, limit int) ([]store.ItemSearchResult, bool, error)
 }
 
 // CatalogStore is the narrow view for the public catalog search endpoint.
