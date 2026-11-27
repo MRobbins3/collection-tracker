@@ -98,6 +98,9 @@ func (s *Items) ListInCollectionForUser(ctx context.Context, collectionID, userI
 }
 
 func (s *Items) GetInCollectionForUser(ctx context.Context, id, collectionID, userID string) (Item, error) {
+	if !validIDs(id, collectionID, userID) {
+		return Item{}, ErrNotFound
+	}
 	row := s.pool.QueryRow(ctx, `
 		SELECT `+itemSelectCols+`
 		FROM items i
@@ -116,6 +119,9 @@ func (s *Items) GetInCollectionForUser(ctx context.Context, id, collectionID, us
 
 // Update replaces mutable fields on an item owned by the user.
 func (s *Items) Update(ctx context.Context, id, collectionID, userID string, in ItemInput) (Item, error) {
+	if !validIDs(id, collectionID, userID) {
+		return Item{}, ErrNotFound
+	}
 	attrs := in.Attributes
 	if len(attrs) == 0 {
 		attrs = json.RawMessage("{}")
@@ -136,6 +142,9 @@ func (s *Items) Update(ctx context.Context, id, collectionID, userID string, in 
 }
 
 func (s *Items) Delete(ctx context.Context, id, collectionID, userID string) error {
+	if !validIDs(id, collectionID, userID) {
+		return ErrNotFound
+	}
 	tag, err := s.pool.Exec(ctx, `
 		DELETE FROM items
 		USING collections c
@@ -153,6 +162,9 @@ func (s *Items) Delete(ctx context.Context, id, collectionID, userID string) err
 // assertCollectionOwned returns ErrNotFound if the user doesn't own the
 // given collection — so cross-user attempts look like "doesn't exist."
 func (s *Items) assertCollectionOwned(ctx context.Context, collectionID, userID string) error {
+	if !validIDs(collectionID, userID) {
+		return ErrNotFound
+	}
 	var exists bool
 	err := s.pool.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM collections WHERE id = $1 AND user_id = $2)`,
