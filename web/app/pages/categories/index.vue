@@ -25,7 +25,7 @@ useHead({ title: "Browse categories · Collection Tracker" });
         inputmode="search"
         placeholder="Search categories…"
         :disabled="!hydrated"
-        class="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
+        class="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
         data-testid="category-search"
       />
     </label>
