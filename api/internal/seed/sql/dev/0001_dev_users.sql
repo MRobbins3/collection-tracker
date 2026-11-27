@@ -90,36 +90,50 @@ ON CONFLICT (id) DO NOTHING;
 -- Attributes must match the category's attribute schema in
 -- sql/reference/0001_categories.sql (the API validates app writes, not seeds).
 
-INSERT INTO items (id, collection_id, name, quantity, condition, attributes)
+INSERT INTO items (id, collection_id, name, quantity, condition, attributes, created_at)
 VALUES
     ('d0000000-0000-4000-8000-000000000201', 'd0000000-0000-4000-8000-000000000101',
      'Millennium Falcon', 1, 'New in box',
-     '{"set_number": "75192", "theme": "Star Wars", "piece_count": 7541}'),
+     '{"set_number": "75192", "theme": "Star Wars", "piece_count": 7541}',
+     '2025-12-25 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000101',
      'Galaxy Explorer', 1, 'Built',
-     '{"set_number": "10497", "theme": "Icons", "piece_count": 1254}'),
+     '{"set_number": "10497", "theme": "Icons", "piece_count": 1254}',
+     '2026-02-14 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000203', 'd0000000-0000-4000-8000-000000000101',
      'Tree House', 1, 'Built',
-     '{"set_number": "21318", "theme": "Ideas", "piece_count": 3036}'),
+     '{"set_number": "21318", "theme": "Ideas", "piece_count": 3036}',
+     '2026-03-08 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000204', 'd0000000-0000-4000-8000-000000000101',
      'Lamborghini Sián FKP 37', 1, 'Built',
-     '{"set_number": "42115", "theme": "Technic", "piece_count": 3696}'),
+     '{"set_number": "42115", "theme": "Technic", "piece_count": 3696}',
+     '2026-05-30 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000211', 'd0000000-0000-4000-8000-000000000102',
      'Abbey Road', 1, 'Very good',
-     '{"artist": "The Beatles", "album": "Abbey Road", "year": 1969, "label": "Apple Records"}'),
+     '{"artist": "The Beatles", "album": "Abbey Road", "year": 1969, "label": "Apple Records"}',
+     '2026-01-10 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000212', 'd0000000-0000-4000-8000-000000000102',
      'Rumours', 1, 'Good',
-     '{"artist": "Fleetwood Mac", "album": "Rumours", "year": 1977, "label": "Warner Bros. Records"}'),
+     '{"artist": "Fleetwood Mac", "album": "Rumours", "year": 1977, "label": "Warner Bros. Records"}',
+     '2026-06-21 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000221', 'd0000000-0000-4000-8000-000000000103',
      'Kennedy Half Dollar', 3, 'Circulated',
-     '{"year": 1964, "country": "United States", "denomination": "Half dollar", "mint_mark": "D"}'),
+     '{"year": 1964, "country": "United States", "denomination": "Half dollar", "mint_mark": "D"}',
+     '2026-04-02 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000222', 'd0000000-0000-4000-8000-000000000103',
      'Sacagawea Dollar', 1, 'Uncirculated',
-     '{"year": 2000, "country": "United States", "denomination": "Dollar", "mint_mark": "P"}'),
+     '{"year": 2000, "country": "United States", "denomination": "Dollar", "mint_mark": "P"}',
+     '2026-04-18 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000231', 'd0000000-0000-4000-8000-000000000104',
      'Monstera', 1, NULL,
-     '{"species": "Monstera deliciosa", "pot_size": "10 inch", "acquired_from": "Local nursery"}'),
+     '{"species": "Monstera deliciosa", "pot_size": "10 inch", "acquired_from": "Local nursery"}',
+     '2026-03-21 12:00:00+00'),
     ('d0000000-0000-4000-8000-000000000232', 'd0000000-0000-4000-8000-000000000104',
      'Golden Pothos', 2, NULL,
-     '{"species": "Epipremnum aureum", "pot_size": "6 inch", "acquired_from": "Cutting from a friend"}')
-ON CONFLICT (id) DO NOTHING;
+     '{"species": "Epipremnum aureum", "pot_size": "6 inch", "acquired_from": "Cutting from a friend"}',
+     '2026-07-04 12:00:00+00')
+-- created_at is spread over past dates so "newest / oldest first" in the
+-- collection overview has a meaningful order. Only created_at is refreshed on
+-- a re-run; other edits made through the app are left alone.
+ON CONFLICT (id) DO UPDATE SET created_at = EXCLUDED.created_at
+WHERE items.created_at IS DISTINCT FROM EXCLUDED.created_at;
