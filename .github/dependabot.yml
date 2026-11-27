@@ -1,0 +1,40 @@
+# Monthly dependency updates. Minor + patch bumps are grouped into one PR per
+# ecosystem; each major bump gets its own PR so breaking changes stay isolated.
+#
+# Not covered: versions typed as plain values in .github/workflows/ci.yml
+# (go-version, bun-version, golangci-lint version, the postgres service
+# images, runs-on). When a docker-compose bump lands, update the matching CI
+# value in the same PR. See Documentation/dependencies.md (policy: ADR 0006).
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "gomod"
+    directory: "/api"
+    schedule:
+      interval: "monthly"
+    groups:
+      go-modules:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "bun"
+    directory: "/web"
+    schedule:
+      interval: "monthly"
+    groups:
+      web-packages:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      compose-images:
+        update-types: ["minor", "patch"]

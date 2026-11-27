@@ -10,6 +10,7 @@ Mobile-first web app for tracking collections of anything — Lego, Funko, coins
 | `web/` | Nuxt 3 + Vue 3 + Tailwind + `@nuxt/icon` (Lucide set) + `@vite-pwa/nuxt`. |
 | `Documentation/requirements.md` | **Living** feature list + roadmap table + changelog. Read this first. |
 | `Documentation/next-steps.md` | **Living** queued work (priority order) + items held for external triggers. Check this when asked "what's next?" |
+| `Documentation/dependencies.md` | **Living** version-pin policy, what Dependabot covers, and how to bump tools CI depends on. |
 | `Documentation/testing.md` | **Living** testing strategy — per-language tooling, policies, commands. |
 | `Documentation/decisions/` | Architecture Decision Records (ADRs), one numbered file per decision. |
 | `Documentation/categories/` | Placeholder for future human-readable per-category notes. The actual attribute schemas are seeded from `api/internal/seed/data/categories.json`. |
