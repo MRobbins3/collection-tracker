@@ -33,11 +33,11 @@ docker compose exec api go vet ./...
 
 | Layer | Tooling | What it covers |
 |---|---|---|
-| Component / unit | **Vitest** + **`@vue/test-utils`** under Bun, happy-dom environment | CategoryCard, AuthMenu, NewCollectionForm, AttributeFields, ItemForm, NewItemPanel, ItemCard, InstallPrompt, ThemeToggle — 31 tests across 8 files |
+| Component / unit | **Vitest** + **`@vue/test-utils`** under Bun, happy-dom environment | CategoryCard, AuthMenu, NewCollectionForm, AttributeFields, ItemForm, NewItemPanel, ItemCard, InstallPrompt, ThemeToggle, DevSignIn, SignInPrompt, ItemSearch, plus the search helpers (query normalizer, debounced ref) — 65 tests across 12 files |
 | Composable mocking | Hand-rolled stubs that assign to `globalThis.useXxx` in `beforeEach` | Lets tests drive behavior through real component render paths without pulling in Nuxt's runtime |
 | Typecheck | `nuxt typecheck` (vue-tsc) + ambient `shims-vue.d.ts` for SFC resolution in tests | Every PR gated |
 | Lint | `@nuxt/eslint` flat config with two local overrides | Every PR gated |
-| E2E | **Playwright** against a live stack (API + Nuxt dev server running on the GHA runner) | Anonymous browse + navigate home → categories → detail → back; unknown-slug renders the not-found state. Signed in via the test-user picker: sign in, see the persona's collections, reload, sign out; create a collection, add an item, delete the collection. The search-narrow spec is currently `test.skip` — see requirements.md UX Backlog |
+| E2E | **Playwright** against a live stack (API + Nuxt dev server running on the GHA runner) | Anonymous browse + navigate home → categories → detail → back; unknown-slug renders the not-found state. Signed in via the test-user picker: sign in, see the persona's collections, reload, sign out; create a collection, add an item, delete the collection; search your own items, open a result, come back, and never see another user's items. Category search narrows the list |
 | Mobile viewports | Playwright with iPhone 14 (webkit) + Pixel 7 (chromium) profiles | Mobile-first — the two mobile profiles are the default; desktop is additive |
 | **Aspirational** | `@axe-core/playwright` for WCAG AA checks; MSW for network mocking; visual regression | Not wired up yet; hand-rolled stubs cover test needs for now |
 
@@ -47,6 +47,7 @@ docker compose exec api go vet ./...
 - **`vue-tsc`** via `nuxt typecheck` gated in CI.
 - **No snapshot tests** as a primary strategy; prefer behavior assertions (snapshots rot silently).
 - **Storybook explicitly out of scope** for now.
+- **No hydration sleeps in e2e.** A server-rendered input that only works after hydration is `:disabled` until mounted (`useHydrated`), so Playwright's `fill()` waits for it on its own. Typing into SSR markup before hydration is silently lost.
 
 ### Running locally
 

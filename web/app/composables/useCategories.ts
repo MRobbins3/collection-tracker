@@ -1,6 +1,10 @@
 import type { CategoriesResponse, Category } from "~/types/api";
 
-export function useCategoriesList(query: Ref<string>) {
+/**
+ * `query` should already be normalized and debounced. The static key is
+ * fine: `watch` refetches under the same key whenever the query changes.
+ */
+export function useCategoriesList(query: Readonly<Ref<string>>) {
   const api = useApi();
   return useAsyncData<CategoriesResponse>(
     "categories",

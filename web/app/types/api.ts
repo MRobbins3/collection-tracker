@@ -93,3 +93,23 @@ export interface AttributeSchema {
   properties: Record<string, AttributeProperty>;
   additionalProperties?: boolean;
 }
+
+/** One hit from GET /me/items?q= — search across your own items. */
+export interface ItemSearchResult {
+  id: string;
+  name: string;
+  quantity: number;
+  condition?: string;
+  collection_id: string;
+  collection_name: string;
+  category_slug: string;
+  category_name: string;
+  /** Set when the hit came from an attribute value, not the name. `label` is human-readable. */
+  matched_field?: { label: string; value: string };
+}
+
+export interface ItemSearchResponse {
+  items: ItemSearchResult[];
+  /** True when more items matched than the API returns in one response. */
+  has_more: boolean;
+}

@@ -1,4 +1,4 @@
-import type { Item, ItemsResponse, CatalogSearchResponse } from "~/types/api";
+import type { Item, ItemsResponse, CatalogSearchResponse, ItemSearchResponse } from "~/types/api";
 
 export function useCollectionItems(collectionId: string) {
   const api = useApi();
@@ -8,6 +8,23 @@ export function useCollectionItems(collectionId: string) {
     async () =>
       isSignedIn.value ? api.get<ItemsResponse>(`/me/collections/${collectionId}/items`) : { items: [] },
     { server, watch, default: () => ({ items: [] }) },
+  );
+}
+
+/**
+ * Search across the signed-in user's own items (GET /me/items). `query`
+ * should already be normalized and debounced; a blank query or an
+ * anonymous visitor skips the request and yields no results.
+ */
+export function useMyItemSearch(query: Readonly<Ref<string>>) {
+  const api = useApi();
+  const { isSignedIn, server } = signedInFetchOptions();
+  const empty = (): ItemSearchResponse => ({ items: [], has_more: false });
+  return useAsyncData<ItemSearchResponse>(
+    "me:items:search",
+    async () =>
+      isSignedIn.value && query.value ? api.get<ItemSearchResponse>("/me/items", { q: query.value }) : empty(),
+    { server, watch: [isSignedIn, query], default: empty },
   );
 }
 

@@ -17,14 +17,15 @@ test.describe("anonymous category browse", () => {
     await expect(page.getByTestId("category-name")).toHaveText("Lego Sets");
   });
 
-  // TODO: re-enable once we figure out why the query-driven refetch doesn't
-  // fire in CI (`waitForResponse` times out — the /categories?q=vinyl request
-  // never hits the network). Suspected cause: useAsyncData with a static key
-  // not refetching on watch in the CI-hosted dev server. The search endpoint
-  // itself is thoroughly covered by the Go store + handler integration tests.
-  test.skip("search narrows the list to matching categories", async ({ page }) => {
+  // The box is disabled until hydration (useHydrated). Before that fix,
+  // fill() typed into the SSR markup, hydration wiped the text, and the
+  // search request never fired. fill() waits for the box to be enabled.
+  test("search narrows the list to matching categories", async ({ page }) => {
     await page.goto("/categories");
-    await page.getByTestId("category-search").fill("vinyl");
+    await expect(page.getByTestId("category-card-lego-sets")).toBeVisible();
+    const searched = page.waitForRequest((req) => new URL(req.url()).searchParams.get("q") === "vinyl");
+    await page.getByTestId("category-search").fill("  vinyl ");
+    await searched;
     await expect(page.getByTestId("category-card-vinyl-records")).toBeVisible();
     await expect(page.getByTestId("category-card-lego-sets")).toHaveCount(0);
   });

@@ -20,6 +20,12 @@ type fakeItems struct {
 	mu    sync.Mutex
 	seq   int
 	items map[string]store.Item // id -> item
+
+	// SearchForUser stubbing (see handlers_item_search_test.go).
+	searchResults []store.ItemSearchResult
+	searchMore    bool
+	searchErr     error
+	searchCalls   []searchCall
 }
 
 func newFakeItems() *fakeItems { return &fakeItems{items: map[string]store.Item{}} }
