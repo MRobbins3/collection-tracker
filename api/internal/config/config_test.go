@@ -16,7 +16,7 @@ func TestFromEnv(t *testing.T) {
 				"HTTP_ADDR": "", "DATABASE_URL": "", "APP_ENV": "",
 				"CORS_ORIGINS": "", "WEB_BASE_URL": "", "SESSION_SECRET": "",
 				"GOOGLE_OAUTH_CLIENT_ID": "", "GOOGLE_OAUTH_CLIENT_SECRET": "",
-				"GOOGLE_OAUTH_REDIRECT_URL": "",
+				"GOOGLE_OAUTH_REDIRECT_URL": "", "SEED_DEV_DATA": "",
 			},
 			want: Config{
 				HTTPAddr:          ":8080",
@@ -38,6 +38,7 @@ func TestFromEnv(t *testing.T) {
 				"GOOGLE_OAUTH_CLIENT_ID":     "cid",
 				"GOOGLE_OAUTH_CLIENT_SECRET": "csec",
 				"GOOGLE_OAUTH_REDIRECT_URL":  "https://api.example.com/auth/google/callback",
+				"SEED_DEV_DATA":              "true",
 			},
 			want: Config{
 				HTTPAddr:           ":9090",
@@ -49,6 +50,7 @@ func TestFromEnv(t *testing.T) {
 				GoogleClientID:     "cid",
 				GoogleClientSecret: "csec",
 				GoogleRedirectURL:  "https://api.example.com/auth/google/callback",
+				SeedDevData:        true,
 			},
 		},
 		{
@@ -57,10 +59,26 @@ func TestFromEnv(t *testing.T) {
 				"HTTP_ADDR": ":7070", "DATABASE_URL": "", "APP_ENV": "",
 				"CORS_ORIGINS": "", "WEB_BASE_URL": "", "SESSION_SECRET": "",
 				"GOOGLE_OAUTH_CLIENT_ID": "", "GOOGLE_OAUTH_CLIENT_SECRET": "",
-				"GOOGLE_OAUTH_REDIRECT_URL": "",
+				"GOOGLE_OAUTH_REDIRECT_URL": "", "SEED_DEV_DATA": "",
 			},
 			want: Config{
 				HTTPAddr:          ":7070",
+				Env:               "development",
+				CORSOrigins:       []string{"http://localhost:3000"},
+				WebBaseURL:        "http://localhost:3000",
+				GoogleRedirectURL: "http://localhost:8080/auth/google/callback",
+			},
+		},
+		{
+			name: "unparsable SEED_DEV_DATA is false",
+			env: map[string]string{
+				"HTTP_ADDR": "", "DATABASE_URL": "", "APP_ENV": "",
+				"CORS_ORIGINS": "", "WEB_BASE_URL": "", "SESSION_SECRET": "",
+				"GOOGLE_OAUTH_CLIENT_ID": "", "GOOGLE_OAUTH_CLIENT_SECRET": "",
+				"GOOGLE_OAUTH_REDIRECT_URL": "", "SEED_DEV_DATA": "yes please",
+			},
+			want: Config{
+				HTTPAddr:          ":8080",
 				Env:               "development",
 				CORSOrigins:       []string{"http://localhost:3000"},
 				WebBaseURL:        "http://localhost:3000",
@@ -83,7 +101,8 @@ func TestFromEnv(t *testing.T) {
 				got.SessionSecret != tc.want.SessionSecret ||
 				got.GoogleClientID != tc.want.GoogleClientID ||
 				got.GoogleClientSecret != tc.want.GoogleClientSecret ||
-				got.GoogleRedirectURL != tc.want.GoogleRedirectURL {
+				got.GoogleRedirectURL != tc.want.GoogleRedirectURL ||
+				got.SeedDevData != tc.want.SeedDevData {
 				t.Fatalf("FromEnv() = %+v, want %+v", got, tc.want)
 			}
 		})

@@ -3,6 +3,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -12,6 +13,10 @@ type Config struct {
 	Env         string
 	CORSOrigins []string
 	WebBaseURL  string
+
+	// SeedDevData applies the dev seed set (fake users etc.) on startup.
+	// Local/CI only; the seed runner refuses it when Env is "production".
+	SeedDevData bool
 
 	SessionSecret      string
 	GoogleClientID     string
@@ -26,6 +31,7 @@ func FromEnv() Config {
 		Env:                getenv("APP_ENV", "development"),
 		CORSOrigins:        splitCSV(getenv("CORS_ORIGINS", "http://localhost:3000")),
 		WebBaseURL:         getenv("WEB_BASE_URL", "http://localhost:3000"),
+		SeedDevData:        getbool("SEED_DEV_DATA"),
 		SessionSecret:      os.Getenv("SESSION_SECRET"),
 		GoogleClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
@@ -38,6 +44,12 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// getbool parses key with strconv.ParseBool; unset or unparsable is false.
+func getbool(key string) bool {
+	b, err := strconv.ParseBool(os.Getenv(key))
+	return err == nil && b
 }
 
 func splitCSV(s string) []string {
