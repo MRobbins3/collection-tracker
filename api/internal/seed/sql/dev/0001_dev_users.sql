@@ -20,8 +20,8 @@
 --   * Emails use example.com (reserved by RFC 2606), so nothing is ever
 --     sent to a real inbox.
 --
--- Extending: later PRs add friendships for
--- these personas. Add new columns to the users upsert below (and to its
+-- Extending: friends and followers among these personas live in
+-- 0003_friends_followers.sql. Add new columns to the users upsert below (and to its
 -- IS DISTINCT FROM guard), or add a new 00NN_*.sql file that keys on
 -- google_sub, e.g. (SELECT id FROM users WHERE google_sub = 'dev:olivia').
 --
@@ -35,8 +35,8 @@
 --   olivia  | Olivia Martinez  | public                 | admin: reviews the moderation queue
 --   liam    | Liam Johnson     | public                 | collector with populated collections
 --   emma    | Emma Garcia      | private                | brand-new user, no collections
---   noah    | Noah Williams    | friends_only           | future friend of Liam (one small collection)
---   amelia  | Amelia Brown     | followers_and_friends  | future follower of Liam (one small collection)
+--   noah    | Noah Williams    | friends_only           | Liam's friend (one small collection)
+--   amelia  | Amelia Brown     | followers_and_friends  | follows Liam, followed by Liam (one small collection)
 --
 -- The handle column matches the part of google_sub after 'dev:', so the
 -- persona's public profile is /u/<handle>. Visibility covers every privacy
