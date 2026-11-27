@@ -85,8 +85,8 @@ func (h *handlers) createItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errResp)
 		return
 	}
-	if errResp, ok := validateAttributesAgainstCategory(h.categories, r.Context(), s.UserID, coll.CategorySlug, body.Attributes); !ok {
-		writeJSON(w, http.StatusBadRequest, errResp)
+	if status, errResp, ok := h.validateAttributes(r.Context(), s.UserID, coll.CategorySlug, body.Attributes); !ok {
+		writeJSON(w, status, errResp)
 		return
 	}
 
@@ -140,8 +140,8 @@ func (h *handlers) updateItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errResp)
 		return
 	}
-	if errResp, ok := validateAttributesAgainstCategory(h.categories, r.Context(), s.UserID, coll.CategorySlug, body.Attributes); !ok {
-		writeJSON(w, http.StatusBadRequest, errResp)
+	if status, errResp, ok := h.validateAttributes(r.Context(), s.UserID, coll.CategorySlug, body.Attributes); !ok {
+		writeJSON(w, status, errResp)
 		return
 	}
 
@@ -201,23 +201,29 @@ func trimmedOrNil(c *string) *string {
 	return &trimmed
 }
 
-func validateAttributesAgainstCategory(cats CategoryStore, ctx context.Context, viewerID, slug string, attrs json.RawMessage) (map[string]any, bool) {
-	cat, err := cats.GetBySlug(ctx, viewerID, slug)
+// validateAttributes checks attrs against the schema of the category the
+// viewer can see under slug. On failure it returns the status and body to
+// send: 400 with per-field messages, 404 when the category isn't visible
+// (never skip validation), 500 when the lookup fails.
+func (h *handlers) validateAttributes(ctx context.Context, viewerID, slug string, attrs json.RawMessage) (int, map[string]any, bool) {
+	cat, err := h.categories.GetBySlug(ctx, viewerID, slug)
 	if err != nil {
-		// If the category lookup fails the collection-level lookup above
-		// would have failed too; treat as "no validation possible, accept."
-		return nil, true
+		if errors.Is(err, store.ErrNotFound) {
+			return http.StatusNotFound, map[string]any{"error": "category not found"}, false
+		}
+		h.logger.Error("validateAttributes: category lookup failed", "err", err)
+		return http.StatusInternalServerError, map[string]any{"error": "internal server error"}, false
 	}
 	err = category.ValidateAttributes(cat.AttributeSchema, attrs)
 	if err == nil || errors.Is(err, category.ErrEmptySchema) {
-		return nil, true
+		return 0, nil, true
 	}
 	var ve *category.ValidationError
 	if errors.As(err, &ve) {
-		return map[string]any{
+		return http.StatusBadRequest, map[string]any{
 			"error":  ve.Summary,
 			"fields": ve.Fields,
 		}, false
 	}
-	return map[string]any{"error": "attribute validation failed"}, false
+	return http.StatusBadRequest, map[string]any{"error": "attribute validation failed"}, false
 }

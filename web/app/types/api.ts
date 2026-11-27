@@ -101,7 +101,15 @@ export interface PublicCollectionResponse {
   is_self: boolean;
   collection: Collection;
   /** The collection's category (even one its owner built and hasn't published). */
-  category: { slug: string; name: string; attribute_schema: Record<string, unknown>; status: CategoryStatus };
+  category: {
+    slug: string;
+    name: string;
+    attribute_schema: Record<string, unknown>;
+    /** On the public list. */
+    public: boolean;
+    /** Only when you're the owner. */
+    status?: CategoryStatus;
+  };
   items: Item[];
 }
 

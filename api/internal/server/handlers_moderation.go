@@ -66,29 +66,29 @@ type entryFieldsReq struct {
 
 // clean normalizes and validates the fields (attributes against the
 // category's schema). It returns an error body for a 400.
-func (h *handlers) cleanEntryFields(ctx context.Context, viewerID, categorySlug string, in entryFieldsReq) (store.EntryFields, map[string]any, bool) {
+func (h *handlers) cleanEntryFields(ctx context.Context, viewerID, categorySlug string, in entryFieldsReq) (store.EntryFields, int, map[string]any, bool) {
 	var out store.EntryFields
 	if in.Name != nil {
 		n := textnorm.Clean(*in.Name)
 		if n == "" || utf8.RuneCountInString(n) > entryNameMax {
-			return out, map[string]any{"error": "name must be 1–200 characters"}, false
+			return out, http.StatusBadRequest, map[string]any{"error": "name must be 1–200 characters"}, false
 		}
 		out.Name = &n
 	}
 	if in.Description != nil {
 		d := textnorm.Clean(*in.Description)
 		if utf8.RuneCountInString(d) > entryDescriptionMax {
-			return out, map[string]any{"error": "description must be at most 1000 characters"}, false
+			return out, http.StatusBadRequest, map[string]any{"error": "description must be at most 1000 characters"}, false
 		}
 		out.Description = &d
 	}
 	if in.Attributes != nil && string(in.Attributes) != "null" {
-		if errResp, ok := validateAttributesAgainstCategory(h.categories, ctx, viewerID, categorySlug, in.Attributes); !ok {
-			return out, errResp, false
+		if status, errResp, ok := h.validateAttributes(ctx, viewerID, categorySlug, in.Attributes); !ok {
+			return out, status, errResp, false
 		}
 		out.Attributes = in.Attributes
 	}
-	return out, nil, true
+	return out, 0, nil, true
 }
 
 func cleanNote(s *string, field string, required bool) (*string, string) {
@@ -153,11 +153,11 @@ func (h *handlers) submitCatalogEntry(w http.ResponseWriter, r *http.Request) {
 	if len(attrs) == 0 || string(attrs) == "null" {
 		attrs = json.RawMessage(`{}`)
 	}
-	fields, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, slug, entryFieldsReq{
+	fields, status, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, slug, entryFieldsReq{
 		Name: &body.Name, Description: body.Description, Attributes: attrs,
 	})
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, errResp)
+		writeJSON(w, status, errResp)
 		return
 	}
 	res, err := h.moderation.Submit(r.Context(), s.UserID, store.SubmissionInput{
@@ -178,7 +178,7 @@ func (h *handlers) submitCatalogEntry(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	status := http.StatusOK
+	status = http.StatusOK
 	if res.Outcome == store.OutcomeSubmitted {
 		status = http.StatusCreated
 	}
@@ -235,9 +235,9 @@ func (h *handlers) proposeCatalogCorrection(w http.ResponseWriter, r *http.Reque
 		h.serverError(w, r, err, "proposeCatalogCorrection: entry lookup")
 		return
 	}
-	fields, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, entry.CategorySlug, body.entryFieldsReq)
+	fields, status, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, entry.CategorySlug, body.entryFieldsReq)
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, errResp)
+		writeJSON(w, status, errResp)
 		return
 	}
 	sub, err := h.moderation.ProposeCorrection(r.Context(), s.UserID, entryID, fields, note)
@@ -351,9 +351,9 @@ func (h *handlers) approveModerationRequest(w http.ResponseWriter, r *http.Reque
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msgCategoryNoEdits})
 			return
 		}
-		fields, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, req.CategorySlug, body)
+		fields, status, errResp, ok := h.cleanEntryFields(r.Context(), s.UserID, req.CategorySlug, body)
 		if !ok {
-			writeJSON(w, http.StatusBadRequest, errResp)
+			writeJSON(w, status, errResp)
 			return
 		}
 		edits = &fields

@@ -270,6 +270,22 @@ func (h *handlers) resolveView(ctx context.Context, handle string) (viewAccess, 
 	}, nil
 }
 
+// publicCategory is what a collection viewer sees of its category: whether
+// it's on the public list, never the review status of someone else's
+// category (private vs rejected); the owner gets the status too.
+func publicCategory(cat store.Category, isSelf bool) map[string]any {
+	out := map[string]any{
+		"slug":             cat.Slug,
+		"name":             cat.Name,
+		"attribute_schema": cat.AttributeSchema,
+		"public":           cat.Status == store.CategoryApproved,
+	}
+	if isSelf {
+		out["status"] = cat.Status
+	}
+	return out
+}
+
 func writeProfileNotFound(w http.ResponseWriter) {
 	writeJSON(w, http.StatusNotFound, map[string]string{"error": "profile not found"})
 }
@@ -347,12 +363,7 @@ func (h *handlers) getPublicCollection(w http.ResponseWriter, r *http.Request) {
 		"owner":      toPublic(v.owner),
 		"is_self":    v.rel == privacy.Self,
 		"collection": coll,
-		"category": map[string]any{
-			"slug":             cat.Slug,
-			"name":             cat.Name,
-			"attribute_schema": cat.AttributeSchema,
-			"status":           cat.Status,
-		},
-		"items": items,
+		"category":   publicCategory(cat, v.rel == privacy.Self),
+		"items":      items,
 	})
 }

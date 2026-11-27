@@ -266,3 +266,19 @@ func TestUpdateAndDeleteItem(t *testing.T) {
 		require.Equal(t, http.StatusNoContent, rr.Code)
 	})
 }
+
+// A category the caller can't see is refused, never "accept without
+// validating" (ADR 0013).
+func TestItemWritesRefuseAnInvisibleCategory(t *testing.T) {
+	colls := newFakeCollections()
+	colls.items["col-1"] = store.Collection{
+		ID: "col-1", UserID: "user-1", CategorySlug: "someone-elses-abc123", Name: "Odd",
+	}
+	items := newFakeItems()
+	r := newItemsRouter(t, colls, items, &fakeCatalog{})
+	rr := doJSON(t, r, http.MethodPost, "/me/collections/col-1/items", map[string]any{
+		"name": "Anything", "attributes": map[string]any{"whatever": "goes"},
+	})
+	require.Equal(t, http.StatusNotFound, rr.Code, rr.Body.String())
+	require.Contains(t, rr.Body.String(), "category not found")
+}

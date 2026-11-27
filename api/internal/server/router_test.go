@@ -30,6 +30,9 @@ type fakeCategories struct {
 	updated   *store.CategoryInput
 	createErr error
 	updateErr error
+	// byIDStatus is the status GetByID reports for unlisted ids ("" =
+	// approved), to stand in for a user-built category.
+	byIDStatus string
 }
 
 func (f *fakeCategories) List(_ context.Context, viewerID string) ([]store.Category, error) {
@@ -59,7 +62,11 @@ func (f *fakeCategories) GetByID(_ context.Context, id string) (store.Category, 
 			return c, nil
 		}
 	}
-	return store.Category{ID: id, Slug: "lego-sets", Name: "Lego Sets", Status: store.CategoryApproved}, nil
+	status := f.byIDStatus
+	if status == "" {
+		status = store.CategoryApproved
+	}
+	return store.Category{ID: id, Slug: "lego-sets", Name: "Lego Sets", Status: status}, nil
 }
 func (f *fakeCategories) ListMine(_ context.Context, _ string) ([]store.Category, error) {
 	out := []store.Category{}
