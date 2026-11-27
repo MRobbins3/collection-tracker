@@ -310,9 +310,15 @@ func (h *handlers) getPublicProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	rel, err := h.relationshipFor(r.Context(), v)
+	if err != nil {
+		h.serverError(w, r, err, "getPublicProfile: relationship failed")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"profile":               toPublic(v.owner),
 		"is_self":               v.rel == privacy.Self,
+		"relationship":          rel,
 		"collection_visibility": v.owner.CollectionVisibility,
 		"collections_visible":   v.seesCollections,
 		"collections":           collections,
