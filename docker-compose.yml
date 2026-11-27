@@ -26,6 +26,8 @@ services:
       CORS_ORIGINS: http://localhost:3000
       # Dev-only 32-byte secret. MUST be overridden in any non-local env.
       SESSION_SECRET: "dev-dev-dev-dev-dev-dev-dev-dev-"
+      # Apply the dev seed set (fake users etc.). Allowed only when APP_ENV is development (the default) or test.
+      SEED_DEV_DATA: "true"
       # Set these to enable Google sign-in locally. Until then, /auth/google/* returns 503.
       GOOGLE_OAUTH_CLIENT_ID: "${GOOGLE_OAUTH_CLIENT_ID:-}"
       GOOGLE_OAUTH_CLIENT_SECRET: "${GOOGLE_OAUTH_CLIENT_SECRET:-}"

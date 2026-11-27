@@ -1,9 +1,22 @@
-[
-  {
-    "slug": "lego-sets",
-    "name": "Lego Sets",
-    "description": "Official Lego sets, minifigures, and themed collections.",
-    "attribute_schema": {
+-- Reference seed: the curated category list and each category's attribute
+-- schema (JSON Schema rendered as the add/edit item form and validated
+-- server-side). Applied on every API start, in every environment.
+--
+-- Idempotent: keyed on slug. Re-running refreshes name/description/schema
+-- in place (ids stay stable, so collections keep pointing at them) and is a
+-- no-op when nothing changed. Every schema property needs a human "title"
+-- (see Documentation/categories/README.md).
+--
+-- Removing a category from this file does NOT delete it from the database;
+-- write a migration for that so the collections that reference it are
+-- handled deliberately.
+
+INSERT INTO categories (slug, name, description, attribute_schema) VALUES
+(
+    'lego-sets',
+    'Lego Sets',
+    'Official Lego sets, minifigures, and themed collections.',
+    '{
       "type": "object",
       "properties": {
         "set_number": {
@@ -24,13 +37,13 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "slug": "funko-pops",
-    "name": "Funko Pops",
-    "description": "Funko Pop! vinyl figures, chases, and exclusives.",
-    "attribute_schema": {
+    }'::jsonb
+),
+(
+    'funko-pops',
+    'Funko Pops',
+    'Funko Pop! vinyl figures, chases, and exclusives.',
+    '{
       "type": "object",
       "properties": {
         "series": {
@@ -42,7 +55,7 @@
           "type": "integer",
           "minimum": 0,
           "title": "Pop number",
-          "description": "The figure's number within its series."
+          "description": "The figure''s number within its series."
         },
         "variant": {
           "type": "string",
@@ -51,17 +64,23 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "slug": "coins",
-    "name": "Coins",
-    "description": "Circulating and commemorative coins from around the world.",
-    "attribute_schema": {
+    }'::jsonb
+),
+(
+    'coins',
+    'Coins',
+    'Circulating and commemorative coins from around the world.',
+    '{
       "type": "object",
       "properties": {
-        "year": { "type": "integer", "title": "Year" },
-        "country": { "type": "string", "title": "Country" },
+        "year": {
+          "type": "integer",
+          "title": "Year"
+        },
+        "country": {
+          "type": "string",
+          "title": "Country"
+        },
         "denomination": {
           "type": "string",
           "title": "Denomination",
@@ -74,17 +93,23 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "slug": "stamps",
-    "name": "Stamps",
-    "description": "Postal stamps, commemoratives, and first-day covers.",
-    "attribute_schema": {
+    }'::jsonb
+),
+(
+    'stamps',
+    'Stamps',
+    'Postal stamps, commemoratives, and first-day covers.',
+    '{
       "type": "object",
       "properties": {
-        "year": { "type": "integer", "title": "Year" },
-        "country": { "type": "string", "title": "Country" },
+        "year": {
+          "type": "integer",
+          "title": "Year"
+        },
+        "country": {
+          "type": "string",
+          "title": "Country"
+        },
         "catalog_id": {
           "type": "string",
           "title": "Catalog ID",
@@ -92,13 +117,13 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "slug": "trading-cards",
-    "name": "Trading Cards",
-    "description": "Sports cards, TCGs, and collectible card games.",
-    "attribute_schema": {
+    }'::jsonb
+),
+(
+    'trading-cards',
+    'Trading Cards',
+    'Sports cards, TCGs, and collectible card games.',
+    '{
       "type": "object",
       "properties": {
         "game": {
@@ -111,7 +136,10 @@
           "title": "Set name",
           "description": "The expansion or set, e.g. Modern Horizons 2, 2024 Topps Series 1."
         },
-        "card_number": { "type": "string", "title": "Card number" },
+        "card_number": {
+          "type": "string",
+          "title": "Card number"
+        },
         "rarity": {
           "type": "string",
           "title": "Rarity",
@@ -119,13 +147,13 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "slug": "plants",
-    "name": "Plants",
-    "description": "Houseplants, succulents, and garden specimens.",
-    "attribute_schema": {
+    }'::jsonb
+),
+(
+    'plants',
+    'Plants',
+    'Houseplants, succulents, and garden specimens.',
+    '{
       "type": "object",
       "properties": {
         "species": {
@@ -145,16 +173,19 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "slug": "books",
-    "name": "Books",
-    "description": "Physical books — fiction, non-fiction, first editions, signed copies.",
-    "attribute_schema": {
+    }'::jsonb
+),
+(
+    'books',
+    'Books',
+    'Physical books — fiction, non-fiction, first editions, signed copies.',
+    '{
       "type": "object",
       "properties": {
-        "author": { "type": "string", "title": "Author" },
+        "author": {
+          "type": "string",
+          "title": "Author"
+        },
         "isbn": {
           "type": "string",
           "title": "ISBN",
@@ -167,19 +198,31 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "slug": "vinyl-records",
-    "name": "Vinyl Records",
-    "description": "LPs, EPs, 7-inches, and box sets.",
-    "attribute_schema": {
+    }'::jsonb
+),
+(
+    'vinyl-records',
+    'Vinyl Records',
+    'LPs, EPs, 7-inches, and box sets.',
+    '{
       "type": "object",
       "properties": {
-        "artist": { "type": "string", "title": "Artist" },
-        "album": { "type": "string", "title": "Album" },
-        "year": { "type": "integer", "title": "Year" },
-        "label": { "type": "string", "title": "Label" },
+        "artist": {
+          "type": "string",
+          "title": "Artist"
+        },
+        "album": {
+          "type": "string",
+          "title": "Album"
+        },
+        "year": {
+          "type": "integer",
+          "title": "Year"
+        },
+        "label": {
+          "type": "string",
+          "title": "Label"
+        },
         "pressing": {
           "type": "string",
           "title": "Pressing",
@@ -187,6 +230,11 @@
         }
       },
       "additionalProperties": false
-    }
-  }
-]
+    }'::jsonb
+)
+ON CONFLICT (slug) DO UPDATE SET
+    name             = EXCLUDED.name,
+    description      = EXCLUDED.description,
+    attribute_schema = EXCLUDED.attribute_schema
+WHERE (categories.name, categories.description, categories.attribute_schema)
+    IS DISTINCT FROM (EXCLUDED.name, EXCLUDED.description, EXCLUDED.attribute_schema);
