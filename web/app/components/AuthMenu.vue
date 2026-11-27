@@ -1,5 +1,14 @@
 <script setup lang="ts">
-const { user, isSignedIn, loginURL, logout } = useAuth();
+import { computed } from "vue";
+import DevSignIn from "./DevSignIn.vue";
+
+const { user, isSignedIn, providers, loginURL, logout } = useAuth();
+
+// providers is null during SSR and the first client render (it loads after
+// app:mounted), so null must render the Google-only default. Google is
+// hidden only when we know it's off and test-user sign-in is the way in.
+const showDev = computed(() => providers.value?.dev === true);
+const showGoogle = computed(() => !providers.value || providers.value.google || !providers.value.dev);
 </script>
 
 <template>
@@ -19,12 +28,15 @@ const { user, isSignedIn, loginURL, logout } = useAuth();
       Sign out
     </button>
   </div>
-  <a
-    v-else
-    :href="loginURL()"
-    class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-    data-testid="signin-link"
-  >
-    Sign in with Google
-  </a>
+  <div v-else class="flex items-center gap-2">
+    <DevSignIn v-if="showDev" variant="compact" />
+    <a
+      v-if="showGoogle"
+      :href="loginURL()"
+      class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+      data-testid="signin-link"
+    >
+      Sign in with Google
+    </a>
+  </div>
 </template>

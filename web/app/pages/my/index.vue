@@ -39,7 +39,7 @@ async function onDelete(id: string, name: string) {
 
     <SignInPrompt
       v-if="!isSignedIn"
-      message="Sign in with Google to create collections and add items."
+      message="Sign in to create collections and add items."
     />
 
     <template v-else>
