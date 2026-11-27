@@ -1,4 +1,4 @@
-import type { Item, ItemsResponse, CatalogSearchResponse, ItemSearchResponse } from "~/types/api";
+import type { Item, ItemsResponse, ItemSearchResponse } from "~/types/api";
 
 export function useCollectionItems(collectionId: string) {
   const api = useApi();
@@ -33,6 +33,8 @@ export interface ItemWriteInput {
   quantity: number;
   condition?: string;
   attributes?: Record<string, unknown>;
+  /** Links a new item to a catalog entry (create only; the API ignores it on update). */
+  catalog_entry_id?: string;
 }
 
 export function useItemsActions(collectionId: string) {
@@ -59,15 +61,4 @@ export function useItemsActions(collectionId: string) {
     });
   }
   return { create, update, remove };
-}
-
-export function useCatalogSearch() {
-  const api = useApi();
-  async function search(categorySlug: string, q: string): Promise<CatalogSearchResponse> {
-    return await api.get<CatalogSearchResponse>("/catalog/entries", {
-      category_slug: categorySlug,
-      q: q || undefined,
-    });
-  }
-  return { search };
 }

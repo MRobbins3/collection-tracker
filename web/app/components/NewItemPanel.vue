@@ -2,58 +2,94 @@
 import { ref, watch } from "vue";
 import ItemForm from "./ItemForm.vue";
 import type { AttributeSchema, CatalogEntry } from "~/types/api";
+import { normalizeSearchQuery } from "~/utils/search";
 
+/**
+ * Add an item: type to search the category's catalog, pick a match to link
+ * the new item to it with name and details filled in (still editable,
+ * ADR 0004), or enter it manually. Manual entry is always available.
+ */
 const props = defineProps<{
   categorySlug: string;
   schema?: AttributeSchema;
+  /** Human label of the category's identifier attribute ("Set number"), if any. */
+  identifierTitle?: string | null;
 }>();
 
 const emit = defineEmits<{
-  (e: "create", payload: { name: string; quantity: number; condition?: string; attributes: Record<string, unknown> }): void;
+  (
+    e: "create",
+    payload: {
+      name: string;
+      quantity: number;
+      condition?: string;
+      attributes: Record<string, unknown>;
+      catalog_entry_id?: string;
+    },
+  ): void;
 }>();
 
 const { search } = useCatalogSearch();
 
 const query = ref("");
 const results = ref<CatalogEntry[]>([]);
+const searched = ref("");
 const showingForm = ref(false);
 const prefilledName = ref("");
 const prefilledAttributes = ref<Record<string, unknown>>({});
+const linkedEntry = ref<CatalogEntry | null>(null);
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+// Bumped by every new search: a slower, older response must not overwrite
+// the results for what's in the box now.
+let generation = 0;
 
-watch(query, (q) => {
+watch(query, (raw) => {
   if (searchTimer) clearTimeout(searchTimer);
+  const q = normalizeSearchQuery(raw);
+  const gen = ++generation;
+  if (!q) {
+    results.value = [];
+    searched.value = "";
+    return;
+  }
   searchTimer = setTimeout(async () => {
-    if (!q.trim()) {
-      results.value = [];
-      return;
-    }
     try {
       const res = await search(props.categorySlug, q);
+      if (gen !== generation) return;
       results.value = res.entries;
     } catch {
+      if (gen !== generation) return;
       results.value = [];
     }
+    searched.value = q;
   }, 200);
 });
 
 function openManualForm(fromQuery: boolean) {
-  prefilledName.value = fromQuery ? query.value.trim() : "";
+  prefilledName.value = fromQuery ? normalizeSearchQuery(query.value) : "";
   prefilledAttributes.value = {};
+  linkedEntry.value = null;
   showingForm.value = true;
 }
 
 function pickFromCatalog(entry: CatalogEntry) {
   prefilledName.value = entry.name;
   prefilledAttributes.value = { ...(entry.attributes ?? {}) };
+  linkedEntry.value = entry;
   showingForm.value = true;
 }
 
-function onCancel() {
+function reset() {
   showingForm.value = false;
+  linkedEntry.value = null;
   query.value = "";
   results.value = [];
+}
+
+function onSubmit(payload: { name: string; quantity: number; condition?: string; attributes: Record<string, unknown> }) {
+  emit("create", linkedEntry.value ? { ...payload, catalog_entry_id: linkedEntry.value.id } : payload);
+  reset();
 }
 </script>
 
@@ -71,36 +107,40 @@ function onCancel() {
           v-model="query"
           type="search"
           inputmode="search"
-          placeholder="Search — or type to add manually"
+          autocomplete="off"
+          placeholder="Search the catalog — or type to add manually"
           class="block w-full rounded-md border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
           data-testid="new-item-search"
-        />
+        >
       </label>
 
-      <ul v-if="results.length > 0" class="space-y-1" data-testid="new-item-results">
+      <ul v-if="results.length > 0" class="space-y-1" aria-label="Catalog matches" data-testid="new-item-results">
         <li v-for="entry in results" :key="entry.id">
           <button
             type="button"
             class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            data-testid="new-item-result"
             @click="pickFromCatalog(entry)"
           >
             <div class="font-medium text-slate-900 dark:text-slate-100">{{ entry.name }}</div>
             <div
-              v-if="entry.description"
+              v-if="(identifierTitle && entry.identifier) || entry.description"
               class="text-xs text-slate-500 dark:text-slate-400"
             >
-              {{ entry.description }}
+              <span v-if="identifierTitle && entry.identifier">{{ identifierTitle }} {{ entry.identifier }}</span>
+              <span v-if="identifierTitle && entry.identifier && entry.description"> · </span>
+              <span v-if="entry.description">{{ entry.description }}</span>
             </div>
           </button>
         </li>
       </ul>
 
       <p
-        v-if="query && results.length === 0"
+        v-if="searched && results.length === 0"
         class="text-xs text-slate-500 dark:text-slate-400"
         data-testid="new-item-empty-catalog"
       >
-        Not in our list yet — you can enter it manually.
+        Not in the catalog yet — you can enter it manually.
       </p>
 
       <button
@@ -113,21 +153,33 @@ function onCancel() {
       </button>
     </div>
 
-    <ItemForm
-      v-else
-      class="mt-3"
-      :schema="schema"
-      :initial="{ name: prefilledName, attributes: prefilledAttributes, quantity: 1 }"
-      submit-label="Add to collection"
-      @submit="
-        (payload) => {
-          emit('create', payload);
-          showingForm = false;
-          query = '';
-          results = [];
-        }
-      "
-      @cancel="onCancel"
-    />
+    <template v-else>
+      <div
+        v-if="linkedEntry"
+        class="mt-3 flex items-start justify-between gap-3 rounded-md bg-emerald-50 p-3 text-xs text-emerald-900 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-100 dark:ring-emerald-800"
+        data-testid="new-item-linked"
+      >
+        <p>
+          Linked to <span class="font-semibold">{{ linkedEntry.name }}</span> in the catalog. You can still change
+          the name and details.
+        </p>
+        <button
+          type="button"
+          class="shrink-0 underline hover:no-underline"
+          data-testid="new-item-unlink"
+          @click="linkedEntry = null"
+        >
+          Don’t link
+        </button>
+      </div>
+      <ItemForm
+        class="mt-3"
+        :schema="schema"
+        :initial="{ name: prefilledName, attributes: prefilledAttributes, quantity: 1 }"
+        submit-label="Add to collection"
+        @submit="onSubmit"
+        @cancel="reset"
+      />
+    </template>
   </section>
 </template>

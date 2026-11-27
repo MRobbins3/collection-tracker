@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import type { AttributeSchema } from "~/types/api";
+import { identifierTitle } from "~/utils/catalog";
+import type { AttributeSchema, Category } from "~/types/api";
 
 const route = useRoute();
 const router = useRouter();
@@ -11,7 +12,7 @@ const { data: collection, refresh, pending, error } = useMyCollection(id);
 const { rename, remove: removeCollection } = useMyCollectionsActions();
 const { data: itemsData, refresh: refreshItems } = useCollectionItems(id);
 const { create, update, remove } = useItemsActions(id);
-const { data: category } = useAsyncData<{ attribute_schema: AttributeSchema }>(
+const { data: category } = useAsyncData<Pick<Category, "attribute_schema" | "catalog_identifier">>(
   `category-for-collection:${id}`,
   async () => {
     const api = useApi();
@@ -20,6 +21,7 @@ const { data: category } = useAsyncData<{ attribute_schema: AttributeSchema }>(
   },
   { watch: [collection] },
 );
+const idTitle = computed(() => identifierTitle(category.value));
 
 const categorySchema = computed<AttributeSchema | undefined>(
   () => (category.value?.attribute_schema as AttributeSchema | undefined),
@@ -69,7 +71,13 @@ async function onDeleteCollection() {
   await router.push("/my");
 }
 
-async function onCreateItem(payload: { name: string; quantity: number; condition?: string; attributes: Record<string, unknown> }) {
+async function onCreateItem(payload: {
+  name: string;
+  quantity: number;
+  condition?: string;
+  attributes: Record<string, unknown>;
+  catalog_entry_id?: string;
+}) {
   try {
     await create(payload);
     await refreshItems();
@@ -141,6 +149,7 @@ async function onDeleteItem(itemId: string, name: string) {
         <NewItemPanel
           :category-slug="collection.category_slug"
           :schema="categorySchema"
+          :identifier-title="idTitle"
           @create="onCreateItem"
         />
 
@@ -154,7 +163,10 @@ async function onDeleteItem(itemId: string, name: string) {
             :key="it.id"
             :item="it"
             :schema="categorySchema"
+            :category-slug="collection.category_slug"
+            :identifier-title="idTitle"
             @update="(p) => onUpdateItem(it.id, p)"
+            @catalog-changed="refreshItems()"
             @delete="onDeleteItem(it.id, it.name)"
           />
         </ul>

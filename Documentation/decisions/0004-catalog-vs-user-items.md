@@ -2,6 +2,7 @@
 
 - **Status:** Accepted (directional; partial implementation lands with Milestone 8, full catalog population is phase 2)
 - **Date:** 2026-04-19
+- **Update (2026-11-27):** Phase 2 seeding, browse, autocomplete, and item linking landed; natural keys and the explicit-linking rules are in ADR 0011 (Proposed).
 
 ## Context
 

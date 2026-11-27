@@ -21,14 +21,8 @@ type ItemStore interface {
 	GetInCollectionForUser(ctx context.Context, id, collectionID, userID string) (store.Item, error)
 	Update(ctx context.Context, id, collectionID, userID string, in store.ItemInput) (store.Item, error)
 	Delete(ctx context.Context, id, collectionID, userID string) error
+	SetCatalogEntry(ctx context.Context, id, collectionID, userID string, entryID *string) (store.Item, error)
 	SearchForUser(ctx context.Context, userID, q string, limit int) ([]store.ItemSearchResult, bool, error)
-}
-
-// CatalogStore is the narrow view for the public catalog search endpoint.
-// Stays behind an interface so the handler is trivially testable and so we
-// can swap the backing store without touching routing.
-type CatalogStore interface {
-	Search(ctx context.Context, categorySlug, query string) ([]store.CatalogEntry, error)
 }
 
 type itemInputReq struct {
@@ -36,6 +30,9 @@ type itemInputReq struct {
 	Quantity   int             `json:"quantity"`
 	Condition  *string         `json:"condition,omitempty"`
 	Attributes json.RawMessage `json:"attributes,omitempty"`
+	// CatalogEntryID links a new item to a catalog entry (create only; see
+	// store.ItemInput). Blank means free-form.
+	CatalogEntryID *string `json:"catalog_entry_id,omitempty"`
 }
 
 const (
@@ -94,14 +91,19 @@ func (h *handlers) createItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	item, err := h.items.Create(r.Context(), collectionID, s.UserID, store.ItemInput{
-		Name:       body.Name,
-		Quantity:   body.Quantity,
-		Condition:  normalizeCondition(body.Condition),
-		Attributes: body.Attributes,
+		Name:           body.Name,
+		Quantity:       body.Quantity,
+		Condition:      normalizeCondition(body.Condition),
+		Attributes:     body.Attributes,
+		CatalogEntryID: normalizeCondition(body.CatalogEntryID),
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "collection not found"})
+			return
+		}
+		if errors.Is(err, store.ErrCatalogEntryUnavailable) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": catalogEntryUnavailableMsg})
 			return
 		}
 		h.serverError(w, r, err, "createItem failed")
@@ -176,24 +178,6 @@ func (h *handlers) deleteItem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// searchCatalog is public. Returns matching catalog entries for a category
-// with optional name query. MVP: the table is empty, so callers always get
-// {"entries": []} — the UI still binds to this shape so phase-2 is seamless.
-func (h *handlers) searchCatalog(w http.ResponseWriter, r *http.Request) {
-	slug := strings.TrimSpace(r.URL.Query().Get("category_slug"))
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	if slug == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "category_slug is required"})
-		return
-	}
-	entries, err := h.catalog.Search(r.Context(), slug, q)
-	if err != nil {
-		h.serverError(w, r, err, "searchCatalog failed")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
-}
-
 func validateItemInput(in itemInputReq) (map[string]string, bool) {
 	if n := len(in.Name); n < itemNameMin || n > itemNameMax {
 		return map[string]string{"error": "name must be 1–200 characters"}, false
@@ -204,6 +188,8 @@ func validateItemInput(in itemInputReq) (map[string]string, bool) {
 	return nil, true
 }
 
+// normalizeCondition trims an optional string, mapping blank to nil. Used
+// for the item condition and the optional catalog entry id.
 func normalizeCondition(c *string) *string {
 	if c == nil {
 		return nil

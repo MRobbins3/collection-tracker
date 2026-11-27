@@ -16,6 +16,9 @@ type Category struct {
 	Name            string          `json:"name"`
 	Description     *string         `json:"description,omitempty"`
 	AttributeSchema json.RawMessage `json:"attribute_schema"`
+	// CatalogIdentifier is the attribute that, with the name, tells catalog
+	// entries apart (e.g. "set_number"); nil when the name alone does.
+	CatalogIdentifier *string `json:"catalog_identifier,omitempty"`
 }
 
 type Categories struct {
@@ -26,7 +29,7 @@ func NewCategories(pool *pgxpool.Pool) *Categories {
 	return &Categories{pool: pool}
 }
 
-const categorySelectColumns = "id, slug, name, description, attribute_schema"
+const categorySelectColumns = "id, slug, name, description, attribute_schema, catalog_identifier"
 
 func (c *Categories) List(ctx context.Context) ([]Category, error) {
 	rows, err := c.pool.Query(ctx,
@@ -75,7 +78,7 @@ type rowScanner interface {
 func scanCategory(r rowScanner) (Category, error) {
 	var cat Category
 	var raw []byte
-	if err := r.Scan(&cat.ID, &cat.Slug, &cat.Name, &cat.Description, &raw); err != nil {
+	if err := r.Scan(&cat.ID, &cat.Slug, &cat.Name, &cat.Description, &raw, &cat.CatalogIdentifier); err != nil {
 		return Category{}, err
 	}
 	cat.AttributeSchema = json.RawMessage(raw)

@@ -11,8 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Item is the user-owned record in a collection. It may reference a catalog
-// entry (phase 2) but is fully usable as free-form today (CatalogEntryID nil).
+// Item is the user-owned record in a collection. It may reference an
+// approved catalog entry (ADR 0004); free-form items (CatalogEntryID nil)
+// stay fully usable forever.
 type Item struct {
 	ID             string          `json:"id"`
 	CollectionID   string          `json:"collection_id"`
@@ -32,6 +33,10 @@ type ItemInput struct {
 	Quantity   int
 	Condition  *string
 	Attributes json.RawMessage // caller should have validated against the category schema
+	// CatalogEntryID links a new item to an approved catalog entry in the
+	// collection's category. Create only: Update leaves the link alone (use
+	// SetCatalogEntry), so editing an item never silently unlinks it.
+	CatalogEntryID *string
 }
 
 type Items struct {
@@ -54,16 +59,25 @@ func (s *Items) Create(ctx context.Context, collectionID, userID string, in Item
 	if err := s.assertCollectionOwned(ctx, collectionID, userID); err != nil {
 		return Item{}, err
 	}
+	if in.CatalogEntryID != nil && !validIDs(*in.CatalogEntryID) {
+		return Item{}, ErrCatalogEntryUnavailable
+	}
 	attrs := in.Attributes
 	if len(attrs) == 0 {
 		attrs = json.RawMessage("{}")
 	}
+	// The catalog check is part of the insert, so an entry rejected
+	// concurrently can't be linked between a check and the write.
 	var id string
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO items (collection_id, name, quantity, condition, attributes)
-		VALUES ($1, $2, $3, $4, $5::jsonb)
+		INSERT INTO items (collection_id, name, quantity, condition, attributes, catalog_entry_id)
+		SELECT $1, $2, $3, $4, $5::jsonb, $6::uuid
+		WHERE `+catalogLinkable("$6", "$1")+`
 		RETURNING id
-	`, collectionID, in.Name, in.Quantity, in.Condition, string(attrs)).Scan(&id)
+	`, collectionID, in.Name, in.Quantity, in.Condition, string(attrs), in.CatalogEntryID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Item{}, ErrCatalogEntryUnavailable
+	}
 	if err != nil {
 		return Item{}, fmt.Errorf("insert item: %w", err)
 	}
@@ -157,6 +171,51 @@ func (s *Items) Delete(ctx context.Context, id, collectionID, userID string) err
 		return ErrNotFound
 	}
 	return nil
+}
+
+// SetCatalogEntry links the user's item to an approved catalog entry in the
+// collection's category, or unlinks it when entryID is nil. Only the link
+// changes: the owner's name and attributes stay exactly as they were (ADR
+// 0004). ErrNotFound when the item isn't the user's;
+// ErrCatalogEntryUnavailable when the entry can't be linked.
+func (s *Items) SetCatalogEntry(ctx context.Context, id, collectionID, userID string, entryID *string) (Item, error) {
+	if _, err := s.GetInCollectionForUser(ctx, id, collectionID, userID); err != nil {
+		return Item{}, err
+	}
+	if entryID != nil && !validIDs(*entryID) {
+		return Item{}, ErrCatalogEntryUnavailable
+	}
+	// As in Create, the catalog check is part of the write.
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE items SET catalog_entry_id = $1::uuid, updated_at = now()
+		FROM collections c
+		WHERE items.id = $2 AND items.collection_id = $3 AND c.id = items.collection_id AND c.user_id = $4
+		  AND `+catalogLinkable("$1", "$3")+`
+	`, entryID, id, collectionID, userID)
+	if err != nil {
+		return Item{}, fmt.Errorf("set catalog entry: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		// The item was owned a moment ago, so the entry is what failed
+		// (unless the item was deleted in between).
+		if _, err := s.GetInCollectionForUser(ctx, id, collectionID, userID); err != nil {
+			return Item{}, err
+		}
+		return Item{}, ErrCatalogEntryUnavailable
+	}
+	return s.GetInCollectionForUser(ctx, id, collectionID, userID)
+}
+
+// catalogLinkable is the SQL condition, shared by item create and link,
+// that the entry parameter (a catalog entry id, or NULL for none) is an
+// approved entry in the collection parameter's category. Arguments are
+// placeholders such as "$6".
+func catalogLinkable(entry, collection string) string {
+	return `(` + entry + `::uuid IS NULL OR EXISTS (
+		SELECT 1 FROM catalog_entries ce
+		JOIN collections cc ON cc.category_id = ce.category_id
+		WHERE ce.id = ` + entry + `::uuid AND cc.id = ` + collection + ` AND ce.status = 'approved'
+	))`
 }
 
 // assertCollectionOwned returns ErrNotFound if the user doesn't own the
