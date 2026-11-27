@@ -15,7 +15,7 @@ Users need a public identity (a handle and profile page) before friends, followe
 - **`display_name`** (existing column): 1–50 characters with whitespace collapsed. The user owns it now: Google sign-in refreshes only the email and no longer overwrites the name. The settings page suggests Title Case for all-lowercase names but never forces it.
 - **`bio`**: 0–160 characters, kept on one line.
 - **Avatar**: no uploads (photo uploads stay deferred). The avatar shows initials plus a palette color derived from the user id (FNV hash), so it survives renames. The API returns the color name and the web maps it to Tailwind classes.
-- **Backfill**: a migration step gives every existing user a handle. It's derived from the display name, which is already public, and falls back to the email's local part only if the name gives nothing usable, then to `collector`. Accents are folded, other characters become `_`, and collisions or reserved words get `2`, `3`, and so on, oldest accounts first. New sign-ups use the same logic in Go (`profile.DeriveHandleBase` + `PickFreeHandle`) and retry on a unique-violation race. The migration is reversible: down drops the new columns.
+- **Backfill**: a migration step gives every existing user a handle. It's derived only from the display name, which is already public. When the name gives nothing usable (for example a non-Latin script), the handle is `collector` plus a suffix, never anything from the email, because handles are published at `/u/<handle>`. Accents are folded, other characters become `_`, and collisions or reserved words get `2`, `3`, and so on, oldest accounts first. New sign-ups use the same logic in Go (`profile.DeriveHandleBase` + `PickFreeHandle`) and retry on a unique-violation race. The migration is reversible: down drops the new columns.
 
 ### Privacy settings
 
@@ -37,11 +37,17 @@ The relationship comes from `store.Relationships.Between(viewer, owner)`. It ret
 ### API
 
 - `GET /me/profile`, `PATCH /me/profile` (partial; per-field errors `{"error", "fields": {...}}` with 400, or 409 for a taken handle).
-- `GET /me/handle-availability?handle=` (signed in only, so it isn't an anonymous enumeration tool; your own handle counts as available).
+- `GET /me/handle-availability?handle=` (signed in only and rate limited per user: 20 quick checks, then one every 3 seconds, else 429; your own handle counts as available).
 - `GET /users/{handle}` returns the public card (handle, display name, bio, avatar color; never email, toggles, or ids), `is_self`, `collection_visibility`, `collections_visible`, and `collections` (empty unless visible).
 - `GET /users/{handle}/collections/{id}` returns one collection with its items, read-only.
 - **Hidden profiles return 404 with the same body as unknown handles** (`{"error":"profile not found"}`), so a stranger can't tell that a Private user exists. This extends the repo's 404-not-403 rule. A collection the viewer can't see is also 404.
 - `DELETE /me` deletes the account. Collections and items cascade (`ON DELETE CASCADE`), catalog entries the user submitted or approved stay but lose the attribution (`SET NULL`), and the session cookie is cleared. The body must repeat the handle (`{"confirm_handle": ...}`), and the web asks the user to type it. **Every future table that references `users` must `ON DELETE CASCADE`** (or `SET NULL` for shared content) so deletion stays complete.
+
+### Known residual leaks
+
+- **Handle existence is knowable even for Private profiles.** Handles are unique, so any signed-in user can learn that `@x` is taken, from the availability check or from a 409 when saving. A taken handle can belong to a Private account. This can't be avoided while handles are unique and self-chosen. It's reduced by requiring sign-in and rate limiting the availability check per user. The 404 on `/users/{handle}` still hides the profile itself (name, bio, collections). The 409 path isn't rate limited.
+- **Handle changes free the old handle immediately.** Someone else can claim it at once and receive links that pointed at the previous owner. No cooldown or redirect is built (needs an owner decision).
+- **`collection_visibility` is returned to every viewer who can see the card**, so a visitor learns the owner's level (e.g. "Friends only"). It's kept for the explanatory message (needs an owner decision).
 
 ### Testing aid
 
@@ -53,7 +59,7 @@ The relationship comes from `store.Relationships.Between(viewer, owner)`. It ret
 - **Default `public`.** This is the common social-app default, but it exposes collections, which can reveal valuable possessions, without consent.
 - **Separate profile visibility setting.** Rejected for now: a fifth control nobody asked for. Private already hides the card from strangers. It can be added later without changing the rule's shape.
 - **403 for hidden profiles.** Rejected: it leaks existence.
-- **Derive backfill handles from the email.** Rejected as the first choice: handles are public, and email local parts often contain real names, birth years, or employer patterns. The display name is already public.
+- **Derive handles from the email** (even as a fallback). Rejected: handles are public, and email local parts often contain real names, birth years, or employer patterns. Non-Latin names get `collector` plus a suffix and can pick a handle in Settings.
 - **`citext` for handles.** Rejected: a lowercase CHECK plus normalization at write time gives the same case-insensitivity, and the stored value is the canonical form.
 - **Privacy settings in a separate table.** Rejected for now: these are one-to-one with users and always read together. Split them out if settings grow.
 - **Collection-level visibility overrides.** Deferred: account-level is what the owner asked for. A per-collection override would become another input to `CanViewCollections`.

@@ -18,8 +18,8 @@ These are decisions made without the owner, for review. The branch covers profil
 
 - **Rules:** 3–30 characters of lowercase letters, digits, and underscores, starting with a letter. No dots or hyphens, to avoid look-alikes (`liam.j` vs `liam_j`) and file-extension confusion. Stored lowercase (CHECK constraint), so the plain unique constraint is case-insensitive. `citext` wasn't needed. Input is trimmed, one leading `@` is dropped, and the rest is lowercased.
 - **Reserved words** (`admin`, `me`, `settings`, `api`, `auth`, `u`, `my`, `support`, `moderator`, …) are listed in `api/internal/profile`. The migration has a frozen copy, used only for the one-time backfill. The web doesn't duplicate the list: the live availability check reports "reserved".
-- **Backfill and sign-up derive the handle from the display name first** (already public). The email local part is used only if the name yields nothing usable, then `collector`. Why: handles are public, and email local parts often contain birth years or work patterns. Collisions and reserved words get `2`, `3`, …, oldest accounts first. Accents are folded the same way in Go (NFD) and SQL (`translate` of the NFD-decomposable Latin letters). `ø` and `ł` don't decompose, so both layers drop them.
-- **The handle availability check requires sign-in** so it can't be used for anonymous enumeration, although public profiles are findable by URL anyway.
+- **Backfill and sign-up derive the handle only from the display name** (already public). When the name yields nothing usable (e.g. a non-Latin script, or under 3 characters), the handle is `collector` plus a suffix. It never uses the email: handles are published at `/u/<handle>`, and email local parts often contain birth years or work patterns. Collisions and reserved words get `2`, `3`, …, oldest accounts first. Accents are folded the same way in Go (NFD) and SQL (`translate` of the NFD-decomposable Latin letters). `ø` and `ł` don't decompose, so both layers drop them.
+- **The availability check leaks handle existence, including for Private profiles.** Unique handles make this unavoidable: any signed-in user can learn `@x` is taken, from the check or a 409 on save. That's how they learn a Private account exists, though they never see its card or collections. It's reduced by requiring sign-in and a per-user, in-memory token bucket on the check (20 quick checks, then one every 3 s; 429 with a friendly message). The bucket is per API process, and the 409 save path isn't limited. Alternative: drop the live check and report "taken" only on save. That's worse UX, and the 409 leaks the same fact.
 - **Taken handle on save → 409** with the same `{error, fields}` body as the 400 validation errors.
 - **Dev personas' handles are their dev-login keys** (`liam`, `emma`, …), so `/u/liam` works.
 
@@ -50,9 +50,17 @@ These are decisions made without the owner, for review. The branch covers profil
 - **Persona visibilities cover every level**: Olivia and Liam Public, Emma Private, Noah Friends only, Amelia Followers & friends. Persona bios are invented one-liners, not from a public list.
 - **`migrations.UpTo`** was added so the backfill test can build a version-2 database, insert users, then apply 0003, roll it back, and apply it again.
 
+## Review fixes (2026-11-27)
+
+- **Malformed ids** (`/users/x/collections/not-a-uuid`, and the existing `/me/collections/{id}` and item routes) are now 404, not a Postgres 22P02 → 500. The store checks UUID shape in one helper (`validIDs`) before querying, and a real-DB test covers every id-taking collection and item method.
+- **Stale sessions after account deletion**: every signed-in route now checks the session's user still exists (one primary-key lookup). If it doesn't, the route answers 401 and clears the cookie, instead of failing on foreign keys on another device.
+- **The backfill's `lower()` depends on the database's ctype/collation.** It works for the ASCII and Latin letters that the `translate` list covers. Under an unusual locale, non-ASCII case-folding could differ from Go's `strings.ToLower`. Any character that isn't ASCII after folding becomes `_` anyway, so the worst case is a slightly different backfilled handle, never an invalid one (the CHECK constraint guarantees that).
+
 ## Needs owner decision
 
-- None blocking. Worth a look: the **Friends only default** and **hard delete with no grace period** (both above).
+- **Default visibility Friends only** and **hard delete with no grace period** (both above).
+- **`collection_visibility` is shown to every viewer who can see the card**, so visitors learn the owner's level ("Only Noah Williams's friends can see their collections"). It's kept because the message helps people decide whether to send a request. Alternative: a generic "collections are hidden".
+- **Handle changes free the old handle immediately**, so someone else could claim it and receive links meant for the previous owner. No cooldown or redirect is built. Options: a 30-day hold on released handles, or redirects from old handles.
 
 ## Not done
 
