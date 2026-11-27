@@ -154,6 +154,7 @@ func NewRouter(deps Deps) http.Handler {
 	// Authenticated
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Require)
+		r.Use(h.requireLiveUser)
 		r.Get("/me/collections", h.listMyCollections)
 		r.Post("/me/collections", h.createMyCollection)
 		r.Get("/me/collections/{id}", h.getMyCollection)

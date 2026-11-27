@@ -529,3 +529,31 @@ func TestPublicCollection(t *testing.T) {
 	rr = doJSON(t, f.router(t, "u-noah"), http.MethodGet, "/users/noah/collections/"+f.collIDs["noah"], nil)
 	require.Equal(t, http.StatusOK, rr.Code, "owners always see their own")
 }
+
+// After DELETE /me, a session cookie on another device still decodes, but
+// its user is gone: signed-in routes answer 401 and clear the cookie
+// instead of failing on foreign keys.
+func TestSessionForDeletedUserIs401AndClearsCookie(t *testing.T) {
+	deps := server.Deps{
+		Categories:  &fakeCategories{},
+		Collections: newFakeCollections(),
+		Items:       newFakeItems(),
+		Users:       &fakeUsers{errByID: store.ErrNotFound},
+	}
+	h := newAuthenticatedRouterWithDeps(t, deps, "u-deleted")
+	for _, c := range []struct{ method, path string }{
+		{http.MethodGet, "/me/collections"},
+		{http.MethodPost, "/me/collections"},
+		{http.MethodGet, "/me/profile"},
+	} {
+		rr := doJSON(t, h, c.method, c.path, map[string]any{"name": "x", "category_slug": "coins"})
+		require.Equal(t, http.StatusUnauthorized, rr.Code, c.path)
+		var cleared bool
+		for _, ck := range rr.Result().Cookies() {
+			if ck.Name == "ct_session" && ck.MaxAge < 0 {
+				cleared = true
+			}
+		}
+		require.True(t, cleared, c.path)
+	}
+}
