@@ -51,6 +51,9 @@ Decisions made without the owner, for review. Covers the admin role, user catalo
 
 ## Tests and other changes
 
+- **Review fixes (after the first CI pass):** the dev sample-catalog upsert now refreshes only already-approved rows, so it can't approve a user's pending suggestion with the same key (seed test added); reject, merge, and approve refuse with 409 if the submission's entry is no longer pending (store test added); `Users.Delete` locks the user row first so a concurrent suggestion can't leave a pending entry with no submitter (not covered by a test: needs a reliable interleaving); the per-user lock in submissions is `FOR NO KEY UPDATE`; omitted suggestion attributes are validated as `{}`; a parallel-submit test at 19 pending proves the cap; migration 0007's Down now deletes rejected rows that would collide and is tested with them present.
+- **Changelog placement:** the changelog entry for the whole feature is in the admin-UI commit (`feat(web): admin moderation queue…`), not the first user-visible web commit before it. Left as is to avoid rewriting pushed history.
+
 - **Fixed a flaky e2e spec** (`profiles.spec.ts`, account deletion): disposable users get the lowest free `disposable_tester<N>` handle, so a parallel spec's new user could take the deleted user's handle and its profile would show. The spec now gives its user a unique handle first. The moderation specs create more disposable users in parallel, which made the flake frequent. Alternative: random disposable handles in `auth.Dev.Disposable`.
 - **E2E uses the Books category with unique names per run**, because approved entries persist in a local database and the global-catalog spec counts Lego entries.
 
