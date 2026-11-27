@@ -103,8 +103,9 @@ func (f *fakeCollections) Delete(_ context.Context, id, userID string) error {
 // fakeUsers implements server.UserStore for /me to return a stub user when
 // the router tests care about it.
 type fakeUsers struct {
-	user    store.User
-	errByID error
+	user     store.User
+	errByID  error
+	profiles *fakeProfiles // profile methods live in handlers_profile_test.go
 }
 
 func (f *fakeUsers) GetByID(_ context.Context, _ string) (store.User, error) {

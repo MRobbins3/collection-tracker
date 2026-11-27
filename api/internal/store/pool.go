@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,6 +15,21 @@ import (
 
 // ErrNotFound is returned by store lookups when no row matches.
 var ErrNotFound = errors.New("store: not found")
+
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// validIDs reports whether every id is a well-formed UUID. Ids reach the
+// store straight from URL paths; a malformed one can't match a row, so
+// callers answer ErrNotFound instead of letting Postgres fail the cast
+// (22P02), which would surface as a 500.
+func validIDs(ids ...string) bool {
+	for _, id := range ids {
+		if !uuidPattern.MatchString(id) {
+			return false
+		}
+	}
+	return true
+}
 
 func NewPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dbURL)

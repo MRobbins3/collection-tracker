@@ -90,6 +90,27 @@ func (h *handlers) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": user})
 }
 
+// requireLiveUser runs after auth.Require. A session cookie stays valid
+// after its account is deleted (e.g. on another device), so check the user
+// still exists: if not, clear the cookie and answer 401 instead of letting
+// handlers fail on foreign keys. One primary-key lookup per signed-in
+// request.
+func (h *handlers) requireLiveUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s, _ := auth.FromContext(r.Context())
+		if _, err := h.users.GetByID(r.Context(), s.UserID); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				h.clearSession(w)
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				return
+			}
+			h.serverError(w, r, err, "requireLiveUser: user lookup failed")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // authProviders reports which sign-in providers this API offers. google is
 // true only when OAuth credentials are configured; dev only when the dev
 // provider is enabled (never in production).

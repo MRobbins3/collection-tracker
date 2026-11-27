@@ -20,7 +20,7 @@
 --   * Emails use example.com (reserved by RFC 2606), so nothing is ever
 --     sent to a real inbox.
 --
--- Extending: later PRs add roles, privacy settings, and friendships for
+-- Extending: later PRs add roles and friendships for
 -- these personas. Add new columns to the users upsert below (and to its
 -- IS DISTINCT FROM guard), or add a new 00NN_*.sql file that keys on
 -- google_sub, e.g. (SELECT id FROM users WHERE google_sub = 'dev:olivia').
@@ -30,27 +30,40 @@
 -- from the US Census Bureau's most common surnames
 -- (https://www.census.gov/topics/population/genealogy/data/2010_surnames.html).
 --
---   handle  | display name     | scenario
---   --------+------------------+--------------------------------------------
---   olivia  | Olivia Martinez  | admin-to-be (moderates the catalog later)
---   liam    | Liam Johnson     | collector with populated collections
---   emma    | Emma Garcia      | brand-new user, no collections
---   noah    | Noah Williams    | future friend of Liam (one small collection)
---   amelia  | Amelia Brown     | future follower of Liam (one small collection)
+--   handle  | display name     | collections visible to | scenario
+--   --------+------------------+------------------------+-------------------------------
+--   olivia  | Olivia Martinez  | public                 | admin-to-be (moderates later)
+--   liam    | Liam Johnson     | public                 | collector with populated collections
+--   emma    | Emma Garcia      | private                | brand-new user, no collections
+--   noah    | Noah Williams    | friends_only           | future friend of Liam (one small collection)
+--   amelia  | Amelia Brown     | followers_and_friends  | future follower of Liam (one small collection)
+--
+-- The handle column matches the part of google_sub after 'dev:', so the
+-- persona's public profile is /u/<handle>. Visibility covers every privacy
+-- level (ADR 0009) so the profile page can be checked against each.
 
 -- Users ----------------------------------------------------------------------
 
-INSERT INTO users (google_sub, email, display_name) VALUES
-    ('dev:olivia', 'olivia.martinez@example.com', 'Olivia Martinez'),
-    ('dev:liam',   'liam.johnson@example.com',    'Liam Johnson'),
-    ('dev:emma',   'emma.garcia@example.com',     'Emma Garcia'),
-    ('dev:noah',   'noah.williams@example.com',   'Noah Williams'),
-    ('dev:amelia', 'amelia.brown@example.com',    'Amelia Brown')
+INSERT INTO users (google_sub, email, display_name, handle, bio, collection_visibility) VALUES
+    ('dev:olivia', 'olivia.martinez@example.com', 'Olivia Martinez', 'olivia',
+     'Keeping the catalog tidy. Collects stamps on the side.', 'public'),
+    ('dev:liam',   'liam.johnson@example.com',    'Liam Johnson',    'liam',
+     'Lego builder and classic rock vinyl hunter.', 'public'),
+    ('dev:emma',   'emma.garcia@example.com',     'Emma Garcia',     'emma',
+     'Just getting started.', 'private'),
+    ('dev:noah',   'noah.williams@example.com',   'Noah Williams',   'noah',
+     'US coins, mostly pocket-change finds.', 'friends_only'),
+    ('dev:amelia', 'amelia.brown@example.com',    'Amelia Brown',    'amelia',
+     'Houseplants on every windowsill. Cuttings welcome.', 'followers_and_friends')
 ON CONFLICT (google_sub) DO UPDATE SET
-    email        = EXCLUDED.email,
-    display_name = EXCLUDED.display_name
-WHERE (users.email, users.display_name)
-      IS DISTINCT FROM (EXCLUDED.email, EXCLUDED.display_name);
+    email                 = EXCLUDED.email,
+    display_name          = EXCLUDED.display_name,
+    handle                = EXCLUDED.handle,
+    bio                   = EXCLUDED.bio,
+    collection_visibility = EXCLUDED.collection_visibility
+WHERE (users.email, users.display_name, users.handle, users.bio, users.collection_visibility)
+      IS DISTINCT FROM (EXCLUDED.email, EXCLUDED.display_name, EXCLUDED.handle,
+                        EXCLUDED.bio, EXCLUDED.collection_visibility);
 
 -- Collections ----------------------------------------------------------------
 

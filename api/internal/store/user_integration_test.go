@@ -32,7 +32,7 @@ func TestUsersUpsertAndGet(t *testing.T) {
 		require.False(t, u.CreatedAt.IsZero())
 	})
 
-	t.Run("upsert updates email + name, keeps id and created_at", func(t *testing.T) {
+	t.Run("upsert updates email, keeps name, id, and created_at", func(t *testing.T) {
 		first, err := users.UpsertByGoogleSub(ctx, "google-sub-b", "b@example.com", "Bob")
 		require.NoError(t, err)
 
@@ -42,7 +42,9 @@ func TestUsersUpsertAndGet(t *testing.T) {
 		require.Equal(t, first.ID, second.ID, "upsert should keep the same id")
 		require.WithinDuration(t, first.CreatedAt, second.CreatedAt, time.Second)
 		require.Equal(t, "bob@new.com", second.Email)
-		require.Equal(t, "Robert", second.DisplayName)
+		// The display name is user-editable (settings page), so sign-in
+		// no longer overwrites it with Google's.
+		require.Equal(t, "Bob", second.DisplayName)
 	})
 
 	t.Run("GetByID returns the user", func(t *testing.T) {

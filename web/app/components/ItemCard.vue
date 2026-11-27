@@ -3,7 +3,8 @@ import { computed, ref } from "vue";
 import ItemForm from "./ItemForm.vue";
 import type { AttributeSchema, Item } from "~/types/api";
 
-const props = defineProps<{ item: Item; schema?: AttributeSchema }>();
+// readonly hides Edit/Delete: used on other people's profiles.
+const props = defineProps<{ item: Item; schema?: AttributeSchema; readonly?: boolean }>();
 
 const emit = defineEmits<{
   (e: "update", input: { name: string; quantity: number; condition?: string; attributes: Record<string, unknown> }): void;
@@ -53,7 +54,7 @@ function humanize(key: string): string {
             </template>
           </dl>
         </div>
-        <div class="flex shrink-0 gap-1">
+        <div v-if="!readonly" class="flex shrink-0 gap-1">
           <button
             type="button"
             class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"

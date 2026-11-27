@@ -95,6 +95,9 @@ func (c *Collections) ListByUser(ctx context.Context, userID string) ([]Collecti
 // GetByIDForUser returns the row only if the user owns it. Missing or
 // not-owned both return ErrNotFound to avoid leaking existence.
 func (c *Collections) GetByIDForUser(ctx context.Context, id, userID string) (Collection, error) {
+	if !validIDs(id, userID) {
+		return Collection{}, ErrNotFound
+	}
 	row := c.pool.QueryRow(ctx, `
 		SELECT `+collectionSelectCols+`
 		FROM collections c
@@ -113,6 +116,9 @@ func (c *Collections) GetByIDForUser(ctx context.Context, id, userID string) (Co
 
 // Rename updates the name if the user owns the row. ErrNotFound otherwise.
 func (c *Collections) Rename(ctx context.Context, id, userID, newName string) (Collection, error) {
+	if !validIDs(id, userID) {
+		return Collection{}, ErrNotFound
+	}
 	tag, err := c.pool.Exec(ctx, `
 		UPDATE collections SET name = $1, updated_at = now()
 		WHERE id = $2 AND user_id = $3
@@ -129,6 +135,9 @@ func (c *Collections) Rename(ctx context.Context, id, userID, newName string) (C
 // Delete removes the collection if the user owns it. ErrNotFound otherwise.
 // Items cascade via the FK definition.
 func (c *Collections) Delete(ctx context.Context, id, userID string) error {
+	if !validIDs(id, userID) {
+		return ErrNotFound
+	}
 	tag, err := c.pool.Exec(ctx, `DELETE FROM collections WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("delete collection: %w", err)

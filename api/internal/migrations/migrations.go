@@ -23,6 +23,14 @@ func Up(ctx context.Context, dbURL string) error {
 	})
 }
 
+// UpTo applies migrations up to and including version. Tests use it to
+// build a database as it was before a migration, add rows, then run the rest.
+func UpTo(ctx context.Context, dbURL string, version int64) error {
+	return run(ctx, dbURL, func(db *sql.DB) error {
+		return goose.UpToContext(ctx, db, "sql", version)
+	})
+}
+
 // Down rolls back the most recent migration. Intended for tests and local
 // development — production rollbacks should be explicit and reviewed.
 func Down(ctx context.Context, dbURL string) error {

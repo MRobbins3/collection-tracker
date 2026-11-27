@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signInAsTestUser } from "./helpers";
+import { signInAsTestUser, signOut } from "./helpers";
 
 test.describe("test-user sign-in", () => {
   test("sign in as a persona, see their collections, sign out", async ({ page }) => {
@@ -19,7 +19,7 @@ test.describe("test-user sign-in", () => {
     await expect(page.getByTestId("auth-menu-signed-in")).toContainText("Liam Johnson", { timeout: 15_000 });
     await expect(page.getByTestId("my-collections-list").getByText("Lego Display Shelf")).toBeVisible();
 
-    await page.getByTestId("logout-button").click();
+    await signOut(page);
     await expect(page.getByTestId("signin-prompt")).toBeVisible();
     await expect(page.getByRole("button", { name: "Test sign-in" })).toBeVisible();
     await expect(page.getByTestId("my-collections-list")).toHaveCount(0);

@@ -14,6 +14,10 @@ export function useAuth() {
   const user = useState<User | null>("auth:user", () => null);
   const providers = useState<AuthProviders | null>("auth:providers", () => null);
   const loading = useState<boolean>("auth:loading", () => false);
+  // True once the first /me answer is in (signed in or not). Pages whose
+  // content depends on who's asking wait for it instead of rendering the
+  // anonymous answer first.
+  const ready = useState<boolean>("auth:ready", () => false);
   const api = useApi();
 
   async function refresh(): Promise<void> {
@@ -27,6 +31,7 @@ export function useAuth() {
       user.value = null;
     } finally {
       loading.value = false;
+      ready.value = true;
     }
   }
 
@@ -86,6 +91,7 @@ export function useAuth() {
     providers,
     isSignedIn,
     loading,
+    ready,
     refresh,
     refreshProviders,
     loginURL,

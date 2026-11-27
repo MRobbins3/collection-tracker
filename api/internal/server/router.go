@@ -25,8 +25,11 @@ type Deps struct {
 	Items       ItemStore
 	Catalog     CatalogStore
 	Users       UserStore
-	Sessions    *auth.Manager
-	GoogleAuth  *auth.Google
+	// Relationships feeds the privacy rule (ADR 0009). nil falls back to
+	// "self or stranger", which is all that exists until friends/followers.
+	Relationships RelationshipStore
+	Sessions      *auth.Manager
+	GoogleAuth    *auth.Google
 	// DevAuth is the local/CI-only sign-in provider. nil (the default, and
 	// always in production) means its /auth/dev/* routes don't exist.
 	DevAuth     *auth.Dev
@@ -46,22 +49,30 @@ type CategoryStore interface {
 	GetBySlug(ctx context.Context, slug string) (store.Category, error)
 }
 
-// UserStore is the narrow view of user queries the HTTP layer needs.
+// UserStore is the narrow view of user and profile queries the HTTP layer
+// needs.
 type UserStore interface {
 	GetByID(ctx context.Context, id string) (store.User, error)
+	GetProfile(ctx context.Context, userID string) (store.Profile, error)
+	GetProfileByHandle(ctx context.Context, handle string) (store.Profile, error)
+	UpdateProfile(ctx context.Context, userID string, p store.ProfilePatch) (store.Profile, error)
+	HandleAvailable(ctx context.Context, handle, userID string) (bool, error)
+	Delete(ctx context.Context, userID string) error
 }
 
 type handlers struct {
-	logger      *slog.Logger
-	db          DBPinger
-	categories  CategoryStore
-	collections CollectionStore
-	items       ItemStore
-	catalog     CatalogStore
-	users       UserStore
-	sessions    *auth.Manager
-	googleAuth  *auth.Google
-	devAuth     *auth.Dev
+	logger        *slog.Logger
+	db            DBPinger
+	categories    CategoryStore
+	collections   CollectionStore
+	items         ItemStore
+	catalog       CatalogStore
+	users         UserStore
+	relationships RelationshipStore
+	handleChecks  *keyedLimiter
+	sessions      *auth.Manager
+	googleAuth    *auth.Google
+	devAuth       *auth.Dev
 }
 
 // NewRouter returns the fully-wired chi router. Constructing it in one place
@@ -69,16 +80,22 @@ type handlers struct {
 // production.
 func NewRouter(deps Deps) http.Handler {
 	h := &handlers{
-		logger:      deps.Logger,
-		db:          deps.DBPinger,
-		categories:  deps.Categories,
-		collections: deps.Collections,
-		items:       deps.Items,
-		catalog:     deps.Catalog,
-		users:       deps.Users,
-		sessions:    deps.Sessions,
-		googleAuth:  deps.GoogleAuth,
-		devAuth:     deps.DevAuth,
+		logger:        deps.Logger,
+		db:            deps.DBPinger,
+		categories:    deps.Categories,
+		collections:   deps.Collections,
+		items:         deps.Items,
+		catalog:       deps.Catalog,
+		users:         deps.Users,
+		relationships: deps.Relationships,
+		handleChecks:  newKeyedLimiter(handleCheckBurst, handleCheckInterval),
+		sessions:      deps.Sessions,
+		googleAuth:    deps.GoogleAuth,
+		devAuth:       deps.DevAuth,
+	}
+
+	if h.relationships == nil {
+		h.relationships = selfOrNone{}
 	}
 
 	r := chi.NewRouter()
@@ -110,6 +127,10 @@ func NewRouter(deps Deps) http.Handler {
 	// when anonymous, so app-boot calls never emit console 401s. Handlers that
 	// *require* a session still return 401 via the auth.Require group below.
 	r.Get("/me", h.me)
+	// Public profiles. Signed-in is optional; the privacy rule decides what
+	// each viewer sees, and hidden profiles are 404 (ADR 0009).
+	r.Get("/users/{handle}", h.getPublicProfile)
+	r.Get("/users/{handle}/collections/{id}", h.getPublicCollection)
 
 	// Auth. /auth/providers tells the web which sign-in buttons to show; it
 	// is separate from /me so /me's anonymous 200 {"user":null} contract
@@ -122,6 +143,7 @@ func NewRouter(deps Deps) http.Handler {
 	if deps.DevAuth != nil {
 		r.Get("/auth/dev/personas", deps.DevAuth.Personas)
 		r.Post("/auth/dev/login", deps.DevAuth.Login)
+		r.Post("/auth/dev/disposable", deps.DevAuth.Disposable)
 	}
 	if deps.Sessions != nil {
 		// Logout only clears the session cookie, so it serves every provider.
@@ -132,6 +154,7 @@ func NewRouter(deps Deps) http.Handler {
 	// Authenticated
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Require)
+		r.Use(h.requireLiveUser)
 		r.Get("/me/collections", h.listMyCollections)
 		r.Post("/me/collections", h.createMyCollection)
 		r.Get("/me/collections/{id}", h.getMyCollection)
@@ -144,6 +167,11 @@ func NewRouter(deps Deps) http.Handler {
 		r.Delete("/me/collections/{id}/items/{itemID}", h.deleteItem)
 
 		r.Get("/me/items", h.searchMyItems)
+
+		r.Get("/me/profile", h.getMyProfile)
+		r.Patch("/me/profile", h.patchMyProfile)
+		r.Get("/me/handle-availability", h.handleAvailability)
+		r.Delete("/me", h.deleteMe)
 	})
 
 	return r
