@@ -30,6 +30,7 @@ type SocialStore interface {
 	Unfollow(ctx context.Context, follower, followee string) error
 	ApproveFollower(ctx context.Context, me, follower string) error
 	RemoveFollower(ctx context.Context, me, follower string) error
+	DenyFollower(ctx context.Context, me, follower string) error
 	ListFriends(ctx context.Context, me string) ([]store.Person, error)
 	ListFollowers(ctx context.Context, me string) ([]store.Person, error)
 	ListFollowing(ctx context.Context, me string) ([]store.Person, error)

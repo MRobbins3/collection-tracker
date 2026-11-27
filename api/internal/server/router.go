@@ -232,7 +232,7 @@ func NewRouter(deps Deps) http.Handler {
 			r.Post("/me/friend-requests/{handle}/decline", h.removal(sc.DeclineFriendRequest, "declineFriendRequest"))
 			r.Delete("/me/friends/{handle}", h.removal(sc.Unfriend, "unfriend"))
 			r.Post("/me/follow-requests/{handle}/approve", h.approval(sc.ApproveFollower, "approveFollower"))
-			r.Post("/me/follow-requests/{handle}/deny", h.removal(sc.RemoveFollower, "denyFollower"))
+			r.Post("/me/follow-requests/{handle}/deny", h.removal(sc.DenyFollower, "denyFollower"))
 			r.Delete("/me/followers/{handle}", h.removal(sc.RemoveFollower, "removeFollower"))
 			r.Get("/me/friends", h.listPeople(sc.ListFriends, "listFriends"))
 			r.Get("/me/followers", h.listPeople(sc.ListFollowers, "listFollowers"))

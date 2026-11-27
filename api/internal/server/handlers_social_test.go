@@ -202,6 +202,16 @@ func (f *fakeSocial) RemoveFollower(ctx context.Context, me, follower string) er
 	return f.Unfollow(ctx, follower, me)
 }
 
+func (f *fakeSocial) DenyFollower(_ context.Context, me, follower string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	k := [2]string{follower, me}
+	if approved, ok := f.follows[k]; ok && !approved {
+		delete(f.follows, k)
+	}
+	return nil
+}
+
 func (f *fakeSocial) ApproveFollower(_ context.Context, me, follower string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -314,7 +324,9 @@ func (f *fakeSocial) SearchPeople(_ context.Context, viewerID, q string, limit i
 		if !privacy.CanViewProfile(p.CollectionVisibility, f.betweenLocked(viewerID, p.UserID)) {
 			continue
 		}
-		out = append(out, f.person(p.UserID))
+		found := f.person(p.UserID)
+		found.Since = time.Time{}
+		out = append(out, found)
 	}
 	out = sortPeople(out)
 	if len(out) > limit {
@@ -526,6 +538,13 @@ func TestFollowApproveDenyAndRemove(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, doJSON(t, amelia, http.MethodPost, "/me/follow-requests/liam/deny", nil).Code)
 	require.Equal(t, "none", profileAs(t, liam, "amelia").Relationship.Following)
 
+	// Deny is only for pending requests; an approved follower stays until removed.
+	require.Equal(t, http.StatusOK, doJSON(t, liam, http.MethodPost, "/users/amelia/follow", nil).Code)
+	require.Equal(t, http.StatusNoContent, doJSON(t, amelia, http.MethodPost, "/me/follow-requests/liam/approve", nil).Code)
+	require.Equal(t, http.StatusNoContent, doJSON(t, amelia, http.MethodPost, "/me/follow-requests/liam/deny", nil).Code)
+	require.Equal(t, "following", profileAs(t, liam, "amelia").Relationship.Following)
+	require.Equal(t, http.StatusNoContent, doJSON(t, liam, http.MethodDelete, "/users/amelia/follow", nil).Code)
+
 	require.Equal(t, http.StatusOK, doJSON(t, liam, http.MethodPost, "/users/amelia/follow", nil).Code)
 	require.Equal(t, http.StatusNoContent, doJSON(t, liam, http.MethodDelete, "/users/amelia/follow", nil).Code)
 	require.Equal(t, "none", profileAs(t, liam, "amelia").Relationship.Following)
@@ -583,7 +602,8 @@ func TestPeopleSearchNeverReturnsHiddenProfiles(t *testing.T) {
 
 	rr := doJSON(t, liam, http.MethodGet, "/people?q=noah", nil)
 	p := decode[peopleResp](t, rr).People[0]
-	require.ElementsMatch(t, []string{"handle", "display_name", "avatar_color", "since"}, keys(p))
+	require.ElementsMatch(t, []string{"handle", "display_name", "avatar_color"}, keys(p),
+		"no ids, emails, or sign-up times")
 }
 
 func keys(m map[string]any) []string {

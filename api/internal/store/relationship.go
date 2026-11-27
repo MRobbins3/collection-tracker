@@ -65,13 +65,15 @@ type RelationshipState struct {
 }
 
 // Person is someone in a friends, followers, requests, or search list: only
-// the public card fields. Since is when the relationship (or request) began.
+// the public card fields. Since is when the relationship (or request) began;
+// search results leave it zero (omitted), so search never reveals when
+// someone signed up.
 type Person struct {
 	UserID      string    `json:"-"`
 	Handle      string    `json:"handle"`
 	DisplayName string    `json:"display_name"`
 	AvatarColor string    `json:"avatar_color"`
-	Since       time.Time `json:"since"`
+	Since       time.Time `json:"since,omitzero"`
 }
 
 // Requests is everything pending that involves one user.
@@ -350,6 +352,17 @@ func (r *Relationships) RemoveFollower(ctx context.Context, me, follower string)
 	return r.deleteFollow(ctx, follower, me)
 }
 
+// DenyFollower turns down follower's pending request. An approved follower
+// is left alone (that's RemoveFollower). No-op when there's no request.
+func (r *Relationships) DenyFollower(ctx context.Context, me, follower string) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM follows WHERE follower_id = $1 AND followee_id = $2 AND status = 'pending'`, follower, me)
+	if err != nil {
+		return fmt.Errorf("deny follower: %w", err)
+	}
+	return nil
+}
+
 func (r *Relationships) deleteFollow(ctx context.Context, follower, followee string) error {
 	_, err := r.pool.Exec(ctx,
 		`DELETE FROM follows WHERE follower_id = $1 AND followee_id = $2`, follower, followee)
@@ -405,6 +418,31 @@ func (r *Relationships) listPeople(ctx context.Context, sql string, args ...any)
 	return out, nil
 }
 
+// listVisiblePeople is listPeople for queries that also select the
+// person's visibility and relationship (viewer $1); with filter, people
+// whose profile the viewer may not see (privacy.CanViewProfile) are dropped.
+func (r *Relationships) listVisiblePeople(ctx context.Context, filter bool, sql string, args ...any) ([]Person, error) {
+	rows, err := r.pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Person{}
+	for rows.Next() {
+		var p Person
+		var vis, rel string
+		if err := rows.Scan(&p.UserID, &p.Handle, &p.DisplayName, &p.Since, &vis, &rel); err != nil {
+			return nil, err
+		}
+		if filter && !privacy.CanViewProfile(privacy.Visibility(vis), privacy.Relationship(rel)) {
+			continue
+		}
+		p.AvatarColor = profile.AvatarColor(p.UserID)
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // ListFriends returns me's friends, by display name.
 func (r *Relationships) ListFriends(ctx context.Context, me string) ([]Person, error) {
 	out, err := r.listPeople(ctx, `
@@ -447,13 +485,16 @@ func (r *Relationships) ListFollowing(ctx context.Context, me string) ([]Person,
 
 // ListRequests returns every pending request to or from me, newest first.
 func (r *Relationships) ListRequests(ctx context.Context, me string) (Requests, error) {
+	// Incoming requests always show (the sender reached out). Outgoing ones
+	// pass the privacy rule, so someone you asked who has since gone
+	// Private drops out of the list like any profile you can't see.
 	friend := func(incoming bool) ([]Person, error) {
 		cond := `f.requested_by = $1`
 		if incoming {
 			cond = `f.requested_by <> $1`
 		}
-		return r.listPeople(ctx, `
-			SELECT `+personCols+`, f.created_at
+		return r.listVisiblePeople(ctx, !incoming, `
+			SELECT `+personCols+`, f.created_at, u.collection_visibility, `+relationshipSQL+`
 			FROM friendships f
 			JOIN users u ON u.id = CASE WHEN f.user_a = $1 THEN f.user_b ELSE f.user_a END
 			WHERE (f.user_a = $1 OR f.user_b = $1) AND f.status = 'pending' AND `+cond+`
@@ -464,8 +505,8 @@ func (r *Relationships) ListRequests(ctx context.Context, me string) (Requests, 
 		if incoming {
 			mine, theirs = theirs, mine
 		}
-		return r.listPeople(ctx, `
-			SELECT `+personCols+`, fo.created_at
+		return r.listVisiblePeople(ctx, !incoming, `
+			SELECT `+personCols+`, fo.created_at, u.collection_visibility, `+relationshipSQL+`
 			FROM follows fo JOIN users u ON u.id = `+theirs+`
 			WHERE `+mine+` = $1 AND fo.status = 'pending'
 			ORDER BY fo.created_at DESC, u.handle`, me)
@@ -517,14 +558,14 @@ func (r *Relationships) SearchPeople(ctx context.Context, viewerID, q string, li
 	}
 	rows, err := r.pool.Query(ctx, `
 		WITH cand AS (
-			SELECT u.id, u.handle, u.display_name, u.created_at, u.collection_visibility,
+			SELECT u.id, u.handle, u.display_name, u.collection_visibility,
 			       `+relationshipSQL+` AS rel
 			FROM users u
 			WHERE u.id <> $1
 			  AND (u.handle LIKE $2 || '%' ESCAPE '\'
 			       OR lower(u.display_name) LIKE '%' || $3 || '%' ESCAPE '\')
 		)
-		SELECT id, handle, display_name, created_at, collection_visibility, rel
+		SELECT id, handle, display_name, collection_visibility, rel
 		FROM cand
 		WHERE collection_visibility <> 'private' OR rel <> 'none'
 		ORDER BY (handle = $2) DESC, (handle LIKE $2 || '%' ESCAPE '\') DESC, lower(display_name), handle
@@ -537,7 +578,7 @@ func (r *Relationships) SearchPeople(ctx context.Context, viewerID, q string, li
 	for rows.Next() {
 		var p Person
 		var vis, rel string
-		if err := rows.Scan(&p.UserID, &p.Handle, &p.DisplayName, &p.Since, &vis, &rel); err != nil {
+		if err := rows.Scan(&p.UserID, &p.Handle, &p.DisplayName, &vis, &rel); err != nil {
 			return nil, fmt.Errorf("search people: %w", err)
 		}
 		// The SQL narrows; the privacy rule decides.

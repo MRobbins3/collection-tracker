@@ -267,7 +267,7 @@ func TestListRequests(t *testing.T) {
 	require.NoError(t, err)
 	_, err = f.rels.SendFriendRequest(ctx, a, d)
 	require.NoError(t, err)
-	_, err = f.rels.RequestFollow(ctx, a, c)
+	_, err = f.rels.RequestFollow(ctx, a, d)
 	require.NoError(t, err)
 
 	reqs, err := f.rels.ListRequests(ctx, a)
@@ -275,7 +275,7 @@ func TestListRequests(t *testing.T) {
 	require.Equal(t, []string{"bob"}, handles(reqs.FriendIncoming))
 	require.Equal(t, []string{"dave"}, handles(reqs.FriendOutgoing))
 	require.Equal(t, []string{"carol"}, handles(reqs.FollowIncoming))
-	require.Equal(t, []string{"carol"}, handles(reqs.FollowOutgoing))
+	require.Equal(t, []string{"dave"}, handles(reqs.FollowOutgoing))
 
 	n, err := f.rels.IncomingRequestCount(ctx, a)
 	require.NoError(t, err)
@@ -285,6 +285,37 @@ func TestListRequests(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, other.FriendIncoming, "a pending request is visible only to its two people")
 	require.Equal(t, []string{"alice"}, handles(other.FriendOutgoing))
+
+	// Someone you asked who then goes Private drops out of "sent by you",
+	// like any profile you can no longer see.
+	private := privacy.Private
+	for _, id := range []string{c, d} {
+		_, err = f.users.UpdateProfile(ctx, id, store.ProfilePatch{CollectionVisibility: &private})
+		require.NoError(t, err)
+	}
+	// Carol asked Alice, so Alice may still see her (Pending); Dave didn't.
+	reqs, err = f.rels.ListRequests(ctx, a)
+	require.NoError(t, err)
+	require.Empty(t, reqs.FriendOutgoing)
+	require.Empty(t, reqs.FollowOutgoing)
+	require.Equal(t, []string{"carol"}, handles(reqs.FollowIncoming), "incoming requests still show")
+	require.Equal(t, []string{"bob"}, handles(reqs.FriendIncoming))
+}
+
+func TestDenyFollowerOnlyDeniesPendingRequests(t *testing.T) {
+	f, ctx := newRelFixture(t, "Alice", "Bob")
+	a, b := f.ids["alice"], f.ids["bob"]
+	_, err := f.rels.RequestFollow(ctx, a, b)
+	require.NoError(t, err)
+	require.NoError(t, f.rels.ApproveFollower(ctx, b, a))
+	require.NoError(t, f.rels.DenyFollower(ctx, b, a))
+	require.Equal(t, privacy.Follower, f.between(t, ctx, "alice", "bob"), "an approved follower is removed, not denied")
+
+	require.NoError(t, f.rels.RemoveFollower(ctx, b, a))
+	_, err = f.rels.RequestFollow(ctx, a, b)
+	require.NoError(t, err)
+	require.NoError(t, f.rels.DenyFollower(ctx, b, a))
+	require.Equal(t, store.FollowNone, f.state(t, ctx, "alice", "bob").Following)
 }
 
 func TestSearchPeopleHidesPrivateProfiles(t *testing.T) {
@@ -331,6 +362,10 @@ func TestSearchPeopleHidesPrivateProfiles(t *testing.T) {
 	byHandle, err := f.rels.SearchPeople(ctx, v, "@sam_pu", 20)
 	require.NoError(t, err)
 	require.Equal(t, []string{"sam_public"}, handles(byHandle))
+
+	for _, p := range got {
+		require.True(t, p.Since.IsZero(), "search never reveals when someone signed up")
+	}
 
 	wild, err := f.rels.SearchPeople(ctx, v, "%", 20)
 	require.NoError(t, err)
