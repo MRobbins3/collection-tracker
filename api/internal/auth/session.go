@@ -100,12 +100,19 @@ func (m *Manager) Clear(w http.ResponseWriter) {
 	http.SetCookie(w, m.cookie(m.cookieName, "", -1))
 }
 
-// Logout clears the session cookie whichever provider issued it. Idempotent:
-// no error if no session was present to begin with.
-func (m *Manager) Logout(w http.ResponseWriter, _ *http.Request) {
-	m.Clear(w)
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
+// LogoutHandler clears the session cookie whichever provider issued it.
+// Idempotent: no error if no session was present to begin with. It applies
+// the same CSRF guard as dev login (JSON body + allowed Origin; see
+// checkJSONAndOrigin) so a cross-site form post can't sign the user out.
+func (m *Manager) LogoutHandler(allowedOrigins []string) http.HandlerFunc {
+	origins := originSet(allowedOrigins)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !checkJSONAndOrigin(w, r, origins) {
+			return
+		}
+		m.Clear(w)
+		writeAuthJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
 }
 
 // Middleware places the session (if any) on the request context. It NEVER

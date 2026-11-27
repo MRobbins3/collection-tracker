@@ -35,11 +35,7 @@ type Dev struct {
 // NewDev builds the provider. allowedOrigins is the API's CORS allowlist;
 // a login request carrying any other Origin is refused.
 func NewDev(users DevUserStore, sessions *Manager, allowedOrigins []string, logger *slog.Logger) *Dev {
-	origins := make(map[string]struct{}, len(allowedOrigins))
-	for _, o := range allowedOrigins {
-		origins[o] = struct{}{}
-	}
-	return &Dev{users: users, sessions: sessions, allowedOrigins: origins, logger: logger}
+	return &Dev{users: users, sessions: sessions, allowedOrigins: originSet(allowedOrigins), logger: logger}
 }
 
 // Personas lists the users the picker offers.
@@ -63,24 +59,11 @@ var handlePattern = regexp.MustCompile(`^[a-z0-9-]{1,32}$`)
 //
 // CSRF: the session cookie is SameSite=Lax, which stops cross-site requests
 // from riding an existing session, but login CSRF (an attacker signing the
-// victim in as someone else) sets a new cookie, so it needs its own guard.
-// Two layers:
-//   - Content-Type must be application/json. HTML forms can only send
-//     urlencoded, multipart, or text/plain, and a cross-origin fetch with a
-//     JSON body triggers a CORS preflight that our allowlist rejects.
-//   - When the browser sends an Origin header, it must be on the CORS
-//     allowlist. Requests without Origin (curl, tests) are allowed.
+// victim in as someone else) sets a new cookie, so it needs its own guard:
+// checkJSONAndOrigin.
 func (d *Dev) Login(w http.ResponseWriter, r *http.Request) {
-	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || mediaType != "application/json" {
-		writeAuthJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "content type must be application/json"})
+	if !checkJSONAndOrigin(w, r, d.allowedOrigins) {
 		return
-	}
-	if origin := r.Header.Get("Origin"); origin != "" {
-		if _, ok := d.allowedOrigins[origin]; !ok {
-			writeAuthJSON(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
-			return
-		}
 	}
 
 	var body struct {
@@ -114,6 +97,37 @@ func (d *Dev) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	d.logger.Info("dev user signed in", "user_id", user.ID, "persona", body.Persona)
 	writeAuthJSON(w, http.StatusOK, map[string]any{"user": user})
+}
+
+func originSet(allowed []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(allowed))
+	for _, o := range allowed {
+		set[o] = struct{}{}
+	}
+	return set
+}
+
+// checkJSONAndOrigin is the CSRF guard for session-changing POSTs (dev
+// login, logout). It writes the error response and returns false when the
+// request fails either layer:
+//   - Content-Type must be application/json (415). HTML forms can only send
+//     urlencoded, multipart, or text/plain, and a cross-origin fetch with a
+//     JSON body triggers a CORS preflight that our allowlist rejects.
+//   - When the browser sends an Origin header, it must be on the CORS
+//     allowlist (403). Requests without Origin (curl, tests) are allowed.
+func checkJSONAndOrigin(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]struct{}) bool {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		writeAuthJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "content type must be application/json"})
+		return false
+	}
+	if origin := r.Header.Get("Origin"); origin != "" {
+		if _, ok := allowedOrigins[origin]; !ok {
+			writeAuthJSON(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
+			return false
+		}
+	}
+	return true
 }
 
 func writeAuthJSON(w http.ResponseWriter, status int, body any) {

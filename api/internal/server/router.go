@@ -125,7 +125,8 @@ func NewRouter(deps Deps) http.Handler {
 	}
 	if deps.Sessions != nil {
 		// Logout only clears the session cookie, so it serves every provider.
-		r.Post("/auth/logout", deps.Sessions.Logout)
+		// It requires JSON + an allowed Origin, like dev login (logout CSRF).
+		r.Post("/auth/logout", deps.Sessions.LogoutHandler(deps.CORSOrigins))
 	}
 
 	// Authenticated
