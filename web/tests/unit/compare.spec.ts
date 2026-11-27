@@ -40,6 +40,8 @@ describe("compare utils", () => {
     const s = { quantity: 1, items: 1, conditions: [], collection_id: "c", collection_name: "Shelf" };
     expect(sideSummary(s)).toBe("1 copy");
     expect(sideSummary({ ...s, quantity: 3, conditions: ["Built", "Sealed"] })).toBe("3 copies · Built, Sealed");
+    expect(sideSummary({ ...s, quantity: 0 })).toBe("1 copy");
+    expect(sideSummary({ ...s, quantity: 0, items: 2 })).toBe("2 copies");
   });
 
   it("explains empty tabs, including a category without a catalog", () => {

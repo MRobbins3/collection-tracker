@@ -33,9 +33,14 @@ export function defaultCategory(categories: CompareCategory[]): string | undefin
   return (categories.find((c) => c.mine_items > 0 && c.their_items > 0) ?? categories[0])?.slug;
 }
 
-/** "3 copies · Built, Sealed": how many, and in what condition. */
+/**
+ * "3 copies · Built, Sealed": how many, and in what condition. Quantities
+ * summing to 0 (only possible outside the app) fall back to the item count,
+ * so an owned thing never reads "0 copies".
+ */
 export function sideSummary(side: CompareSide): string {
-  const parts = [side.quantity === 1 ? "1 copy" : `${side.quantity} copies`];
+  const n = side.quantity > 0 ? side.quantity : side.items;
+  const parts = [n === 1 ? "1 copy" : `${n} copies`];
   if (side.conditions.length > 0) parts.push(side.conditions.join(", "));
   return parts.join(" · ");
 }
