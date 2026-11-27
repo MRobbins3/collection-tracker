@@ -12,6 +12,14 @@ const NuxtLinkStub = defineComponent({
   },
 });
 
+const IconStub = defineComponent({
+  name: "Icon",
+  props: { name: { type: String, required: true } },
+  setup() {
+    return () => h("span");
+  },
+});
+
 // useMyItemSearch stub: records the (debounced, normalized) term it was
 // given and lets each test set what the "API" returned.
 let term: Readonly<Ref<string>>;
@@ -43,7 +51,7 @@ function mountSearch(initial = "") {
       modelValue: initial,
       "onUpdate:modelValue": (v: string) => wrapper.setProps({ modelValue: v }),
     },
-    global: { stubs: { NuxtLink: NuxtLinkStub } },
+    global: { stubs: { NuxtLink: NuxtLinkStub, Icon: IconStub } },
   });
   return wrapper;
 }
