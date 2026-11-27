@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
+	"github.com/MRobbins3/collection-tracker/api/internal/textnorm"
 )
 
 func TestClean(t *testing.T) {

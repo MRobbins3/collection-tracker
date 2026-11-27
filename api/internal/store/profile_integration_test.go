@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/privacy"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/seed"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/privacy"
+	"github.com/MRobbins3/collection-tracker/api/internal/seed"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 func strp(s string) *string { return &s }

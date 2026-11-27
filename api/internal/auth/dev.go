@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 // DevUserStore is the narrow view the dev sign-in provider needs.

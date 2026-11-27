@@ -16,9 +16,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/server"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/auth"
+	"github.com/MRobbins3/collection-tracker/api/internal/server"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 // fakeCollections is a lightweight in-memory stand-in for store.Collections.

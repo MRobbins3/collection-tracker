@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
+	"github.com/MRobbins3/collection-tracker/api/internal/auth"
 )
 
 func newManager(t *testing.T) *auth.Manager {

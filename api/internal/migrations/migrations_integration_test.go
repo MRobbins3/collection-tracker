@@ -14,8 +14,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/migrations"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
+	"github.com/MRobbins3/collection-tracker/api/internal/migrations"
+	"github.com/MRobbins3/collection-tracker/api/internal/textnorm"
 )
 
 // admin DB URL; we connect here to create/drop disposable per-test databases

@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/privacy"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/profile"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
+	"github.com/MRobbins3/collection-tracker/api/internal/privacy"
+	"github.com/MRobbins3/collection-tracker/api/internal/profile"
+	"github.com/MRobbins3/collection-tracker/api/internal/textnorm"
 )
 
 // Relationships is friends and followers (ADR 0014), and answers "how does

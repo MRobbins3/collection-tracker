@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 func TestItemsEndToEnd(t *testing.T) {

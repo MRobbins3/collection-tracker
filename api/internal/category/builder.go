@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/textnorm"
+	"github.com/MRobbins3/collection-tracker/api/internal/textnorm"
 )
 
 // Limits on a user-built category (ADR 0013).

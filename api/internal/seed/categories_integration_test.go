@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/seed"
+	"github.com/MRobbins3/collection-tracker/api/internal/seed"
 )
 
 type categoryRow struct {

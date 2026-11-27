@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 // insertCatalogEntry writes a catalog entry straight to the table (there is

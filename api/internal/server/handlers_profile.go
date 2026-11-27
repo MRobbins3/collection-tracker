@@ -9,10 +9,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/auth"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/privacy"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/profile"
-	"github.com/MRobbinsSAI/collection-tracker/api/internal/store"
+	"github.com/MRobbins3/collection-tracker/api/internal/auth"
+	"github.com/MRobbins3/collection-tracker/api/internal/privacy"
+	"github.com/MRobbins3/collection-tracker/api/internal/profile"
+	"github.com/MRobbins3/collection-tracker/api/internal/store"
 )
 
 // RelationshipStore resolves how a viewer relates to an owner for the
