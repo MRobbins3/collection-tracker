@@ -266,6 +266,21 @@ func TestCatalogLinkingAndSuggestions(t *testing.T) {
 		require.Empty(t, got)
 	})
 
+	t.Run("suggestions match large integer identifiers exactly", func(t *testing.T) {
+		funko := insertCatalogEntry(t, pool, "funko-pops", "Big Number", "approved", map[string]any{"number": 1234567})
+		aliceFunko, err := colls.Create(ctx, alice.ID, "funko-pops", "Alice's Pops")
+		require.NoError(t, err)
+		it, err := items.Create(ctx, aliceFunko.ID, alice.ID, store.ItemInput{
+			Name: "Mystery figure", Quantity: 1, Attributes: json.RawMessage(`{"number": 1234567}`),
+		})
+		require.NoError(t, err)
+		got, err := cat.Suggest(ctx, it.ID, aliceFunko.ID, alice.ID, 5)
+		require.NoError(t, err)
+		require.Len(t, got, 1, "1234567 must not be compared as 1.234567e+06")
+		require.Equal(t, funko, got[0].ID)
+		require.Equal(t, store.MatchIdentifier, got[0].Match)
+	})
+
 	t.Run("ownership lists the caller's linked items in a category only", func(t *testing.T) {
 		bobs, err := items.Create(ctx, bobLego.ID, bob.ID, store.ItemInput{Name: "x", Quantity: 1, CatalogEntryID: &falcon2})
 		require.NoError(t, err)

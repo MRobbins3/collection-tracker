@@ -190,16 +190,17 @@ func (c *Catalog) Suggest(ctx context.Context, itemID, collectionID, userID stri
 	if !validIDs(itemID, collectionID, userID) {
 		return nil, ErrNotFound
 	}
+	// The identifier value is read with ->> so numbers come back as their
+	// JSON text ("1234567"), not a float rendering.
 	var categoryID, name string
-	var identifierAttr *string
-	var attrs []byte
+	var identifierValue *string
 	err := c.pool.QueryRow(ctx, `
-		SELECT c.category_id, i.name, i.attributes, cat.catalog_identifier
+		SELECT c.category_id, i.name, i.attributes ->> cat.catalog_identifier
 		FROM items i
 		JOIN collections c ON c.id = i.collection_id
 		JOIN categories cat ON cat.id = c.category_id
 		WHERE i.id = $1 AND i.collection_id = $2 AND c.user_id = $3
-	`, itemID, collectionID, userID).Scan(&categoryID, &name, &attrs, &identifierAttr)
+	`, itemID, collectionID, userID).Scan(&categoryID, &name, &identifierValue)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -209,13 +210,8 @@ func (c *Catalog) Suggest(ctx context.Context, itemID, collectionID, userID stri
 
 	nameKey := textnorm.Key(name)
 	identifierKey := ""
-	if identifierAttr != nil {
-		var values map[string]any
-		if json.Unmarshal(attrs, &values) == nil {
-			if v, ok := values[*identifierAttr]; ok && v != nil {
-				identifierKey = textnorm.Key(fmt.Sprint(v))
-			}
-		}
+	if identifierValue != nil {
+		identifierKey = textnorm.Key(*identifierValue)
 	}
 
 	rows, err := c.pool.Query(ctx, `
