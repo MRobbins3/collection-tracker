@@ -1,3 +1,5 @@
+import { collapseWhitespace } from "./text";
+
 /**
  * Normalize a search box value before it's sent anywhere: trim and collapse
  * internal whitespace, so "  star   wars " searches for "star wars" and a
@@ -5,7 +7,7 @@
  * (never trust the client); this keeps the URL and the request tidy.
  */
 export function normalizeSearchQuery(q: string | null | undefined): string {
-  return (q ?? "").trim().split(/\s+/).filter(Boolean).join(" ");
+  return collapseWhitespace(q);
 }
 
 /** How long a search box waits after the last keystroke before searching. */
