@@ -10,7 +10,7 @@ import (
 )
 
 var allRelationships = []privacy.Relationship{
-	privacy.None, privacy.Follower, privacy.Friend, privacy.Self,
+	privacy.None, privacy.Pending, privacy.Follower, privacy.Friend, privacy.Self,
 }
 
 var allVisibilities = []privacy.Visibility{
@@ -22,16 +22,16 @@ var allVisibilities = []privacy.Visibility{
 func TestCanViewCollections(t *testing.T) {
 	want := map[privacy.Visibility]map[privacy.Relationship]bool{
 		privacy.Public: {
-			privacy.None: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
+			privacy.None: true, privacy.Pending: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
 		},
 		privacy.FollowersAndFriends: {
-			privacy.None: false, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
+			privacy.None: false, privacy.Pending: false, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
 		},
 		privacy.FriendsOnly: {
-			privacy.None: false, privacy.Follower: false, privacy.Friend: true, privacy.Self: true,
+			privacy.None: false, privacy.Pending: false, privacy.Follower: false, privacy.Friend: true, privacy.Self: true,
 		},
 		privacy.Private: {
-			privacy.None: false, privacy.Follower: false, privacy.Friend: false, privacy.Self: true,
+			privacy.None: false, privacy.Pending: false, privacy.Follower: false, privacy.Friend: false, privacy.Self: true,
 		},
 	}
 	for _, v := range allVisibilities {
@@ -45,20 +45,23 @@ func TestCanViewCollections(t *testing.T) {
 
 // TestCanViewProfile: the profile card (name, handle, bio) is findable unless
 // the owner chose Private; a Private owner is hidden from strangers (404) but
-// not from themselves or from people they already have a relationship with.
+// not from themselves, from people they already have a relationship with, or
+// from someone they've sent a request to.
 func TestCanViewProfile(t *testing.T) {
 	want := map[privacy.Visibility]map[privacy.Relationship]bool{
 		privacy.Public: {
-			privacy.None: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
+			privacy.None: true, privacy.Pending: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
 		},
 		privacy.FollowersAndFriends: {
-			privacy.None: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
+			privacy.None: true, privacy.Pending: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
 		},
 		privacy.FriendsOnly: {
-			privacy.None: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
+			privacy.None: true, privacy.Pending: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
 		},
 		privacy.Private: {
-			privacy.None: false, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
+			// Pending: a Private owner who sent the viewer a request shows
+			// the viewer their card, so the viewer can decide; never more.
+			privacy.None: false, privacy.Pending: true, privacy.Follower: true, privacy.Friend: true, privacy.Self: true,
 		},
 	}
 	for _, v := range allVisibilities {
@@ -74,7 +77,7 @@ func TestCanViewProfile(t *testing.T) {
 func TestUnknownValuesFailClosed(t *testing.T) {
 	bogusVis := privacy.Visibility("everyone-please")
 	bogusRel := privacy.Relationship("stalker")
-	for _, rel := range []privacy.Relationship{privacy.None, privacy.Follower, privacy.Friend} {
+	for _, rel := range []privacy.Relationship{privacy.None, privacy.Pending, privacy.Follower, privacy.Friend} {
 		require.False(t, privacy.CanViewCollections(bogusVis, rel), rel)
 		require.False(t, privacy.CanViewProfile(bogusVis, rel), rel)
 	}

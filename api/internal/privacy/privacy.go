@@ -4,10 +4,8 @@
 //
 // The rule is a pure function of two inputs: the owner's chosen Visibility
 // and the viewer's Relationship to the owner. Looking up the relationship
-// is the store's job (store.Relationships.Between); until friends and
-// followers exist it only ever answers Self or None, so Public, Private, and
-// "it's me" work today and the follower/friend levels start working as soon
-// as that lookup learns about them, with no change here.
+// is the store's job (store.Relationships.Between, backed by the friendships
+// and follows tables; ADR 0014).
 package privacy
 
 // Visibility is who an owner lets see their collections. Stored as text in
@@ -36,12 +34,16 @@ func ParseVisibility(s string) (Visibility, bool) {
 	return "", false
 }
 
-// Relationship is how the viewer relates to the owner. When someone is both
-// a follower and a friend, the lookup reports Friend (the closer tie).
+// Relationship is how the viewer relates to the owner. When several apply,
+// the lookup reports the closest tie: Friend, then Follower, then Pending.
+//
+// A request the VIEWER sent is not a relationship (it stays None until the
+// owner says yes), so asking never unlocks anything by itself.
 type Relationship string
 
 const (
 	None     Relationship = "none"     // anonymous, or signed in with no tie
+	Pending  Relationship = "pending"  // owner sent the viewer a friend or follow request
 	Follower Relationship = "follower" // viewer follows owner (request approved)
 	Friend   Relationship = "friend"   // mutual friendship (request accepted)
 	Self     Relationship = "self"     // viewer is the owner
@@ -84,7 +86,9 @@ func CanViewCollections(v Visibility, rel Relationship) bool {
 //
 // Every level except Private keeps the card findable, so people can send a
 // friend or follow request. Private hides it from strangers, but not from
-// people who already follow or befriended the owner.
+// people who already follow or befriended the owner, nor from someone the
+// owner has sent a request to (they need to see who's asking). Pending
+// never unlocks collections beyond what a stranger sees.
 func CanViewProfile(v Visibility, rel Relationship) bool {
 	if rel == Self {
 		return true
@@ -93,7 +97,7 @@ func CanViewProfile(v Visibility, rel Relationship) bool {
 		return false // fail closed
 	}
 	switch rel {
-	case Friend, Follower:
+	case Friend, Follower, Pending:
 		return true
 	case None:
 		return v != Private
