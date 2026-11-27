@@ -573,9 +573,13 @@ func TestModerationMigration(t *testing.T) {
 		require.Zero(t, n)
 	})
 
-	// Rolling back restores the all-status unique key, so clear the
-	// rejected duplicates first (a real rollback would have to as well).
-	_, err = db.ExecContext(ctx, `DELETE FROM catalog_entries`)
-	require.NoError(t, err)
-	require.NoError(t, migrations.DownTo(ctx, dbURL, 6), "the moderation migration rolls back")
+	// Rolling back restores the all-status unique key; it drops the rejected
+	// rows that would collide ("Tower" x2 rejected beside a pending "TOWER")
+	// and keeps the live ones.
+	require.NoError(t, migrations.DownTo(ctx, dbURL, 6), "the moderation migration rolls back with rejected duplicates present")
+	var towers, live int
+	require.NoError(t, db.QueryRowContext(ctx,
+		`SELECT count(*), count(*) FILTER (WHERE status <> 'rejected') FROM catalog_entries WHERE name_key = 'tower'`).Scan(&towers, &live))
+	require.Equal(t, 1, towers)
+	require.Equal(t, 1, live)
 }

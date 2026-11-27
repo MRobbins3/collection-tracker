@@ -84,8 +84,17 @@ CREATE INDEX moderation_requests_submitter_idx
 -- +goose Down
 -- +goose StatementBegin
 DROP TABLE IF EXISTS moderation_requests;
--- Fails if rejected rows now share a key with live ones; delete those
--- first (they are history only).
+-- The restored constraint covers every status, so first delete rejected
+-- rows (history only) that share a key with a live row or with an older
+-- rejected row.
+DELETE FROM catalog_entries r
+WHERE r.status = 'rejected'
+  AND EXISTS (
+      SELECT 1 FROM catalog_entries l
+      WHERE l.category_id = r.category_id AND l.name_key = r.name_key
+        AND l.identifier_key = r.identifier_key AND l.id <> r.id
+        AND (l.status <> 'rejected' OR l.id < r.id)
+  );
 DROP INDEX IF EXISTS catalog_entries_natural_key;
 ALTER TABLE catalog_entries
     ADD CONSTRAINT catalog_entries_natural_key UNIQUE (category_id, name_key, identifier_key);
