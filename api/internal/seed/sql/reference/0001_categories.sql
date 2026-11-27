@@ -7,11 +7,15 @@
 -- no-op when nothing changed. Every schema property needs a human "title"
 -- (see Documentation/categories/README.md).
 --
+-- catalog_identifier names the attribute that, with the name, tells two
+-- catalog entries apart (set number, ISBN, artist...); NULL means the name
+-- alone does. It must be one of the schema's properties.
+--
 -- Removing a category from this file does NOT delete it from the database;
 -- write a migration for that so the collections that reference it are
 -- handled deliberately.
 
-INSERT INTO categories (slug, name, description, attribute_schema) VALUES
+INSERT INTO categories (slug, name, description, attribute_schema, catalog_identifier) VALUES
 (
     'lego-sets',
     'Lego Sets',
@@ -37,7 +41,8 @@ INSERT INTO categories (slug, name, description, attribute_schema) VALUES
         }
       },
       "additionalProperties": false
-    }'::jsonb
+    }'::jsonb,
+    'set_number'
 ),
 (
     'funko-pops',
@@ -64,7 +69,8 @@ INSERT INTO categories (slug, name, description, attribute_schema) VALUES
         }
       },
       "additionalProperties": false
-    }'::jsonb
+    }'::jsonb,
+    'number'
 ),
 (
     'coins',
@@ -93,7 +99,8 @@ INSERT INTO categories (slug, name, description, attribute_schema) VALUES
         }
       },
       "additionalProperties": false
-    }'::jsonb
+    }'::jsonb,
+    NULL
 ),
 (
     'stamps',
@@ -117,7 +124,8 @@ INSERT INTO categories (slug, name, description, attribute_schema) VALUES
         }
       },
       "additionalProperties": false
-    }'::jsonb
+    }'::jsonb,
+    'catalog_id'
 ),
 (
     'trading-cards',
@@ -147,7 +155,8 @@ INSERT INTO categories (slug, name, description, attribute_schema) VALUES
         }
       },
       "additionalProperties": false
-    }'::jsonb
+    }'::jsonb,
+    'set_name'
 ),
 (
     'plants',
@@ -173,7 +182,8 @@ INSERT INTO categories (slug, name, description, attribute_schema) VALUES
         }
       },
       "additionalProperties": false
-    }'::jsonb
+    }'::jsonb,
+    NULL
 ),
 (
     'books',
@@ -198,7 +208,8 @@ INSERT INTO categories (slug, name, description, attribute_schema) VALUES
         }
       },
       "additionalProperties": false
-    }'::jsonb
+    }'::jsonb,
+    'isbn'
 ),
 (
     'vinyl-records',
@@ -230,11 +241,13 @@ INSERT INTO categories (slug, name, description, attribute_schema) VALUES
         }
       },
       "additionalProperties": false
-    }'::jsonb
+    }'::jsonb,
+    'artist'
 )
 ON CONFLICT (slug) DO UPDATE SET
-    name             = EXCLUDED.name,
-    description      = EXCLUDED.description,
-    attribute_schema = EXCLUDED.attribute_schema
-WHERE (categories.name, categories.description, categories.attribute_schema)
-    IS DISTINCT FROM (EXCLUDED.name, EXCLUDED.description, EXCLUDED.attribute_schema);
+    name               = EXCLUDED.name,
+    description        = EXCLUDED.description,
+    attribute_schema   = EXCLUDED.attribute_schema,
+    catalog_identifier = EXCLUDED.catalog_identifier
+WHERE (categories.name, categories.description, categories.attribute_schema, categories.catalog_identifier)
+    IS DISTINCT FROM (EXCLUDED.name, EXCLUDED.description, EXCLUDED.attribute_schema, EXCLUDED.catalog_identifier);

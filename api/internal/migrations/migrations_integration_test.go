@@ -344,3 +344,52 @@ func TestProfilesMigrationBackfillsExistingUsers(t *testing.T) {
 
 	require.NoError(t, migrations.Up(ctx, dbURL), "and forward again")
 }
+
+// Catalog entries are unique per category on (normalized name, normalized
+// identifier), so the seed and later submissions can't create near-duplicates
+// that differ only in case or spacing.
+func TestCatalogEntriesUniquePerCategoryOnNormalizedKey(t *testing.T) {
+	dbURL, cleanup := provisionDB(t, t.Name())
+	t.Cleanup(cleanup)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, migrations.Up(ctx, dbURL))
+
+	db, err := sql.Open("pgx", dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	var lego, books string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO categories (slug, name, catalog_identifier) VALUES ('lego','Lego','set_number') RETURNING id`,
+	).Scan(&lego))
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO categories (slug, name) VALUES ('books','Books') RETURNING id`,
+	).Scan(&books))
+
+	insert := func(categoryID, name string, identifier any) error {
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO catalog_entries (category_id, name, identifier) VALUES ($1, $2, $3)`,
+			categoryID, name, identifier)
+		return err
+	}
+
+	require.NoError(t, insert(lego, "Millennium Falcon", "75192"))
+	require.Error(t, insert(lego, "  millennium   FALCON ", " 75192"),
+		"same name and identifier after trim/collapse/lowercase is a duplicate")
+	require.NoError(t, insert(lego, "Millennium Falcon", "10179"), "a different set number is a different entry")
+	require.NoError(t, insert(lego, "Millennium Falcon", nil), "no identifier is its own key")
+	require.Error(t, insert(lego, "MILLENNIUM FALCON", nil), "and is unique too")
+	require.NoError(t, insert(books, "Millennium Falcon", "75192"), "uniqueness is per category")
+	require.Error(t, insert(lego, "   ", nil), "blank names are rejected")
+
+	var nameKey, identifierKey string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`SELECT name_key, identifier_key FROM catalog_entries WHERE identifier = '10179'`,
+	).Scan(&nameKey, &identifierKey))
+	require.Equal(t, "millennium falcon", nameKey)
+	require.Equal(t, "10179", identifierKey)
+
+	require.NoError(t, migrations.DownTo(ctx, dbURL, 4), "the key migration rolls back")
+}

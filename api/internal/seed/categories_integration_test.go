@@ -81,6 +81,32 @@ func TestReferenceSeedsProduceCuratedCategories(t *testing.T) {
 		}
 	}
 
+	// Each category's catalog identifier, when set, must be one of its
+	// attributes: the catalog seed and the API copy that attribute into
+	// catalog_entries.identifier.
+	identifiers := map[string]string{}
+	rows, err := pool.Query(context.Background(),
+		`SELECT slug, catalog_identifier FROM categories WHERE catalog_identifier IS NOT NULL`)
+	require.NoError(t, err)
+	for rows.Next() {
+		var slug, attr string
+		require.NoError(t, rows.Scan(&slug, &attr))
+		identifiers[slug] = attr
+	}
+	require.NoError(t, rows.Err())
+	require.Equal(t, map[string]string{
+		"lego-sets":     "set_number",
+		"funko-pops":    "number",
+		"stamps":        "catalog_id",
+		"trading-cards": "set_name",
+		"books":         "isbn",
+		"vinyl-records": "artist",
+	}, identifiers)
+	for slug, attr := range identifiers {
+		_, ok := got[slug].Schema["properties"].(map[string]any)[attr]
+		require.True(t, ok, "%s: catalog_identifier %q must be a schema property", slug, attr)
+	}
+
 	lego := got["lego-sets"].Schema["properties"].(map[string]any)["set_number"].(map[string]any)
 	require.Equal(t, map[string]any{
 		"type":        "string",
@@ -136,6 +162,7 @@ func TestSeedsAreIdempotentAcrossAllTables(t *testing.T) {
 	require.EqualValues(t, 8, first["categories"].Count)
 	require.EqualValues(t, 5, first["users"].Count, "dev personas")
 	require.Positive(t, first["items"].Count, "dev sample items")
+	require.Positive(t, first["catalog_entries"].Count, "dev sample catalog")
 	firstCats := categoriesBySlug(t, pool)
 
 	_, err = seed.Apply(ctx, pool, opts)

@@ -4,8 +4,8 @@ All seed data lives in plain SQL files under `api/internal/seed/sql/`. The API e
 
 | Set | Directory | Applied when | Contents |
 |---|---|---|---|
-| Reference | `api/internal/seed/sql/reference/` | Always, in every environment | The curated categories and their attribute schemas; later, the sample catalog |
-| Dev | `api/internal/seed/sql/dev/` | Only with `SEED_DEV_DATA=true`, and only when `APP_ENV` is `development` (the default) or `test`. With any other `APP_ENV` the API refuses to start | Five persona users (`dev:<handle>` google_subs) with a few sample collections and items, for local development, the test-user sign-in picker (ADR 0008), and CI |
+| Reference | `api/internal/seed/sql/reference/` | Always, in every environment | The curated categories, their attribute schemas, and which attribute identifies a catalog entry (`catalog_identifier`) |
+| Dev | `api/internal/seed/sql/dev/` | Only with `SEED_DEV_DATA=true`, and only when `APP_ENV` is `development` (the default) or `test`. With any other `APP_ENV` the API refuses to start | Five persona users (`dev:<handle>` google_subs) with a few sample collections and items, plus a small sample of the global catalog (20 approved entries across Lego sets, vinyl records, and coins), for local development, the test-user sign-in picker (ADR 0008), and CI. The sample catalog stays here, not in reference, until the owner's real catalog dataset lands |
 
 `docker-compose.yml` and the CI e2e job set `SEED_DEV_DATA=true`. Production never does. If `SEED_DEV_DATA` holds something that isn't a boolean, the API logs a warning and treats it as false.
 
