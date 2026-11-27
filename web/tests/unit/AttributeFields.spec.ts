@@ -36,7 +36,7 @@ describe("AttributeFields", () => {
     await input.setValue("75192");
     const emitted = wrapper.emitted("update:modelValue");
     expect(emitted).toBeTruthy();
-    expect(emitted?.[0][0]).toMatchObject({ set_number: "75192" });
+    expect(emitted?.[0]?.[0]).toMatchObject({ set_number: "75192" });
   });
 
   it("coerces integer inputs to numbers", async () => {
@@ -46,7 +46,7 @@ describe("AttributeFields", () => {
     const input = wrapper.get('[data-testid="attribute-field-piece_count"]');
     await input.setValue("7541");
     const emitted = wrapper.emitted("update:modelValue");
-    expect(emitted?.[0][0]).toMatchObject({ piece_count: 7541 });
+    expect(emitted?.[0]?.[0]).toMatchObject({ piece_count: 7541 });
   });
 
   it("renders nothing when the schema has no properties", () => {
