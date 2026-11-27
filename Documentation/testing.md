@@ -61,7 +61,7 @@ docker compose exec web bunx playwright install chromium webkit
 docker compose exec web bun run test:e2e
 ```
 
-On the host directly: `.nvmrc` pins Node 24 for `nvm use`; then `cd web && bun install && bun run <script>`.
+On the host directly: `.nvmrc` pins Node 26 for `nvm use`; then `cd web && bun install && bun run <script>`.
 
 ## CI (GitHub Actions)
 

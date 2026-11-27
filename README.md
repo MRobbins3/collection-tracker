@@ -19,14 +19,16 @@ See `Documentation/requirements.md` for the living feature list, `Documentation/
 ## Prerequisites
 
 - Docker + Docker Compose — this is the only thing you need to boot the whole stack.
-- (Optional) Bun 1.x and Node 24+ if you want to run the web tooling (`bun run test`, `bun run typecheck`) outside Docker. `.nvmrc` at the repo root pins the Node version for `nvm use`.
+- (Optional) Bun 1.x and Node 26+ if you want to run the web tooling (`bun run test`, `bun run typecheck`) outside Docker. `.nvmrc` at the repo root pins the Node version for `nvm use`.
 - (Optional) Go 1.26+ if you want to run API tests outside Docker.
 
 ## Getting started
 
 ```sh
-docker compose up
+docker compose up --build
 ```
+
+`--build` rebuilds the web dev image (`docker/web/Dockerfile`) when it changes; without it, Compose keeps using the image it built first.
 
 - Web: http://localhost:3000
 - API: http://localhost:8080
@@ -40,7 +42,7 @@ By default, `/auth/google/*` returns 503 until you provide OAuth credentials.
 Create a Google OAuth 2.0 Web Client at
 <https://console.cloud.google.com/apis/credentials> with authorized redirect URI
 `http://localhost:8080/auth/google/callback`, then export the client id/secret
-before `docker compose up`:
+before `docker compose up --build`:
 
 ```sh
 export GOOGLE_OAUTH_CLIENT_ID=...
