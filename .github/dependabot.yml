@@ -30,6 +30,10 @@ updates:
     groups:
       web-packages:
         update-types: ["minor", "patch"]
+    ignore:
+      # Type definitions follow the Node runtime pinned in .nvmrc; bump with it.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "docker-compose"
     directory: "/"
@@ -38,3 +42,8 @@ updates:
     groups:
       compose-images:
         update-types: ["minor", "patch"]
+    ignore:
+      # A Postgres major can't read the previous major's data directory, so
+      # it needs a planned dump-and-restore, not a PR. Tracked in next-steps.md.
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]

@@ -26,6 +26,8 @@ Local and CI must stay on the same Go, Bun, and Postgres versions. Change both i
 
 `.github/dependabot.yml` checks monthly for GitHub Actions, Go modules, Bun packages, and the `docker-compose.yml` images. Minor and patch bumps are grouped into one PR per ecosystem; each major bump gets its own PR so breaking changes stay isolated.
 
+It ignores Postgres major versions (a new major needs a planned data migration; see `next-steps.md`) and `@types/node` majors (they follow `.nvmrc`).
+
 Dependabot can't see the plain version values in `ci.yml`. When it bumps a compose image, push a commit to the same PR that updates the matching CI value from the table above, and merge only when CI is green.
 
 ## Bumping by hand

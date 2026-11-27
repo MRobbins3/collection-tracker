@@ -15,6 +15,8 @@ This is NOT the roadmap (that's `requirements.md`) and NOT a changelog.
 
 ## Held for external triggers
 
+- **Postgres 16 → 19.** Dependabot ignores Postgres majors because a new major can't read the old data directory. Upgrade by dumping the local `db-data` volume, bumping the `postgres:` image in `docker-compose.yml` and both CI service images, then restoring. Do it before any hosted deploy so production starts on a current major.
+
 - **AWS deploy pipeline.** Held until an AWS account is configured. Empty stub YAML rots; wire it only when there's real infra to deploy to. `SESSION_SECRET`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` are the env contract to design around.
 - **OpenAPI spec + drift check.** Deferred until there's a reason to maintain one — a second client, a public API, or onboarding contributors who'd benefit from the contract. The original testing strategy called for this; it's listed as deferred in `testing.md` and ADR 0001's corrections section.
 - **Coverage gate, Prettier, `@axe-core/playwright`, MSW.** All flagged aspirational in `testing.md`. Ship when a hardening milestone makes sense, or when a specific pain point surfaces.
