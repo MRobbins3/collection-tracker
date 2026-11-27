@@ -63,21 +63,21 @@ func TestIsReserved(t *testing.T) {
 
 func TestDeriveHandleBase(t *testing.T) {
 	cases := []struct {
-		name, email, want string
+		name, want string
 	}{
-		{"Liam Johnson", "liam.johnson@example.com", "liam_johnson"},
-		{"José García", "jg@example.com", "jose_garcia"},
-		{"  O'Brien,   Pat  ", "x@example.com", "o_brien_pat"},
-		{"42", "fan.club@example.com", "fan_club"},     // display name too short → email
-		{"R2", "r2@example.com", "collector"},          // both too short → fallback
-		{"3PO Fan", "x@example.com", "u_3po_fan"},      // must start with a letter
-		{"渡辺", "watanabe.k@example.com", "watanabe_k"}, // nothing ASCII left → email
-		{"An Extremely Long Display Name Indeed", "e@x.com", "an_extremely_long_displa"},
-		{"Admin", "admin@example.com", "admin"}, // reserved is handled by the suffix step
+		{"Liam Johnson", "liam_johnson"},
+		{"José García", "jose_garcia"},
+		{"  O'Brien,   Pat  ", "o_brien_pat"},
+		{"42", "collector"},      // too short
+		{"R2", "collector"},      // too short
+		{"3PO Fan", "u_3po_fan"}, // must start with a letter
+		{"渡辺", "collector"},      // nothing ASCII left; never falls back to the email
+		{"An Extremely Long Display Name Indeed", "an_extremely_long_displa"},
+		{"Admin", "admin"}, // reserved is handled by the suffix step
 	}
 	for _, c := range cases {
-		got := profile.DeriveHandleBase(c.name, c.email)
-		require.Equal(t, c.want, got, "%q / %q", c.name, c.email)
+		got := profile.DeriveHandleBase(c.name)
+		require.Equal(t, c.want, got, "%q", c.name)
 		require.LessOrEqual(t, len(got), 24)
 	}
 }

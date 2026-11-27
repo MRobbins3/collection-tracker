@@ -21,15 +21,15 @@ ALTER TABLE users
     ADD COLUMN accept_follow_requests boolean NOT NULL DEFAULT true;
 
 -- Backfill a handle for every existing user. Mirrors profile.DeriveHandleBase
--- + PickFreeHandle in Go: prefer the display name (already public) over the
--- email local part (private), fold accents that NFD decomposes, turn other
--- runs into "_", require 3+ chars, prefix "u_" if it doesn't start with a
--- letter, cap the base at 24 chars, then add 2, 3, … on collision or a
--- reserved word. Oldest accounts go first, so they keep the unsuffixed handle.
+-- + PickFreeHandle in Go: use only the display name (already public; never
+-- the email, since handles are published), fold accents that NFD
+-- decomposes, turn other runs into "_", require 3+ chars (else
+-- "collector"), prefix "u_" if it doesn't start with a letter, cap the base
+-- at 24 chars, then add 2, 3, … on collision or a reserved word. Oldest
+-- accounts go first, so they keep the unsuffixed handle.
 DO $backfill$
 DECLARE
     r         record;
-    src       text;
     base      text;
     candidate text;
     n         int;
@@ -45,21 +45,18 @@ DECLARE
         'u', 'undefined', 'user', 'users', 'www'
     ];
 BEGIN
-    FOR r IN SELECT id, email, display_name FROM users ORDER BY created_at, id LOOP
+    FOR r IN SELECT id, display_name FROM users ORDER BY created_at, id LOOP
         base := NULL;
-        FOREACH src IN ARRAY ARRAY[r.display_name, split_part(r.email, '@', 1)] LOOP
-            candidate := translate(lower(src),
-                'àáâãäåāăąçćčďèéêëēėęěìíîïīįñńňòóôõöōőřśšşťùúûüūůűųýÿžźż',
-                'aaaaaaaaacccdeeeeeeeeiiiiiinnnooooooorssstuuuuuuuuyyzzz');
-            candidate := btrim(regexp_replace(candidate, '[^a-z0-9]+', '_', 'g'), '_');
-            IF length(candidate) >= 3 THEN
-                IF candidate !~ '^[a-z]' THEN
-                    candidate := 'u_' || candidate;
-                END IF;
-                base := rtrim(left(candidate, 24), '_');
-                EXIT;
+        candidate := translate(lower(r.display_name),
+            'àáâãäåāăąçćčďèéêëēėęěìíîïīįñńňòóôõöōőřśšşťùúûüūůűųýÿžźż',
+            'aaaaaaaaacccdeeeeeeeeiiiiiinnnooooooorssstuuuuuuuuyyzzz');
+        candidate := btrim(regexp_replace(candidate, '[^a-z0-9]+', '_', 'g'), '_');
+        IF length(candidate) >= 3 THEN
+            IF candidate !~ '^[a-z]' THEN
+                candidate := 'u_' || candidate;
             END IF;
-        END LOOP;
+            base := rtrim(left(candidate, 24), '_');
+        END IF;
         base := coalesce(base, 'collector');
 
         candidate := base;

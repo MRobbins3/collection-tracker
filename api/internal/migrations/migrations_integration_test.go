@@ -279,8 +279,9 @@ func TestProfilesMigrationBackfillsExistingUsers(t *testing.T) {
 		{"s2", "liam.j@example.com", "Liam Johnson", "liam_johnson2"},
 		{"s3", "lj@example.com", "LIAM   johnson", "liam_johnson3"},
 		{"s4", "jg@example.com", "José García", "jose_garcia"},
-		{"s5", "fan.club@example.com", "42", "fan_club"},
-		{"s6", "r2@example.com", "R2", "collector"},
+		{"s5", "fan.club@example.com", "42", "collector"}, // never the email
+		{"s6", "r2@example.com", "R2", "collector2"},
+		{"s6b", "watanabe.k@example.com", "渡辺", "collector3"},
 		{"s7", "boss@example.com", "Admin", "admin2"},
 		{"s8", "x@example.com", "3PO Fan", "u_3po_fan"},
 		{"s9", "e@example.com", "An Extremely Long Display Name Indeed", "an_extremely_long_displa"},

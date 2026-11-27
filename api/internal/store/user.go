@@ -60,7 +60,7 @@ func (u *Users) UpsertByGoogleSub(ctx context.Context, sub, email, displayName s
 	if name == "" {
 		name = "Collector"
 	}
-	base := profile.DeriveHandleBase(name, email)
+	base := profile.DeriveHandleBase(name)
 	for attempt := 0; attempt < maxHandleAttempts; attempt++ {
 		handle, err := u.freeHandle(ctx, base)
 		if err != nil {

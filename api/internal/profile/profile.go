@@ -100,16 +100,15 @@ func isHandleRune(r rune) bool {
 
 // DeriveHandleBase suggests a handle for an account that doesn't have one
 // (sign-up, and the migration 0003 backfill, which mirrors this logic in
-// SQL). It prefers the display name, which is already public, over the
-// email address, which isn't; the email's local part is used only when the
-// name yields nothing usable. The result is valid apart from possibly being
-// reserved or taken; PickFreeHandle resolves both.
-func DeriveHandleBase(displayName, email string) string {
-	local, _, _ := strings.Cut(email, "@")
-	for _, src := range []string{displayName, local} {
-		if h := slugify(src); h != "" {
-			return h
-		}
+// SQL). It uses only the display name, which is already public. When the
+// name yields nothing usable (e.g. non-Latin script), it falls back to
+// "collector" rather than the email address: the handle is published at
+// /u/<handle>, and an email's local part must never be. The result is
+// valid apart from possibly being reserved or taken; PickFreeHandle
+// resolves both.
+func DeriveHandleBase(displayName string) string {
+	if h := slugify(displayName); h != "" {
+		return h
 	}
 	return fallbackHandle
 }
