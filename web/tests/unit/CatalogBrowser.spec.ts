@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { defineComponent, h, ref, type Ref } from "vue";
+import { defineComponent, h, nextTick, ref, type Ref } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import CatalogBrowser from "~/components/CatalogBrowser.vue";
 import type { CatalogEntry, CatalogOwnershipResponse, CatalogPage, Category } from "~/types/api";
@@ -98,6 +98,9 @@ describe("CatalogBrowser", () => {
 
   it("searches with the normalized, debounced text", async () => {
     const wrapper = mountBrowser();
+    // The box is disabled until mounted (hydration); wait for that render.
+    await nextTick();
+    expect(wrapper.get('[data-testid="catalog-search"]').attributes("disabled")).toBeUndefined();
     await wrapper.get('[data-testid="catalog-search"]').setValue("  millennium   falcon ");
     expect(term.value).toBe("");
     vi.advanceTimersByTime(300);

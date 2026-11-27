@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId } from "vue";
 import { useDebouncedRef } from "~/composables/useDebouncedRef";
+import { useHydrated } from "~/composables/useHydrated";
 import { useShowMore } from "~/composables/useShowMore";
 import { catalogEntryPath, identifierTitle, midSentence } from "~/utils/catalog";
 import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
@@ -14,6 +15,8 @@ import type { CatalogEntry, Category } from "~/types/api";
 const props = defineProps<{ category: Category }>();
 
 const inputId = useId();
+// Server-rendered; the box and "Show more" only work once hydrated (see useHydrated).
+const hydrated = useHydrated();
 const text = ref("");
 const normalized = computed(() => normalizeSearchQuery(text.value));
 const term = useDebouncedRef(normalized, SEARCH_DEBOUNCE_MS);
@@ -71,6 +74,7 @@ const status = computed(() => {
       <input
         :id="inputId"
         v-model="text"
+        :disabled="!hydrated"
         type="search"
         inputmode="search"
         enterkeyhint="search"
@@ -153,7 +157,7 @@ const status = computed(() => {
     <button
       v-if="!error && more.hasMore.value"
       type="button"
-      :disabled="more.loadingMore.value"
+      :disabled="!hydrated || more.loadingMore.value"
       class="inline-flex h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
       data-testid="catalog-show-more"
       @click="more.loadMore()"
