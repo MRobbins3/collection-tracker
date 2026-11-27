@@ -23,7 +23,7 @@ A single mobile-first web app where users track collections of *any* kind of thi
 
 ## Milestone Roadmap (after MVP functional slice)
 
-Tracked in order of intended landing. Functional MVP items (#1–#7 above) interleave with these.
+Tracked in order of intended landing. Functional MVP items (#1–#8 above) interleave with these.
 
 | Milestone | Title | Status |
 |---|---|---|
@@ -66,7 +66,6 @@ Milestone 8 laid the groundwork (nullable `catalog_entry_id` on items, `catalog_
 
 - Photo uploads (requires S3 / AWS object storage work).
 - Acquired date / price / provenance tracking.
-- User-suggested new categories + moderation flow.
 - Shareable links to a single collection regardless of account visibility (e.g. an unlisted link). Profiles at `/u/<handle>` already show collections to the people the owner's visibility setting allows (ADR 0009).
 - Barcode / UPC scanning for auto-fill.
 - Native mobile app build via Capacitor.
@@ -80,7 +79,7 @@ _Nothing open right now._
 ## Known Unknowns (tracked, not blocking)
 
 - Shape of public shareable collections (affects auth model).
-- How far we go with curated vs. community-contributed category attribute schemas.
+- How far we go with curated vs. community-contributed category attribute schemas. Users can now build categories from fields approved categories already use, and admins approve them for the public list (ADR 0013); brand-new custom fields and edits after approval are still open there.
 - Postgres full-text search vs. OpenSearch/Meilisearch when the category catalog grows.
 - AWS target for Go API: App Runner (simpler) vs. ECS Fargate (more control).
 

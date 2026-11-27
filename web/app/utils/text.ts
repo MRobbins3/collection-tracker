@@ -1,6 +1,6 @@
 /**
- * Shared normalizers for text people type (CLAUDE.md, "Normalize
- * user-entered values at write time"). The API applies the same rules and is
+ * Shared normalizers for text people type (CLAUDE.md, "Shared text
+ * normalizers"). The API applies the same rules and is
  * the authority (never trust the client); these keep the UI's previews and
  * instant feedback in step with it.
  */
