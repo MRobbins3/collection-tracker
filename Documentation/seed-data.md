@@ -5,13 +5,13 @@ All seed data lives in plain SQL files under `api/internal/seed/sql/`. The API e
 | Set | Directory | Applied when | Contents |
 |---|---|---|---|
 | Reference | `api/internal/seed/sql/reference/` | Always, in every environment | The curated categories and their attribute schemas; later, the sample catalog |
-| Dev | `api/internal/seed/sql/dev/` | Only with `SEED_DEV_DATA=true`. The API refuses to start with that flag when `APP_ENV=production` | Fake users and sample data for local development and CI (none yet) |
+| Dev | `api/internal/seed/sql/dev/` | Only with `SEED_DEV_DATA=true`, and only when `APP_ENV` is `development` (the default) or `test`. With any other `APP_ENV` the API refuses to start | Fake users and sample data for local development and CI (none yet) |
 
-`docker-compose.yml` and the CI e2e job set `SEED_DEV_DATA=true`. Production never does.
+`docker-compose.yml` and the CI e2e job set `SEED_DEV_DATA=true`. Production never does. If `SEED_DEV_DATA` holds something that isn't a boolean, the API logs a warning and treats it as false.
 
 ## Rules for seed files
 
-- **Idempotent.** Each file runs on every API start and must be safe to re-run after the database is dropped. Use `INSERT ... ON CONFLICT (<natural key>) DO UPDATE` (reference data the file owns) or `DO NOTHING` (rows a user may later edit), keyed on a stable natural key such as a slug, never a generated UUID.
+- **Idempotent.** Each file runs on every API start and must be safe to re-run after the database is dropped. Use `INSERT ... ON CONFLICT (<natural key>) DO UPDATE ... WHERE (<columns>) IS DISTINCT FROM (<EXCLUDED columns>)` (reference data the file owns) or `DO NOTHING` (rows a user may later edit), keyed on a stable natural key such as a slug, never a generated UUID. A re-run with nothing changed must not write a single row: the test compares every table's row count and row versions (`xmin`) across two runs, so an unguarded `DO UPDATE` fails CI.
 - **Ordered by filename.** Files run in lexical order within a set, reference before dev, so number them (`0001_categories.sql`, `0002_...`). A later file may depend on rows from an earlier one.
 - **Plain SQL.** No psql meta-commands and no `BEGIN`/`COMMIT`: the API wraps the whole run in one transaction, so a failing file rolls everything back and the API exits.
 - **Additive.** Removing a row from a seed file does not delete it from the database. Write a goose migration for deletions so the rows that reference it are handled deliberately.
@@ -48,4 +48,4 @@ Leave out `api/internal/seed/sql/dev/*.sql` to apply only the reference set.
 
 ## Tests
 
-`api/internal/seed/*_integration_test.go` runs against real Postgres (ADR 0002). The tests check that the reference set produces the eight curated categories with labeled schemas, that a second run changes nothing, that dev seeds apply only when enabled, that production refuses them, and that a failing file rolls the whole run back.
+`api/internal/seed/*_integration_test.go` runs against real Postgres (ADR 0002). The tests check that the reference set produces the eight curated categories with labeled schemas, that a second run inserts, deletes, and rewrites nothing in any table, that dev seeds apply only when enabled, that every `APP_ENV` other than `development` or `test` refuses them, and that a failing file rolls the whole run back.

@@ -1,6 +1,6 @@
 # ADR 0007: Seed data as idempotent SQL files, split into reference and dev sets
 
-- **Status:** Accepted
+- **Status:** Proposed
 - **Date:** 2026-11-27
 
 ## Context
@@ -10,7 +10,7 @@ Categories were seeded from `api/internal/seed/data/categories.json` by a Go ups
 ## Decision
 
 1. Seed data lives in plain SQL files under `api/internal/seed/sql/`, embedded with `go:embed` and applied after the goose migrations on every API start, in one transaction.
-2. Two sets: `reference/` (always applied: categories, later the sample catalog) and `dev/` (applied only when `SEED_DEV_DATA=true`). The runner returns an error, and the API refuses to start, if dev seeds are requested with `APP_ENV=production`.
+2. Two sets: `reference/` (always applied: categories, later the sample catalog) and `dev/` (applied only when `SEED_DEV_DATA=true`). Dev seeds are allowlisted: if they are requested with any `APP_ENV` other than `development` or `test`, the runner returns an error and the API refuses to start.
 3. Every file is idempotent (`INSERT ... ON CONFLICT` on a natural key) and runs in filename order. We don't track applied seed files; they re-run each start, like Flyway's repeatable (`R__`) migrations.
 4. The files contain no psql meta-commands, so `psql --single-transaction` can run them by hand (see `Documentation/seed-data.md`).
 
