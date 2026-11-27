@@ -69,7 +69,7 @@ On the host directly: `.nvmrc` pins Node 26 for `nvm use`; then `cd web && bun i
 
 | Job | Gates |
 |---|---|
-| `api` | golangci-lint pinned to v2.15.0 (bump deliberately; it must be built with Go ≥ our `go.mod` target); `go test -race` unit + handler; `go test -race -tags=integration` against a `postgres:16.13-alpine` service container |
+| `api` | golangci-lint pinned to v2.15.0 (bump deliberately; it must be built with Go ≥ our `go.mod` target); `go test -race` unit + handler; `go test -race -tags=integration` against a `postgres:19.0-alpine` service container |
 | `web` | Bun install with frozen lockfile; ESLint; `nuxt typecheck`; Vitest |
 | `e2e` | Runs API + Nuxt dev server in the background on the runner; caches Playwright browsers keyed on `bun.lock`; runs the Playwright smoke against chromium + webkit; uploads `playwright-report/`, `test-results/`, `api.log`, `web.log` on failure |
 

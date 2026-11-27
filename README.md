@@ -8,7 +8,7 @@ A mobile-first web app for tracking collections of anything — Lego sets, Funko
 
 - **Frontend:** Nuxt 4 (Vue) + PWA, in `web/`
 - **Backend:** Go (chi + pgx), in `api/`
-- **Database:** Postgres 16 (JSONB for per-category attributes)
+- **Database:** Postgres 19 (JSONB for per-category attributes)
 - **Auth:** Google OAuth 2.0
 - **Local dev:** Docker Compose
 - **CI/CD:** GitHub Actions
