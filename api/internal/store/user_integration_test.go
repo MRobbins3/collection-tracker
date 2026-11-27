@@ -57,6 +57,19 @@ func TestUsersUpsertAndGet(t *testing.T) {
 		require.Equal(t, "Carla", got.DisplayName)
 	})
 
+	t.Run("role is nil for regular users and read back when set", func(t *testing.T) {
+		u, err := users.UpsertByGoogleSub(ctx, "google-sub-d", "d@example.com", "Dana")
+		require.NoError(t, err)
+		require.Nil(t, u.Role)
+
+		_, err = pool.Exec(ctx, `UPDATE users SET role = 'admin' WHERE id = $1`, u.ID)
+		require.NoError(t, err)
+		got, err := users.GetByID(ctx, u.ID)
+		require.NoError(t, err)
+		require.NotNil(t, got.Role)
+		require.Equal(t, "admin", *got.Role)
+	})
+
 	t.Run("GetByID with unknown id returns ErrNotFound", func(t *testing.T) {
 		_, err := users.GetByID(ctx, "00000000-0000-0000-0000-000000000000")
 		require.ErrorIs(t, err, store.ErrNotFound)

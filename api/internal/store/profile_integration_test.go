@@ -186,8 +186,8 @@ func TestDeleteUserCascades(t *testing.T) {
 	require.NoError(t, err)
 	var entryID string
 	require.NoError(t, pool.QueryRow(ctx, `
-		INSERT INTO catalog_entries (category_id, name, submitted_by)
-		SELECT id, 'Submitted Thing', $1 FROM categories WHERE slug = 'coins'
+		INSERT INTO catalog_entries (category_id, name, submitted_by, status)
+		SELECT id, 'Submitted Thing', $1, 'approved' FROM categories WHERE slug = 'coins'
 		RETURNING id`, gone.ID).Scan(&entryID))
 
 	require.NoError(t, users.Delete(ctx, gone.ID))
@@ -204,7 +204,7 @@ func TestDeleteUserCascades(t *testing.T) {
 	var submittedBy *string
 	require.NoError(t, pool.QueryRow(ctx,
 		`SELECT submitted_by FROM catalog_entries WHERE id = $1`, entryID).Scan(&submittedBy))
-	require.Nil(t, submittedBy, "catalog submissions stay, unattributed")
+	require.Nil(t, submittedBy, "approved submissions stay, unattributed")
 
 	left, err := items.ListInCollectionForUser(ctx, theirs.ID, stays.ID)
 	require.NoError(t, err)

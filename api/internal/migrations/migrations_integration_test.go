@@ -483,3 +483,103 @@ func TestCatalogSearchUsesTrigramIndexesOnKeys(t *testing.T) {
 	require.Contains(t, explain(`SELECT id FROM catalog_entries WHERE identifier_key LIKE '%7519%'`),
 		"catalog_entries_identifier_key_trgm")
 }
+
+// 0007 adds users.role (nullable, only 'admin' allowed), the polymorphic
+// moderation_requests queue, and narrows the catalog natural key to live
+// (pending or approved) entries so a rejected submission never blocks a
+// later one with the same name.
+func TestModerationMigration(t *testing.T) {
+	dbURL, cleanup := provisionDB(t, t.Name())
+	t.Cleanup(cleanup)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, migrations.Up(ctx, dbURL))
+
+	db, err := sql.Open("pgx", dbURL)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	var userID string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO users (google_sub, email, display_name, handle) VALUES ('s1','a@example.com','A','alice') RETURNING id`,
+	).Scan(&userID))
+
+	t.Run("role is nullable and only admin is allowed", func(t *testing.T) {
+		var role sql.NullString
+		require.NoError(t, db.QueryRowContext(ctx, `SELECT role FROM users WHERE id = $1`, userID).Scan(&role))
+		require.False(t, role.Valid, "existing users have no role")
+		_, err := db.ExecContext(ctx, `UPDATE users SET role = 'admin' WHERE id = $1`, userID)
+		require.NoError(t, err)
+		_, err = db.ExecContext(ctx, `UPDATE users SET role = 'superuser' WHERE id = $1`, userID)
+		require.Error(t, err)
+		_, err = db.ExecContext(ctx, `UPDATE users SET role = NULL WHERE id = $1`, userID)
+		require.NoError(t, err)
+	})
+
+	var cat string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO categories (slug, name, catalog_identifier) VALUES ('lego','Lego','set_number') RETURNING id`,
+	).Scan(&cat))
+	insert := func(name, status string) (string, error) {
+		var id string
+		err := db.QueryRowContext(ctx,
+			`INSERT INTO catalog_entries (category_id, name, identifier, status) VALUES ($1, $2, '1', $3) RETURNING id`,
+			cat, name, status).Scan(&id)
+		return id, err
+	}
+
+	t.Run("natural key covers pending and approved, not rejected", func(t *testing.T) {
+		_, err := insert("Tower", "rejected")
+		require.NoError(t, err)
+		_, err = insert("tower", "rejected")
+		require.NoError(t, err, "rejected rows never block each other")
+		_, err = insert("TOWER", "pending")
+		require.NoError(t, err, "a rejected entry doesn't block a new submission")
+		_, err = insert("Tower ", "approved")
+		require.Error(t, err, "pending and approved share the key")
+	})
+
+	entryID, err := insert("Castle", "pending")
+	require.NoError(t, err)
+
+	t.Run("requests check their shape", func(t *testing.T) {
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO moderation_requests (kind, category_id, catalog_entry_id, submitted_by)
+			VALUES ('catalog_entry', $1, $2, $3)`, cat, entryID, userID)
+		require.NoError(t, err)
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO moderation_requests (kind, category_id, catalog_entry_id, submitted_by)
+			VALUES ('catalog_entry', $1, $2, $3)`, cat, entryID, userID)
+		require.Error(t, err, "one request per submitted entry")
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO moderation_requests (kind, category_id, catalog_entry_id, submitted_by)
+			VALUES ('catalog_correction', $1, $2, $3)`, cat, entryID, userID)
+		require.Error(t, err, "a correction needs its proposed changes")
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO moderation_requests (kind, category_id, catalog_entry_id, submitted_by)
+			VALUES ('something_else', $1, $2, $3)`, cat, entryID, userID)
+		require.Error(t, err, "unknown kinds are refused")
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO moderation_requests (kind, category_id, catalog_entry_id, submitted_by, proposed, status)
+			VALUES ('catalog_correction', $1, $2, $3, '{"name":"X"}', 'approved')`, cat, entryID, userID)
+		require.Error(t, err, "a decided request needs decided_at")
+	})
+
+	t.Run("deleting the submitter deletes their requests", func(t *testing.T) {
+		_, err := db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+		require.NoError(t, err)
+		var n int
+		require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM moderation_requests`).Scan(&n))
+		require.Zero(t, n)
+	})
+
+	// Rolling back restores the all-status unique key; it drops the rejected
+	// rows that would collide ("Tower" x2 rejected beside a pending "TOWER")
+	// and keeps the live ones.
+	require.NoError(t, migrations.DownTo(ctx, dbURL, 6), "the moderation migration rolls back with rejected duplicates present")
+	var towers, live int
+	require.NoError(t, db.QueryRowContext(ctx,
+		`SELECT count(*), count(*) FILTER (WHERE status <> 'rejected') FROM catalog_entries WHERE name_key = 'tower'`).Scan(&towers, &live))
+	require.Equal(t, 1, towers)
+	require.Equal(t, 1, live)
+}

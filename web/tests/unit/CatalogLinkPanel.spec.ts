@@ -50,7 +50,12 @@ beforeEach(() => {
   };
   // @ts-expect-error vitest global standing in for the Nuxt auto-import
   globalThis.useCatalogActions = () => actions;
+  submitEntry = vi.fn(async () => ({ outcome: "submitted", item_linked: false }));
+  // @ts-expect-error vitest global standing in for the Nuxt auto-import
+  globalThis.useSubmissionActions = () => ({ submitEntry, proposeCorrection: vi.fn() });
 });
+
+let submitEntry: ReturnType<typeof vi.fn>;
 
 function mountPanel(it: Item = item) {
   return mount(CatalogLinkPanel, {
@@ -108,5 +113,28 @@ describe("CatalogLinkPanel", () => {
     await wrapper.get("button").trigger("click");
     await flushPromises();
     expect(wrapper.get('[role="alert"]').text()).toContain("Couldn’t search the catalog");
+  });
+
+  it("suggests a free-form item for the catalog, prefilled, with the item to link", async () => {
+    const wrapper = mountPanel();
+    await wrapper.get('[data-testid="catalog-suggest"]').trigger("click");
+    const name = wrapper.get('[data-testid="suggest-entry-name"]').element as HTMLInputElement;
+    expect(name.value).toBe("Falcon");
+    await wrapper.get("form").trigger("submit");
+    await flushPromises();
+    expect(submitEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ category_slug: "lego-sets", name: "Falcon", item_id: "item-1" }),
+    );
+    expect(wrapper.get('[data-testid="suggest-entry-result"]').text()).toContain("An admin will review");
+    expect(wrapper.emitted("changed")).toBeUndefined();
+  });
+
+  it("reports the item as linked when the suggestion was already in the catalog", async () => {
+    submitEntry.mockResolvedValue({ outcome: "already_in_catalog", item_linked: true, entry: { ...suggestion } });
+    const wrapper = mountPanel();
+    await wrapper.get('[data-testid="catalog-suggest"]').trigger("click");
+    await wrapper.get("form").trigger("submit");
+    await flushPromises();
+    expect(wrapper.emitted("changed")?.[0]?.[0]).toMatchObject({ catalog_entry_id: "entry-1" });
   });
 });

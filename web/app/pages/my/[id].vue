@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { identifierTitle } from "~/utils/catalog";
+import { apiErrorMessage, outcomeMessage } from "~/utils/moderation";
 import type { AttributeSchema, Category } from "~/types/api";
 
 const route = useRoute();
@@ -12,6 +13,9 @@ const { data: collection, refresh, pending, error } = useMyCollection(id);
 const { rename, remove: removeCollection } = useMyCollectionsActions();
 const { data: itemsData, refresh: refreshItems } = useCollectionItems(id);
 const { create, update, remove } = useItemsActions(id);
+const { submitEntry } = useSubmissionActions();
+// Result of "Also suggest it for the catalog" after adding an item.
+const suggestNotice = ref<{ text: string; error: boolean } | null>(null);
 const { data: category } = useAsyncData<Pick<Category, "attribute_schema" | "catalog_identifier">>(
   `category-for-collection:${id}`,
   async () => {
@@ -77,14 +81,36 @@ async function onCreateItem(payload: {
   condition?: string;
   attributes: Record<string, unknown>;
   catalog_entry_id?: string;
+  suggest?: boolean;
 }) {
+  const { suggest, ...input } = payload;
+  suggestNotice.value = null;
+  let created;
   try {
-    await create(payload);
+    created = await create(input);
     await refreshItems();
     await refresh();
   } catch (e) {
     console.error(e);
     alert("We couldn’t save that item. Check the fields and try again.");
+    return;
+  }
+  if (!suggest || !collection.value) return;
+  try {
+    const result = await submitEntry({
+      category_slug: collection.value.category_slug,
+      name: created.name,
+      attributes: created.attributes,
+      item_id: created.id,
+    });
+    suggestNotice.value = { text: outcomeMessage(result), error: false };
+    if (result.item_linked) await refreshItems();
+  } catch (e) {
+    console.error(e);
+    suggestNotice.value = {
+      text: apiErrorMessage(e, "Your item was added, but we couldn’t send the catalog suggestion."),
+      error: true,
+    };
   }
 }
 
@@ -152,6 +178,24 @@ async function onDeleteItem(itemId: string, name: string) {
           :identifier-title="idTitle"
           @create="onCreateItem"
         />
+
+        <div
+          v-if="suggestNotice"
+          :role="suggestNotice.error ? 'alert' : 'status'"
+          class="flex items-start justify-between gap-3 rounded-lg p-3 text-sm"
+          :class="
+            suggestNotice.error
+              ? 'bg-rose-50 text-rose-900 dark:bg-rose-950 dark:text-rose-100'
+              : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100'
+          "
+          data-testid="suggest-notice"
+        >
+          <p>
+            {{ suggestNotice.text }}
+            <NuxtLink to="/my/submissions" class="underline">My submissions</NuxtLink>
+          </p>
+          <button type="button" class="shrink-0 text-xs underline" @click="suggestNotice = null">Dismiss</button>
+        </div>
 
         <ul
           v-if="itemsData && itemsData.items.length > 0"

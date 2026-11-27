@@ -4,6 +4,7 @@ import { humanizeKey, identifierTitle } from "~/utils/catalog";
 import type { AttributeSchema } from "~/types/api";
 
 const route = useRoute();
+const { isSignedIn } = useAuth();
 const slug = route.params.slug as string;
 const id = route.params.id as string;
 
@@ -13,6 +14,7 @@ const { data: entry, pending, error } = useCatalogEntry(id);
 // An entry reached through another category's URL is treated as missing.
 const found = computed(() => (entry.value && entry.value.category_slug === slug ? entry.value : null));
 const idTitle = computed(() => identifierTitle(category.value));
+const schema = computed(() => category.value?.attribute_schema as AttributeSchema | undefined);
 
 const details = computed<{ key: string; title: string; value: string }[]>(() => {
   if (!found.value) return [];
@@ -83,6 +85,11 @@ useHead(() => ({
       </section>
 
       <AddToCollection :entry="found" />
+
+      <!-- Signed-in only, and client-rendered: auth state loads after hydration. -->
+      <ClientOnly>
+        <CorrectionForm v-if="isSignedIn" :entry="found" :schema="schema" />
+      </ClientOnly>
     </article>
   </section>
 </template>

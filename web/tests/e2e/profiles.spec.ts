@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signInAsDisposableUser, signInAsTestUser, signOut, uniqueHandle } from "./helpers";
+import { API_URL, signInAsDisposableUser, signInAsTestUser, signOut, uniqueHandle } from "./helpers";
 
 // Specs that edit or delete an account use a disposable user (dev auth only),
 // never a seeded persona, because specs run in parallel on one database.
@@ -92,7 +92,13 @@ test.describe("viewing other people's profiles", () => {
 
 test.describe("deleting your account", () => {
   test("type your handle to delete the account; you're signed out and the profile is gone", async ({ page }) => {
-    const { handle } = await signInAsDisposableUser(page);
+    await signInAsDisposableUser(page);
+    // A handle no other run uses: disposable users otherwise get the lowest
+    // free "disposable_tester<N>", so a parallel spec's new user could take
+    // this one's handle the moment it's deleted, and its profile would show.
+    const handle = uniqueHandle("gone");
+    const renamed = await page.request.patch(`${API_URL}/me/profile`, { data: { handle } });
+    expect(renamed.ok()).toBe(true);
     await page.goto("/settings");
 
     await page.getByTestId("delete-account-start").click();

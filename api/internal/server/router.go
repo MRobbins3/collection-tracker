@@ -24,6 +24,7 @@ type Deps struct {
 	Collections CollectionStore
 	Items       ItemStore
 	Catalog     CatalogStore
+	Moderation  ModerationStore
 	Overview    OverviewStore
 	Users       UserStore
 	// Relationships feeds the privacy rule (ADR 0009). nil falls back to
@@ -68,6 +69,7 @@ type handlers struct {
 	collections   CollectionStore
 	items         ItemStore
 	catalog       CatalogStore
+	moderation    ModerationStore
 	overview      OverviewStore
 	users         UserStore
 	relationships RelationshipStore
@@ -88,6 +90,7 @@ func NewRouter(deps Deps) http.Handler {
 		collections:   deps.Collections,
 		items:         deps.Items,
 		catalog:       deps.Catalog,
+		moderation:    deps.Moderation,
 		overview:      deps.Overview,
 		users:         deps.Users,
 		relationships: deps.Relationships,
@@ -175,6 +178,11 @@ func NewRouter(deps Deps) http.Handler {
 
 		r.Get("/me/catalog-ownership", h.listMyCatalogOwnership)
 
+		// Catalog suggestions and corrections (ADR 0012).
+		r.Post("/me/catalog-submissions", h.submitCatalogEntry)
+		r.Get("/me/catalog-submissions", h.listMySubmissions)
+		r.Post("/me/catalog-corrections", h.proposeCatalogCorrection)
+
 		r.Get("/me/items", h.searchMyItems)
 
 		r.Get("/me/overview", h.getMyOverview)
@@ -186,6 +194,17 @@ func NewRouter(deps Deps) http.Handler {
 		r.Patch("/me/profile", h.patchMyProfile)
 		r.Get("/me/handle-availability", h.handleAvailability)
 		r.Delete("/me", h.deleteMe)
+
+		// Admin only (ADR 0004 roles, ADR 0012). requireLiveUser put the
+		// user's current role on the context; non-admins get 403.
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireRole(auth.RoleAdmin))
+			r.Get("/admin/moderation", h.listModerationQueue)
+			r.Get("/admin/moderation/{requestID}", h.getModerationRequest)
+			r.Post("/admin/moderation/{requestID}/approve", h.approveModerationRequest)
+			r.Post("/admin/moderation/{requestID}/reject", h.rejectModerationRequest)
+			r.Post("/admin/moderation/{requestID}/merge", h.mergeModerationRequest)
+		})
 	})
 
 	return r

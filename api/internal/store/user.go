@@ -14,13 +14,17 @@ import (
 )
 
 type User struct {
-	ID          string    `json:"id"`
-	GoogleSub   string    `json:"-"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	Handle      string    `json:"handle"`
-	AvatarColor string    `json:"avatar_color"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string `json:"id"`
+	GoogleSub   string `json:"-"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Handle      string `json:"handle"`
+	AvatarColor string `json:"avatar_color"`
+	// Role is nil for almost everyone; "admin" for moderators (ADR 0004).
+	// /me exposes it so the web can show admin navigation; the API checks
+	// it server-side on every admin request (auth.RequireRole).
+	Role      *string   `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Users struct {
@@ -31,7 +35,7 @@ func NewUsers(pool *pgxpool.Pool) *Users {
 	return &Users{pool: pool}
 }
 
-const userCols = `id, google_sub, email, display_name, handle, created_at`
+const userCols = `id, google_sub, email, display_name, handle, role, created_at`
 
 // maxHandleAttempts bounds the retry when two sign-ups race for the same
 // derived handle.
@@ -128,18 +132,40 @@ func (u *Users) GetByGoogleSub(ctx context.Context, sub string) (User, error) {
 }
 
 // Delete removes the user and, through ON DELETE CASCADE, everything they
-// own (collections, items). Catalog entries they submitted or approved stay,
-// unattributed (ON DELETE SET NULL). Tables added later that reference users
-// must cascade too (ADR 0009). ErrNotFound if there's no such user.
+// own (collections, items, moderation requests). Their unpublished catalog
+// submissions (pending or rejected) are deleted too; approved catalog
+// entries they submitted or approved stay, unattributed (ON DELETE SET
+// NULL). Tables added later that reference users must cascade too (ADR
+// 0009). ErrNotFound if there's no such user.
 func (u *Users) Delete(ctx context.Context, id string) error {
-	tag, err := u.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	tx, err := u.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// Lock the user first: Submit holds the same lock while it inserts, so a
+	// suggestion can't land between deleting unpublished entries and the
+	// user (which would leave a pending entry with no submitter).
+	var one int
+	err = tx.QueryRow(ctx, `SELECT 1 FROM users WHERE id = $1 FOR UPDATE`, id).Scan(&one)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock user: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM catalog_entries WHERE submitted_by = $1 AND status <> 'approved'`, id); err != nil {
+		return fmt.Errorf("delete unpublished submissions: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 // DevSubPrefix marks persona users created by the dev seed set
@@ -182,7 +208,7 @@ func (u *Users) ListDevPersonas(ctx context.Context) ([]Persona, error) {
 
 func scanUser(r rowScanner) (User, error) {
 	var u User
-	if err := r.Scan(&u.ID, &u.GoogleSub, &u.Email, &u.DisplayName, &u.Handle, &u.CreatedAt); err != nil {
+	if err := r.Scan(&u.ID, &u.GoogleSub, &u.Email, &u.DisplayName, &u.Handle, &u.Role, &u.CreatedAt); err != nil {
 		return User{}, err
 	}
 	u.AvatarColor = profile.AvatarColor(u.ID)
