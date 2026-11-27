@@ -32,8 +32,8 @@ export function useCompareActions() {
     } catch (e) {
       const status = (e as { statusCode?: number; status?: number })?.statusCode ?? (e as { status?: number })?.status;
       if (status === 404) {
-        const body = (e as { data?: { error?: string } })?.data;
-        return body?.error === "category not found" ? "unknown_category" : "hidden";
+        const code = (e as { data?: { code?: string } })?.data?.code;
+        return code === "category_not_found" ? "unknown_category" : "hidden";
       }
       throw e;
     }

@@ -87,8 +87,8 @@ func TestCompareReturnsCountsAndOnePage(t *testing.T) {
 	got := decode[compareResp](t, rr)
 	require.Equal(t, "noah", got.Other["handle"])
 	require.NotContains(t, got.Other, "email")
-	require.Len(t, got.Categories, 1)
-	require.Equal(t, [2]string{"u-liam", "u-noah"}, fc.catsFor)
+	require.Nil(t, got.Categories, "a later page skips the picker")
+	require.Equal(t, [2]string{}, fc.catsFor)
 	require.NotNil(t, got.Category)
 	require.Equal(t, 8, got.Category.CatalogEntries)
 	require.Equal(t, store.CompareCounts{Both: 1, MineOnly: 2, TheirsOnly: 3, Neither: 4}, *got.Counts)
@@ -108,6 +108,9 @@ func TestCompareDefaults(t *testing.T) {
 	require.Equal(t, store.BucketBoth, fc.last.Bucket)
 	require.Equal(t, 50, fc.last.Limit)
 	require.Equal(t, 0, fc.last.Offset)
+	got := decode[compareResp](t, rr)
+	require.Len(t, got.Categories, 1, "the first page has the picker")
+	require.Equal(t, [2]string{"u-liam", "u-noah"}, fc.catsFor)
 }
 
 func TestCompareWithoutCategoryListsCategoriesOnly(t *testing.T) {
@@ -173,6 +176,7 @@ func TestCompareRejectsBadRequests(t *testing.T) {
 		_, h := compareFixture(t, "u-liam")
 		rr := doJSON(t, h, http.MethodGet, "/users/noah/compare?category=spoons-cccccc", nil)
 		require.Equal(t, http.StatusNotFound, rr.Code)
-		require.Contains(t, rr.Body.String(), "category not found")
+		got := decode[map[string]string](t, rr)
+		require.Equal(t, "category_not_found", got["code"])
 	})
 }

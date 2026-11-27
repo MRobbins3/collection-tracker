@@ -78,7 +78,7 @@ async function load() {
     hasMore.value = out.has_more;
     state.value = "ready";
     if (!props.category) {
-      const slug = defaultCategory(out.categories);
+      const slug = defaultCategory(out.categories ?? []);
       if (slug) emit("update:category", slug);
     }
   } catch (e) {

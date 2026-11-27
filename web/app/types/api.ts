@@ -483,7 +483,8 @@ export interface CompareCounts {
 /** GET /users/{handle}/compare. Without a category, only the picker is filled. */
 export interface CompareResponse {
   other: PublicProfile;
-  categories: CompareCategory[];
+  /** The picker; null on later pages (offset > 0). */
+  categories: CompareCategory[] | null;
   category: { slug: string; name: string; public: boolean; catalog_entries: number } | null;
   counts: CompareCounts | null;
   bucket: CompareBucket;

@@ -27,13 +27,17 @@ const (
 	// compareMaxOffset bounds paging, as for the catalog and overview.
 	compareMaxOffset = 10000
 	msgCompareSelf   = "You can’t compare your collection with yourself."
+	// codeCategoryNotFound tells the web an unknown category apart from a
+	// hidden profile (both 404).
+	codeCategoryNotFound = "category_not_found"
 )
 
 // compareWithUser is GET /users/{handle}/compare: how the signed-in
 // viewer's items in one category line up with the other person's, in four
 // buckets (both, mine_only, theirs_only, neither). Query: category (slug;
 // omitted = the category picker only), bucket (default both),
-// limit=1..100 (default 50), offset=0..10000.
+// limit=1..100 (default 50), offset=0..10000. categories (the picker) is
+// filled on the first page only (offset 0), and null after.
 //
 // It reads the other person's collections, so the privacy rule applies
 // exactly as on their profile: hidden is 404 (ADR 0009).
@@ -60,10 +64,14 @@ func (h *handlers) compareWithUser(w http.ResponseWriter, r *http.Request) {
 	q.ViewerID = s.UserID
 	q.OtherID = v.owner.UserID
 
-	cats, err := h.compare.Categories(r.Context(), q.ViewerID, q.OtherID)
-	if err != nil {
-		h.serverError(w, r, err, "compareWithUser: categories failed")
-		return
+	// The picker only matters on a first page; "Show more" skips it.
+	var cats []store.CompareCategory
+	if q.Offset == 0 {
+		cats, err = h.compare.Categories(r.Context(), q.ViewerID, q.OtherID)
+		if err != nil {
+			h.serverError(w, r, err, "compareWithUser: categories failed")
+			return
+		}
 	}
 	out := map[string]any{
 		"other":      toPublic(v.owner),
@@ -83,7 +91,7 @@ func (h *handlers) compareWithUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "category not found"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "category not found", "code": codeCategoryNotFound})
 		case errors.Is(err, store.ErrCompareSelf):
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msgCompareSelf})
 		default:
