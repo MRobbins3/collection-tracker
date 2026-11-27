@@ -31,6 +31,7 @@ test.describe("global catalog", () => {
     await expect(details).toContainText("Piece count");
     await expect(details).toContainText("7541");
     await expect(details).not.toContainText("piece_count");
+    await expect(details).not.toContainText("Set number"); // shown once, under the name
     await expect(page.getByTestId("add-to-collection").getByTestId("signin-prompt")).toBeVisible();
   });
 

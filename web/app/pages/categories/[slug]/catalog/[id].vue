@@ -22,7 +22,10 @@ const details = computed<{ key: string; title: string; value: string }[]>(() => 
     ...Object.keys(props),
     ...Object.keys(found.value.attributes).filter((k) => !(k in props)),
   ];
+  // The identifier is already shown under the name, so it isn't repeated here.
+  const shownAbove = category.value?.catalog_identifier;
   return keys
+    .filter((key) => key !== shownAbove)
     .map((key) => ({ key, value: found.value!.attributes[key] }))
     .filter(({ value }) => value !== undefined && value !== null && value !== "")
     .map(({ key, value }) => ({ key, title: props[key]?.title ?? humanizeKey(key), value: String(value) }));
