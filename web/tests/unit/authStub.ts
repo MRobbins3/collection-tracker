@@ -25,7 +25,14 @@ export function makeAuthStub(init: { user?: User | null; providers?: AuthProvide
     listPersonas: vi.fn(async (): Promise<DevPersona[]> => personas),
     devLogin: vi.fn(async (handle: string) => {
       const p = personas.find((x) => x.handle === handle)!;
-      user.value = { id: `user-${handle}`, email: p.email, display_name: p.display_name, created_at: "2026-11-27T00:00:00Z" };
+      user.value = {
+        id: `user-${handle}`,
+        email: p.email,
+        display_name: p.display_name,
+        handle,
+        avatar_color: "teal",
+        created_at: "2026-11-27T00:00:00Z",
+      };
     }),
   };
 }
