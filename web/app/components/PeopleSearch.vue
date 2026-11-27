@@ -2,7 +2,7 @@
 import { computed, ref, useId, watch } from "vue";
 import PersonRow from "./PersonRow.vue";
 import { useDebouncedRef } from "~/composables/useDebouncedRef";
-import type { Person } from "~/types/api";
+import type { PersonCard } from "~/types/api";
 import { normalizeSearchQuery, SEARCH_DEBOUNCE_MS } from "~/utils/search";
 import { socialErrorMessage } from "~/utils/social";
 
@@ -19,7 +19,7 @@ const text = ref("");
 const normalized = computed(() => normalizeSearchQuery(text.value).replace(/^@/, ""));
 const term = useDebouncedRef(normalized, SEARCH_DEBOUNCE_MS);
 
-const results = ref<Person[]>([]);
+const results = ref<PersonCard[]>([]);
 const loading = ref(false);
 const error = ref("");
 // Drops stale answers: only the latest search may write results.

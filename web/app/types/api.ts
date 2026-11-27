@@ -113,11 +113,15 @@ export interface ViewerRelationship {
   accepts_follow_requests: boolean;
 }
 
-/** Someone in a friends, followers, requests, or search list. */
-export interface Person {
+/** The public card fields of a person (people search returns only these). */
+export interface PersonCard {
   handle: string;
   display_name: string;
   avatar_color: string;
+}
+
+/** Someone in a friends, followers, or requests list. */
+export interface Person extends PersonCard {
   /** When the friendship, follow, or request began. */
   since: string;
 }

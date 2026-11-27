@@ -125,4 +125,22 @@ test.describe("friends and followers", () => {
     await hidden.close();
     await visible.close();
   });
+
+  test("declining a Private person's request says it worked instead of 'not found'", async ({ browser }) => {
+    const owner = await newPerson(browser, "public", "own");
+    const asker = await newPerson(browser, "private", "priv");
+    const sent = await asker.page.request.post(`${API_URL}/users/${owner.handle}/friend-request`);
+    expect(sent.ok()).toBe(true);
+
+    // Their request lets the owner see the Private card, to decide.
+    await owner.page.goto(`/u/${asker.handle}`);
+    await expect(owner.page.getByTestId("friend-request-banner")).toBeVisible();
+    await expect(owner.page.getByTestId("profile-collections-hidden")).toBeVisible();
+    await owner.page.getByTestId("friend-decline").click();
+    await expect(owner.page.getByTestId("profile-gone")).toContainText("keeps their profile private");
+    await expect(owner.page.getByTestId("profile-not-found")).toHaveCount(0);
+
+    await owner.close();
+    await asker.close();
+  });
 });

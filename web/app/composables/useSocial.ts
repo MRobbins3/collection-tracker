@@ -1,4 +1,4 @@
-import type { Person, RequestsResponse } from "~/types/api";
+import type { Person, PersonCard, RequestsResponse } from "~/types/api";
 
 /**
  * How many friend and follow requests wait for you (the header badge).
@@ -62,6 +62,6 @@ export function useSocialActions() {
     listFollowing: () => people("/me/following"),
     listRequests: () => api.get<RequestsResponse>("/me/requests"),
     /** Profiles you're allowed to see whose handle or name matches. */
-    searchPeople: async (q: string) => (await api.get<{ people: Person[] }>("/people", { q })).people,
+    searchPeople: async (q: string) => (await api.get<{ people: PersonCard[] }>("/people", { q })).people,
   };
 }

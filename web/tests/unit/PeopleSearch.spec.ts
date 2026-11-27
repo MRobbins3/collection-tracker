@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { defineComponent, h } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import PeopleSearch from "~/components/PeopleSearch.vue";
-import type { Person } from "~/types/api";
+import type { PersonCard } from "~/types/api";
 import { SEARCH_DEBOUNCE_MS } from "~/utils/search";
 
 const NuxtLinkStub = defineComponent({
@@ -14,18 +14,13 @@ const NuxtLinkStub = defineComponent({
 });
 const IconStub = defineComponent({ name: "Icon", setup: () => () => h("span") });
 
-const person = (handle: string, display_name: string): Person => ({
-  handle,
-  display_name,
-  avatar_color: "teal",
-  since: "2026-11-27T00:00:00Z",
-});
+const person = (handle: string, display_name: string): PersonCard => ({ handle, display_name, avatar_color: "teal" });
 
 let searchPeople: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.useFakeTimers();
-  searchPeople = vi.fn(async (): Promise<Person[]> => [person("noah", "Noah Williams")]);
+  searchPeople = vi.fn(async (): Promise<PersonCard[]> => [person("noah", "Noah Williams")]);
   // @ts-expect-error vitest global standing in for the Nuxt auto-import
   globalThis.useSocialActions = () => ({ searchPeople });
 });
@@ -68,8 +63,8 @@ describe("PeopleSearch", () => {
   });
 
   it("drops a slow answer to an older search", async () => {
-    let resolveOld!: (p: Person[]) => void;
-    searchPeople.mockImplementationOnce(() => new Promise<Person[]>((r) => (resolveOld = r)));
+    let resolveOld!: (p: PersonCard[]) => void;
+    searchPeople.mockImplementationOnce(() => new Promise<PersonCard[]>((r) => (resolveOld = r)));
     searchPeople.mockResolvedValueOnce([person("amelia", "Amelia Brown")]);
     const wrapper = mountSearch();
     await type(wrapper, "no");

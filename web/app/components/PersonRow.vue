@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import UserAvatar from "./UserAvatar.vue";
-import type { Person } from "~/types/api";
+import type { PersonCard } from "~/types/api";
 
 /**
  * One person in a friends, followers, requests, or search list: avatar,
  * name, and handle linking to their profile, plus an actions slot.
  */
-defineProps<{ person: Person }>();
+defineProps<{ person: PersonCard }>();
 </script>
 
 <template>
