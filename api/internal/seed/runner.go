@@ -1,3 +1,8 @@
+// Package seed applies the SQL seed files embedded under sql/: the reference
+// set (curated categories, later the sample catalog) on every start, and the
+// dev set (fake users etc.) only when explicitly enabled outside production.
+// Files are plain idempotent SQL so they can also be run by hand with psql;
+// see Documentation/seed-data.md.
 package seed
 
 import (
