@@ -11,7 +11,7 @@ This document describes **what is actually in place** today, with aspirational i
 | Unit | `testing` stdlib, **table-driven** tests, `github.com/stretchr/testify/require` | Pure functions: validators, JSON-Schema checks, config parsing, session encode/decode | `cases := []struct{...}; for _, tc := range cases { t.Run(tc.name, ...) }` |
 | HTTP handler | `net/http/httptest` + in-process chi router | Request→response contracts, auth gate, status codes, serialization, CORS | Boot the router via `server.NewRouter`, exercise with `httptest.NewRecorder` |
 | OAuth | fake Google token + userinfo endpoints via `httptest.NewServer` | Full callback path: state verify, code exchange, profile fetch, user upsert, session write, redirect | Override `oauth2.Endpoint` + `userinfoURL` on the handler under test |
-| Integration (DB) | **Disposable per-test DB** on a shared Postgres (ADR 0002) | Migrations up/down, every store method, JSONB validation, cross-user isolation, CHECK constraints, FK cascades | Build tag `//go:build integration`; `testDBURL()` substitutes the db name into `TEST_ADMIN_DATABASE_URL` so the same code works in docker-compose (host=`db`) and in CI (host=`localhost`) |
+| Integration (DB) | **Disposable per-test DB** on a shared Postgres (ADR 0002) | Migrations up/down, seed files (idempotency, dev-vs-reference gating, production refusal), every store method, JSONB validation, cross-user isolation, CHECK constraints, FK cascades | Build tag `//go:build integration`; `testDBURL()` substitutes the db name into `TEST_ADMIN_DATABASE_URL` so the same code works in docker-compose (host=`db`) and in CI (host=`localhost`) |
 
 ### Policies
 

@@ -36,6 +36,8 @@ docker compose up --build
 
 On each start the web container runs `bun install` and then warms up the Nuxt dev server, which can take a few minutes. If the page loads without styling, it isn't ready yet; follow `docker compose logs -f web` until it prints "Vite client warmed up", then reload.
 
+The API applies the database migrations and seed data on every start. To rebuild the local database from scratch, run `./scripts/reset-db.sh`; `Documentation/seed-data.md` explains the seed files.
+
 ### Enabling Google sign-in locally
 
 By default, `/auth/google/*` returns 503 until you provide OAuth credentials.
@@ -55,6 +57,7 @@ export GOOGLE_OAUTH_CLIENT_SECRET=...
 web/              Nuxt 4 app
 api/              Go service
 Documentation/    Living requirements, testing strategy, ADRs
+scripts/          Local dev helpers (reset-db.sh)
 docker-compose.yml
 .github/workflows/
 ```
