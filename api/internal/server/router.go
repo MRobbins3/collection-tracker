@@ -24,6 +24,7 @@ type Deps struct {
 	Collections CollectionStore
 	Items       ItemStore
 	Catalog     CatalogStore
+	Overview    OverviewStore
 	Users       UserStore
 	// Relationships feeds the privacy rule (ADR 0009). nil falls back to
 	// "self or stranger", which is all that exists until friends/followers.
@@ -67,6 +68,7 @@ type handlers struct {
 	collections   CollectionStore
 	items         ItemStore
 	catalog       CatalogStore
+	overview      OverviewStore
 	users         UserStore
 	relationships RelationshipStore
 	handleChecks  *keyedLimiter
@@ -86,6 +88,7 @@ func NewRouter(deps Deps) http.Handler {
 		collections:   deps.Collections,
 		items:         deps.Items,
 		catalog:       deps.Catalog,
+		overview:      deps.Overview,
 		users:         deps.Users,
 		relationships: deps.Relationships,
 		handleChecks:  newKeyedLimiter(handleCheckBurst, handleCheckInterval),
@@ -167,6 +170,11 @@ func NewRouter(deps Deps) http.Handler {
 		r.Delete("/me/collections/{id}/items/{itemID}", h.deleteItem)
 
 		r.Get("/me/items", h.searchMyItems)
+
+		r.Get("/me/overview", h.getMyOverview)
+		r.Post("/me/pinned-categories", h.pinMyCategory)
+		r.Delete("/me/pinned-categories/{slug}", h.unpinMyCategory)
+		r.Patch("/me/overview-settings", h.patchMyOverviewSettings)
 
 		r.Get("/me/profile", h.getMyProfile)
 		r.Patch("/me/profile", h.patchMyProfile)
