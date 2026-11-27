@@ -1,6 +1,6 @@
 # ADR 0014: Friends and followers
 
-- **Status:** Proposed
+- **Status:** Proposed (accept once the follow-approval setting, #60, is decided)
 - **Date:** 2026-11-27
 
 ## Context

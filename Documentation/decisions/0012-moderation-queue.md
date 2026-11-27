@@ -1,6 +1,6 @@
 # ADR 0012: Moderation queue, audit trail, and admin assignment
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-27
 
 ## Context
