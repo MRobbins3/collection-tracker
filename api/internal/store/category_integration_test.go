@@ -125,20 +125,3 @@ func TestCategoriesEndToEnd(t *testing.T) {
 		require.Len(t, got, 8)
 	})
 }
-
-func TestCategoriesSeedIsIdempotent(t *testing.T) {
-	pool, cleanup := provisionSeededDB(t, t.Name())
-	t.Cleanup(cleanup)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Seed a second time; row count must still be exactly 8.
-	_, err := seed.Apply(ctx, pool, seed.Options{Env: "test"})
-	require.NoError(t, err)
-
-	cats := store.NewCategories(pool)
-	got, err := cats.List(ctx)
-	require.NoError(t, err)
-	require.Len(t, got, 8)
-}

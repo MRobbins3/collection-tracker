@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
@@ -88,19 +89,58 @@ func TestReferenceSeedsProduceCuratedCategories(t *testing.T) {
 	}, lego, "spot-check one property verbatim")
 }
 
-func TestReferenceSeedsAreIdempotent(t *testing.T) {
-	pool := provisionMigratedDB(t)
+// tableSnapshot is, per table in schema public (bar goose's bookkeeping),
+// the row count and every row's xmin. xmin changes whenever a row is
+// rewritten, so equal snapshots mean a run inserted, deleted, and updated
+// nothing.
+type tableSnapshot struct {
+	Count int64
+	Xmins []string
+}
+
+func snapshotTables(t *testing.T, pool *pgxpool.Pool) map[string]tableSnapshot {
+	t.Helper()
 	ctx := context.Background()
 
-	_, err := seed.Apply(ctx, pool, seed.Options{Env: "development", Dev: true})
+	rows, err := pool.Query(ctx, `
+		SELECT table_name FROM information_schema.tables
+		WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+		  AND table_name <> 'goose_db_version'`)
 	require.NoError(t, err)
-	first := categoriesBySlug(t, pool)
-	require.Len(t, first, 8)
+	tables, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	require.NoError(t, err)
+	require.NotEmpty(t, tables)
 
-	_, err = seed.Apply(ctx, pool, seed.Options{Env: "development", Dev: true})
+	out := map[string]tableSnapshot{}
+	for _, tbl := range tables {
+		ident := pgx.Identifier{tbl}.Sanitize()
+		var snap tableSnapshot
+		require.NoError(t, pool.QueryRow(ctx,
+			`SELECT count(*), coalesce(array_agg(xmin::text ORDER BY xmin::text), '{}') FROM `+ident,
+		).Scan(&snap.Count, &snap.Xmins), tbl)
+		out[tbl] = snap
+	}
+	return out
+}
+
+// Guards every seed file, present and future: a second run must not add,
+// remove, or rewrite a single row in any table.
+func TestSeedsAreIdempotentAcrossAllTables(t *testing.T) {
+	pool := provisionMigratedDB(t)
+	ctx := context.Background()
+	opts := seed.Options{Env: "development", Dev: true}
+
+	_, err := seed.Apply(ctx, pool, opts)
 	require.NoError(t, err)
-	require.Equal(t, first, categoriesBySlug(t, pool),
-		"a second run must not duplicate, delete-and-reinsert (new ids), or change rows")
+	first := snapshotTables(t, pool)
+	require.EqualValues(t, 8, first["categories"].Count)
+	firstCats := categoriesBySlug(t, pool)
+
+	_, err = seed.Apply(ctx, pool, opts)
+	require.NoError(t, err)
+	require.Equal(t, first, snapshotTables(t, pool),
+		"a second run must not insert, delete, or rewrite rows (use ON CONFLICT with an IS DISTINCT FROM guard)")
+	require.Equal(t, firstCats, categoriesBySlug(t, pool))
 }
 
 func TestReferenceSeedsRestoreHandEditedCategory(t *testing.T) {
