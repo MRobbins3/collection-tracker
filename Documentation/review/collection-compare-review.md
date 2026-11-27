@@ -19,7 +19,7 @@ Decisions made without the owner, for review. Owner decision followed as given: 
 
 - **Same rule as the profile:** comparing goes through `resolveView`, so it's 404 unless the viewer may see the other person's collections (not just their card). Collection visibility is account-wide (ADR 0009), so "only the items they're allowed to see" means all or nothing.
 - **Signed in only** (401 otherwise): there's no "mine" without a viewer. Comparing with yourself is 400 and the page says "That's you".
-- **Categories:** approved, the viewer's own, and the other person's own unapproved categories (the viewer sees those through the collection view already, ADR 0013). A third person's unapproved category is 404 and is left out of the picker. This is the one widening of `visibleTo`, named `compareVisible` and noted in CLAUDE.md.
+- **Categories:** approved, the viewer's own, and any unapproved category the other person has a collection in, which is exactly what their profile already shows (ADR 0013). That includes a third person's category Bob collects in, so "Compare with my …" on any collection page works. An unapproved category the other person built but has no collection in is 404 and never in the picker, so `?category=` can't reveal it. This is the one widening of `visibleTo`, named `compareVisible` and noted in CLAUDE.md.
 - **Unknown or hidden category is 404 "category not found"**, not 400, so slugs can't be probed. The page drops it from the URL and picks a category.
 
 ## API shape

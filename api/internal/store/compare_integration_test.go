@@ -236,9 +236,10 @@ func TestCompare(t *testing.T) {
 }
 
 // Unapproved categories follow ADR 0013: your own are visible, and so is
-// the other person's (the caller has already applied the privacy rule, so
-// the viewer may see their collections). A third person's unapproved
-// category stays hidden, along with the other person's items in it.
+// any category the other person has a collection in (the caller has already
+// applied the privacy rule, and their profile shows those collections). A
+// category the other person built but has no collection in stays hidden, as
+// does a third person's with no collection of theirs.
 func TestCompareCategoryVisibility(t *testing.T) {
 	pool, cleanup := provisionSeededDB(t, t.Name())
 	t.Cleanup(cleanup)
@@ -262,6 +263,8 @@ func TestCompareCategoryVisibility(t *testing.T) {
 	mkCategory("sneakers-aaaaaa", "Sneakers", alice.ID)
 	mkCategory("keychains-bbbbbb", "Keychains", bob.ID)
 	mkCategory("spoons-cccccc", "Spoons", carol.ID)
+	mkCategory("magnets-dddddd", "Magnets", bob.ID)
+	mkCategory("thimbles-eeeeee", "Thimbles", carol.ID)
 
 	colls := store.NewCollections(pool)
 	items := store.NewItems(pool)
@@ -294,7 +297,8 @@ func TestCompareCategoryVisibility(t *testing.T) {
 			{Slug: "coins", Name: "Coins", Public: true, MineItems: 1, TheirItems: 2},
 			{Slug: "keychains-bbbbbb", Name: "Keychains", Public: false, MineItems: 0, TheirItems: 1},
 			{Slug: "sneakers-aaaaaa", Name: "Sneakers", Public: false, MineItems: 1, TheirItems: 0},
-		}, cats, "Carol's Spoons is hidden; an empty collection adds nothing")
+			{Slug: "spoons-cccccc", Name: "Spoons", Public: false, MineItems: 0, TheirItems: 1},
+		}, cats, "Bob's collection in Carol's Spoons shows on his profile; an empty collection adds nothing")
 	})
 
 	t.Run("the other person's unapproved category compares", func(t *testing.T) {
@@ -306,11 +310,21 @@ func TestCompareCategoryVisibility(t *testing.T) {
 		require.Equal(t, []string{"Eiffel Tower"}, compareNames(res.Items))
 	})
 
-	t.Run("a third person's unapproved category is not found", func(t *testing.T) {
-		_, err := cmp.Compare(ctx, store.CompareQuery{
+	t.Run("a third person's category the other person collects in compares", func(t *testing.T) {
+		res, err := cmp.Compare(ctx, store.CompareQuery{
 			ViewerID: alice.ID, OtherID: bob.ID, CategorySlug: "spoons-cccccc", Bucket: store.BucketTheirsOnly, Limit: 50,
 		})
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.NoError(t, err)
+		require.Equal(t, []string{"Niagara Falls"}, compareNames(res.Items))
+	})
+
+	t.Run("an unapproved category with no collection of theirs is not found", func(t *testing.T) {
+		for _, slug := range []string{"magnets-dddddd", "thimbles-eeeeee"} {
+			_, err := cmp.Compare(ctx, store.CompareQuery{
+				ViewerID: alice.ID, OtherID: bob.ID, CategorySlug: slug, Bucket: store.BucketTheirsOnly, Limit: 50,
+			})
+			require.ErrorIs(t, err, store.ErrNotFound, slug)
+		}
 	})
 
 	t.Run("free-form names match across case", func(t *testing.T) {

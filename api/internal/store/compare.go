@@ -119,10 +119,12 @@ func NewCompare(pool *pgxpool.Pool) *Compare {
 }
 
 // compareVisible is the category rule for a comparison: visibleTo for the
-// viewer ($1), widened to the other person's own categories ($2), which the
-// viewer may see through their collections (ADR 0013). A third person's
-// unapproved category stays hidden, with everything in it.
-const compareVisible = `(cat.status = 'approved' OR cat.created_by = $1::uuid OR cat.created_by = $2::uuid)`
+// viewer ($1), widened to any category the other person ($2) has a
+// collection in, which the viewer already sees on their profile (ADR 0013;
+// the caller has applied the privacy rule). A category they built but don't
+// collect in stays hidden.
+const compareVisible = `(cat.status = 'approved' OR cat.created_by = $1::uuid
+	OR EXISTS (SELECT 1 FROM collections c2 WHERE c2.category_id = cat.id AND c2.user_id = $2::uuid))`
 
 // Categories lists the categories either person has items in that the
 // viewer may see, by name.
