@@ -33,6 +33,14 @@ Decisions made without the owner, for review. Covers the collection overview, ca
 
 - **Dev items got fixed, spread-out `created_at` dates** so date sorts have a visible order (they were all inserted at the same instant). The items insert now upserts only `created_at` on conflict, guarded by `IS DISTINCT FROM`, so re-runs stay idempotent and existing local databases pick the dates up.
 
+## Review fixes
+
+- "Show more" moved into `useShowMore`: pages reset only when the first page's items change (a show-empty toggle no longer drops them), and a page still loading when sort/filter changes is dropped via a generation counter.
+- Category add buttons show a placeholder until your collection has loaded, instead of flashing "Add".
+- A filter is always clearable: the "All" chip stays when a hand-edited `?category=` matches nothing, and the filtered empty states have "Clear filter".
+- Store tests page through tied sort keys (same date, names differing only in case) and check pages concatenate without duplicates.
+- Commit hygiene: the changelog entry landed in a separate docs commit instead of with the user-visible change, as CLAUDE.md asks. Left as is (no history rewrites).
+
 ## Not done
 
 - No per-category hide, no "recently updated" sort, no search box inside the Add a category panel (8 categories today; worth adding when user-built categories grow the list).
