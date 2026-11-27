@@ -20,7 +20,7 @@
 --   * Emails use example.com (reserved by RFC 2606), so nothing is ever
 --     sent to a real inbox.
 --
--- Extending: later PRs add roles and friendships for
+-- Extending: later PRs add friendships for
 -- these personas. Add new columns to the users upsert below (and to its
 -- IS DISTINCT FROM guard), or add a new 00NN_*.sql file that keys on
 -- google_sub, e.g. (SELECT id FROM users WHERE google_sub = 'dev:olivia').
@@ -32,7 +32,7 @@
 --
 --   handle  | display name     | collections visible to | scenario
 --   --------+------------------+------------------------+-------------------------------
---   olivia  | Olivia Martinez  | public                 | admin-to-be (moderates later)
+--   olivia  | Olivia Martinez  | public                 | admin: reviews the moderation queue
 --   liam    | Liam Johnson     | public                 | collector with populated collections
 --   emma    | Emma Garcia      | private                | brand-new user, no collections
 --   noah    | Noah Williams    | friends_only           | future friend of Liam (one small collection)
@@ -44,26 +44,29 @@
 
 -- Users ----------------------------------------------------------------------
 
-INSERT INTO users (google_sub, email, display_name, handle, bio, collection_visibility) VALUES
+-- role: Olivia is the dev admin (ADR 0012); everyone else has none, which is
+-- what almost every real account looks like.
+INSERT INTO users (google_sub, email, display_name, handle, bio, collection_visibility, role) VALUES
     ('dev:olivia', 'olivia.martinez@example.com', 'Olivia Martinez', 'olivia',
-     'Keeping the catalog tidy. Collects stamps on the side.', 'public'),
+     'Keeping the catalog tidy. Collects stamps on the side.', 'public', 'admin'),
     ('dev:liam',   'liam.johnson@example.com',    'Liam Johnson',    'liam',
-     'Lego builder and classic rock vinyl hunter.', 'public'),
+     'Lego builder and classic rock vinyl hunter.', 'public', NULL),
     ('dev:emma',   'emma.garcia@example.com',     'Emma Garcia',     'emma',
-     'Just getting started.', 'private'),
+     'Just getting started.', 'private', NULL),
     ('dev:noah',   'noah.williams@example.com',   'Noah Williams',   'noah',
-     'US coins, mostly pocket-change finds.', 'friends_only'),
+     'US coins, mostly pocket-change finds.', 'friends_only', NULL),
     ('dev:amelia', 'amelia.brown@example.com',    'Amelia Brown',    'amelia',
-     'Houseplants on every windowsill. Cuttings welcome.', 'followers_and_friends')
+     'Houseplants on every windowsill. Cuttings welcome.', 'followers_and_friends', NULL)
 ON CONFLICT (google_sub) DO UPDATE SET
     email                 = EXCLUDED.email,
     display_name          = EXCLUDED.display_name,
     handle                = EXCLUDED.handle,
     bio                   = EXCLUDED.bio,
-    collection_visibility = EXCLUDED.collection_visibility
-WHERE (users.email, users.display_name, users.handle, users.bio, users.collection_visibility)
+    collection_visibility = EXCLUDED.collection_visibility,
+    role                  = EXCLUDED.role
+WHERE (users.email, users.display_name, users.handle, users.bio, users.collection_visibility, users.role)
       IS DISTINCT FROM (EXCLUDED.email, EXCLUDED.display_name, EXCLUDED.handle,
-                        EXCLUDED.bio, EXCLUDED.collection_visibility);
+                        EXCLUDED.bio, EXCLUDED.collection_visibility, EXCLUDED.role);
 
 -- Collections ----------------------------------------------------------------
 

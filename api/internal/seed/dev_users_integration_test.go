@@ -47,6 +47,20 @@ func TestDevSeedsCreatePersonas(t *testing.T) {
 	}, got)
 }
 
+// Olivia is the dev admin (ADR 0012); every other persona has no role.
+func TestDevSeedsMakeOliviaTheOnlyAdmin(t *testing.T) {
+	pool := provisionMigratedDB(t)
+	ctx := context.Background()
+	_, err := seed.Apply(ctx, pool, seed.Options{Env: "test", Dev: true})
+	require.NoError(t, err)
+
+	rows, err := pool.Query(ctx, `SELECT google_sub FROM users WHERE role = 'admin' ORDER BY google_sub`)
+	require.NoError(t, err)
+	admins, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	require.NoError(t, err)
+	require.Equal(t, []string{"dev:olivia"}, admins)
+}
+
 // Seeds bypass the API's attribute validation, so check every seeded item
 // against its category schema here; otherwise a typo would only surface
 // when someone edits the item in the app.

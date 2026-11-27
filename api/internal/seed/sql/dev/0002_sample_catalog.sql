@@ -8,7 +8,7 @@
 --
 -- Rules (on top of the ones in 0001_dev_users.sql):
 --   * Keyed on the natural key (category, normalized name, normalized
---     identifier), the catalog_entries_natural_key constraint. Re-running
+--     identifier), the catalog_entries_natural_key unique index. Re-running
 --     refreshes description/attributes in place and is a no-op when nothing
 --     changed (IS DISTINCT FROM guard), so the seed idempotency test passes.
 --   * identifier is copied from the attribute the category names in
@@ -89,7 +89,8 @@ FROM (VALUES
      '{"country": "United States", "denomination": "Dollar"}')
 ) AS e (category_slug, name, description, attributes)
 JOIN categories cat ON cat.slug = e.category_slug
-ON CONFLICT ON CONSTRAINT catalog_entries_natural_key DO UPDATE SET
+-- The natural key is a partial unique index over live entries (0007).
+ON CONFLICT (category_id, name_key, identifier_key) WHERE status IN ('pending', 'approved') DO UPDATE SET
     description = EXCLUDED.description,
     attributes  = EXCLUDED.attributes,
     source      = EXCLUDED.source,
